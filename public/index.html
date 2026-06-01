@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Shopping Post</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+    <div>
+        <p class="badge">AI Shopping Post</p>
+        <h1>Генерація товарного поста</h1>
+        <p>
+        Завантаж фото, заповни характеристики, переглянь пост і тільки потім опублікуй
+        у Telegram.
+        </p>
+    </div>
+    </section>
+
+
+<section class="hero">
+
+  <div class="products-header">
+
+    <a href="/products" class="btn secondary">
+      📦 Список товарів
+    </a>
+
+  </div>
+
+</section>
+
+
+
+    <section class="layout">
+      <form id="productForm" class="card form-card">
+        <h2>Дані товару</h2>
+
+        <label class="upload-box" id="uploadBox">
+          <input type="file" id="photo" name="photo" accept="image/*" />
+          <span class="upload-icon">📷</span>
+          <strong>Завантажити фото</strong>
+          <small>Натисни або перетягни зображення</small>
+        </label>
+
+        <img id="photoPreview" class="photo-preview hidden" alt="Прев'ю фото" />
+
+        <div class="grid">
+          <label>
+            Назва
+            <input type="text" name="title" placeholder="Костюм з льону" required />
+          </label>
+
+          <label>
+            Модель
+            <input type="text" name="model" placeholder="097" />
+          </label>
+
+          <label>
+            Ціна
+            <input type="text" name="price" placeholder="980 грн" required />
+          </label>
+
+          <label>
+            Дроп ціна
+            <input type="text" name="dropPrice" placeholder="805 грн" />
+          </label>
+
+          <label>
+            Розміри
+            <input type="text" name="sizes" placeholder="42-44, 46-48" />
+          </label>
+
+          <label>
+            Кольори
+            <input type="text" name="colors" placeholder="чорний, молочний, рожевий" />
+          </label>
+        </div>
+
+        <label>
+          Тканина
+          <input type="text" name="fabric" placeholder="фактурний льон" />
+        </label>
+
+        <div class="actions">
+          <button type="button" id="previewBtn" class="btn primary">
+            👁 Попередній перегляд
+          </button>
+
+          <button type="button" id="publishNowBtn" class="btn secondary">
+            🚀 Опублікувати одразу
+          </button>
+          <button type="button" id="newProductBtn" class="btn secondary">
+            ➕ Додати новий товар
+          </button>
+        </div>
+
+        <p id="statusMessage" class="status"></p>
+      </form>
+
+      <section class="card preview-panel hidden" id="previewPanel">
+        <div class="preview-header">
+          <div>
+            <h2>Попередній перегляд</h2>
+            <p>Preview · майбутній Telegram-пост</p>
+          </div>
+          <span class="preview-dot">●</span>
+        </div>
+
+        <div class="telegram-card">
+          <img id="telegramImage" class="telegram-image" alt="Фото товару" />
+
+          <div class="telegram-content">
+            <div id="telegramText" class="telegram-text"></div>
+
+            <a
+              href="https://t.me/mariannavasulevska"
+              target="_blank"
+              class="telegram-order-btn"
+            >
+              🛒 Замовити
+            </a>
+
+            <div class="telegram-time">Preview</div>
+          </div>
+        </div>
+
+        <div class="editor">
+          <label for="postEditor">Редагування тексту</label>
+          <textarea id="postEditor" rows="12"></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="regenerateBtn" class="btn secondary">
+            🔄 Перегенерувати опис
+          </button>
+
+          <button type="button" id="publishPreviewBtn" class="btn success">
+            🚀 Опублікувати в Telegram
+          </button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

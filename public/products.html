@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Список товарів</title>
+
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <main class="app">
+    <section class="hero">
+      <p class="badge">AI Shopping Post</p>
+      <h1>Список товарів</h1>
+      <p>Усі згенеровані та опубліковані товари</p>
+    </section>
+
+<section class="hero">
+
+  <div class="products-header">
+
+    <a href="/" class="btn secondary">
+      ← Назад
+    </a>
+
+    <input
+      type="text"
+      id="productsSearch"
+      class="products-search"
+      placeholder="Пошук за назвою або артикулом..."
+    />
+
+  </div>
+
+</section>
+         
+
+    <section
+      id="productsList"
+      class="products-list"
+    >
+      Завантаження...
+    </section>
+  </main>
+
+  <script src="/products.js"></script>
+
+</body>
+</html>
