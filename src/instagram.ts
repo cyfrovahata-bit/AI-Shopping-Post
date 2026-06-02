@@ -1,9 +1,20 @@
 import fetch from "node-fetch";
 
-export async function publishInstagramPost(
-  imageUrl: string,
-  caption: string
-) {
+function cleanInstagramCaption(text: string) {
+  return text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export async function publishInstagramPost(imageUrl: string, caption: string) {
   const userId = process.env.INSTAGRAM_USER_ID;
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
 
@@ -11,49 +22,43 @@ export async function publishInstagramPost(
     throw new Error("Instagram credentials missing");
   }
 
-  const createContainer = await fetch(
-    `https://graph.instagram.com/v23.0/${userId}/media`,
+  const cleanCaption = cleanInstagramCaption(caption);
+
+  const createRes = await fetch(
+    `https://graph.facebook.com/v25.0/${userId}/media`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         image_url: imageUrl,
-        caption,
+        caption: cleanCaption,
         access_token: accessToken,
       }),
     }
   );
 
-  const containerData: any = await createContainer.json();
+  const containerData: any = await createRes.json();
 
-  if (!containerData.id) {
-    throw new Error(
-      containerData.error?.message || "Instagram media create failed"
-    );
+  if (!createRes.ok || !containerData.id) {
+    console.error("Instagram create error:", containerData);
+    throw new Error(containerData.error?.message || "Instagram media create failed");
   }
 
-  const publish = await fetch(
-    `https://graph.instagram.com/v23.0/${userId}/media_publish`,
+  const publishRes = await fetch(
+    `https://graph.facebook.com/v25.0/${userId}/media_publish`,
     {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+      body: new URLSearchParams({
         creation_id: containerData.id,
         access_token: accessToken,
       }),
     }
   );
 
-  const publishData: any = await publish.json();
+  const publishData: any = await publishRes.json();
 
-  if (!publishData.id) {
-    throw new Error(
-      publishData.error?.message || "Instagram publish failed"
-    );
+  if (!publishRes.ok || !publishData.id) {
+    console.error("Instagram publish error:", publishData);
+    throw new Error(publishData.error?.message || "Instagram publish failed");
   }
 
   return publishData;
