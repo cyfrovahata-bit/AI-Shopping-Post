@@ -5,6 +5,8 @@ import fs from "fs";
 import { generatePost } from "./ai-generator";
 import { sendTelegramPost, editTelegramPost } from "./telegram";
 import { initDb } from "./db/sqlite";
+import { publishInstagramPost } from "./instagram";
+import sharp from "sharp";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +16,8 @@ const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+app.use("/uploads", express.static(uploadsDir));
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
@@ -152,6 +156,32 @@ async function startServer() {
 
 const telegramResult = await sendTelegramPost(text, photoPath);
 
+// Instagram потребує публічне HTTPS-посилання на фото
+const siteUrl = process.env.SITE_URL;
+
+if (!siteUrl) {
+  throw new Error("SITE_URL missing in .env");
+}
+
+const jpgFileName = `${path.parse(photoPath).name}.jpg`;
+const jpgPath = path.join(uploadsDir, jpgFileName);
+
+await sharp(photoPath)
+  .jpeg({ quality: 90 })
+  .toFile(jpgPath);
+
+const instagramImageUrl =
+  "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1200";
+
+console.log("Instagram image URL:", instagramImageUrl);
+
+const instagramResult = await publishInstagramPost(
+  instagramImageUrl,
+  text
+);
+
+console.log("Instagram published:", instagramResult);
+
 if (productId) {
     await db.run(
     `
@@ -180,7 +210,7 @@ if (productId) {
 
       return res.status(500).json({
         success: false,
-        message: "Помилка публікації в Telegram",
+        message: error instanceof Error ? error.message : "Помилка публікації",
       });
     }
   });
