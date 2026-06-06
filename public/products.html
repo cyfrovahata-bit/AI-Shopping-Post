@@ -1,50 +1,46 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Список товарів</title>
-
-  <link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Історія постів</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-
   <main class="app">
-    <section class="hero">
-      <p class="badge">AI Shopping Post</p>
-      <h1>Список товарів</h1>
-      <p>Усі згенеровані та опубліковані товари</p>
+    <header class="topbar">
+      <div>
+        <p class="badge">AI Shopping Post</p>
+        <h1>Історія</h1>
+        <p>Пошук, статуси платформ і редагування збережених постів.</p>
+      </div>
+      <a href="/" class="btn secondary">Створити пост</a>
+    </header>
+
+    <section class="card filters">
+      <input
+        type="search"
+        id="productsSearch"
+        placeholder="Пошук за назвою або артикулом"
+      />
+      <select id="platformFilter">
+        <option value="">Усі платформи</option>
+        <option value="telegram">Telegram</option>
+        <option value="instagram">Instagram</option>
+      </select>
+      <select id="statusFilter">
+        <option value="">Усі статуси</option>
+        <option value="draft">draft</option>
+        <option value="scheduled">scheduled</option>
+        <option value="publishing">publishing</option>
+        <option value="published">published</option>
+        <option value="failed">failed</option>
+      </select>
     </section>
 
-<section class="hero">
-
-  <div class="products-header">
-
-    <a href="/" class="btn secondary">
-      ← Назад
-    </a>
-
-    <input
-      type="text"
-      id="productsSearch"
-      class="products-search"
-      placeholder="Пошук за назвою або артикулом..."
-    />
-
-  </div>
-
-</section>
-         
-
-    <section
-      id="productsList"
-      class="products-list"
-    >
-      Завантаження...
-    </section>
+    <section id="productsList" class="products-list">Завантаження...</section>
   </main>
 
   <script src="/products.js"></script>
-
 </body>
 </html>
