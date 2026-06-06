@@ -1,0 +1,57 @@
+export type PlatformId =
+  | "telegram"
+  | "instagram"
+  | "facebook"
+  | "viber"
+  | "prom"
+  | "rozetka"
+  | "olx"
+  | "shafa";
+
+export type PlatformPostStatus =
+  | "draft"
+  | "scheduled"
+  | "publishing"
+  | "published"
+  | "failed";
+
+export type ProductInput = {
+  title: string;
+  model?: string;
+  price: string;
+  dropPrice?: string;
+  sizes?: string;
+  colors?: string;
+  fabric?: string;
+  description?: string;
+  imageUrls: string[];
+  photoPaths: string[];
+};
+
+export type GeneratedPlatformPost = {
+  platform: PlatformId;
+  text: string;
+  status: PlatformPostStatus;
+  scheduledAt?: string | null;
+  publishedAt?: string | null;
+  externalPostId?: string | null;
+  externalChatId?: string | null;
+  errorMessage?: string | null;
+};
+
+export interface PublishingPlatform {
+  id: PlatformId;
+  name: string;
+  supportsPublishing: boolean;
+  generatePrompt(product: ProductInput): string;
+  publish(params: {
+    product: ProductInput;
+    text: string;
+    photoPaths: string[];
+    imageUrls: string[];
+  }): Promise<{
+    externalPostId?: string;
+    externalChatId?: string;
+    raw?: unknown;
+  }>;
+}

@@ -8,44 +8,30 @@
 </head>
 <body>
   <main class="app">
-    <section class="hero">
-    <div>
+    <header class="topbar">
+      <div>
         <p class="badge">AI Shopping Post</p>
-        <h1>Генерація товарного поста</h1>
-        <p>
-        Завантаж фото, заповни характеристики, переглянь пост і тільки потім опублікуй
-        у Telegram.
-        </p>
-    </div>
-    </section>
-
-
-<section class="hero">
-
-  <div class="products-header">
-
-    <a href="/products" class="btn secondary">
-      📦 Список товарів
-    </a>
-
-  </div>
-
-</section>
-
-
+        <h1>Пости товарів</h1>
+        <p>Генерація, прев’ю, редагування, планування і публікація для різних платформ.</p>
+      </div>
+      <a href="/products" class="btn secondary">Історія</a>
+    </header>
 
     <section class="layout">
       <form id="productForm" class="card form-card">
-        <h2>Дані товару</h2>
+        <div class="section-title">
+          <h2>Товар</h2>
+          <button type="button" id="newProductBtn" class="btn ghost">Новий товар</button>
+        </div>
 
         <label class="upload-box" id="uploadBox">
-          <input type="file" id="photo" name="photo" accept="image/*" />
-          <span class="upload-icon">📷</span>
+          <input type="file" id="photos" name="photos" accept="image/*" multiple />
+          <span class="upload-icon">+</span>
           <strong>Завантажити фото</strong>
-          <small>Натисни або перетягни зображення</small>
+          <small>Можна перетягнути до 6 зображень. Перше буде головним.</small>
         </label>
 
-        <img id="photoPreview" class="photo-preview hidden" alt="Прев'ю фото" />
+        <div id="photoGallery" class="photo-gallery"></div>
 
         <div class="grid">
           <label>
@@ -54,7 +40,7 @@
           </label>
 
           <label>
-            Модель
+            Модель / артикул
             <input type="text" name="model" placeholder="097" />
           </label>
 
@@ -80,67 +66,47 @@
         </div>
 
         <label>
-          Тканина
+          Тканина / матеріал
           <input type="text" name="fabric" placeholder="фактурний льон" />
         </label>
 
-        <div class="actions">
-          <button type="button" id="previewBtn" class="btn primary">
-            👁 Попередній перегляд
-          </button>
+        <label>
+          Додатковий опис
+          <textarea name="description" rows="4" placeholder="Особливості посадки, комплектація, важливі нюанси"></textarea>
+        </label>
 
-          <button type="button" id="publishNowBtn" class="btn secondary">
-            🚀 Опублікувати одразу
-          </button>
-          <button type="button" id="newProductBtn" class="btn secondary">
-            ➕ Додати новий товар
-          </button>
+        <fieldset class="platforms">
+          <legend>Платформи</legend>
+          <label class="check">
+            <input type="checkbox" name="selectedPlatforms" value="telegram" checked />
+            <span>Telegram</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="selectedPlatforms" value="instagram" checked />
+            <span>Instagram</span>
+          </label>
+        </fieldset>
+
+        <div class="actions sticky-actions">
+          <button type="button" id="previewBtn" class="btn primary">Попередній перегляд</button>
+          <button type="button" id="publishSelectedBtn" class="btn success">Опублікувати обране</button>
+          <button type="button" id="scheduleSelectedBtn" class="btn secondary">Запланувати</button>
         </div>
 
         <p id="statusMessage" class="status"></p>
       </form>
 
       <section class="card preview-panel hidden" id="previewPanel">
-        <div class="preview-header">
+        <div class="section-title">
           <div>
-            <h2>Попередній перегляд</h2>
-            <p>Preview · майбутній Telegram-пост</p>
+            <h2>Прев’ю</h2>
+            <p>Окремий текст для кожної вибраної платформи.</p>
           </div>
-          <span class="preview-dot">●</span>
+          <span id="productIdBadge" class="small-badge"></span>
         </div>
 
-        <div class="telegram-card">
-          <img id="telegramImage" class="telegram-image" alt="Фото товару" />
-
-          <div class="telegram-content">
-            <div id="telegramText" class="telegram-text"></div>
-
-            <a
-              href="https://t.me/mariannavasulevska"
-              target="_blank"
-              class="telegram-order-btn"
-            >
-              🛒 Замовити
-            </a>
-
-            <div class="telegram-time">Preview</div>
-          </div>
-        </div>
-
-        <div class="editor">
-          <label for="postEditor">Редагування тексту</label>
-          <textarea id="postEditor" rows="12"></textarea>
-        </div>
-
-        <div class="actions">
-          <button type="button" id="regenerateBtn" class="btn secondary">
-            🔄 Перегенерувати опис
-          </button>
-
-          <button type="button" id="publishPreviewBtn" class="btn success">
-            🚀 Опублікувати в Telegram
-          </button>
-        </div>
+        <div id="tabs" class="tabs"></div>
+        <div id="platformEditor" class="platform-editor"></div>
       </section>
     </section>
   </main>
