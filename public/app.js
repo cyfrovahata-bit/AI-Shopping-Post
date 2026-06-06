@@ -1,135 +1,308 @@
 const form = document.getElementById("productForm");
-const photoInput = document.getElementById("photo");
-const photoPreview = document.getElementById("photoPreview");
+const photosInput = document.getElementById("photos");
 const uploadBox = document.getElementById("uploadBox");
-
+const photoGallery = document.getElementById("photoGallery");
 const previewBtn = document.getElementById("previewBtn");
-const publishNowBtn = document.getElementById("publishNowBtn");
-const regenerateBtn = document.getElementById("regenerateBtn");
-const publishPreviewBtn = document.getElementById("publishPreviewBtn");
-
-const previewPanel = document.getElementById("previewPanel");
-const telegramImage = document.getElementById("telegramImage");
-const telegramText = document.getElementById("telegramText");
-const postEditor = document.getElementById("postEditor");
-const statusMessage = document.getElementById("statusMessage");
-
+const publishSelectedBtn = document.getElementById("publishSelectedBtn");
+const scheduleSelectedBtn = document.getElementById("scheduleSelectedBtn");
 const newProductBtn = document.getElementById("newProductBtn");
+const previewPanel = document.getElementById("previewPanel");
+const tabs = document.getElementById("tabs");
+const platformEditor = document.getElementById("platformEditor");
+const statusMessage = document.getElementById("statusMessage");
+const productIdBadge = document.getElementById("productIdBadge");
 
-let currentPhotoPath = "";
-let currentImageUrl = "";
-let currentProductId = null;
+const platformNames = {
+  telegram: "Telegram",
+  instagram: "Instagram",
+};
+
+let currentProduct = null;
+let currentImages = [];
+let platformPosts = [];
+let activePlatform = "telegram";
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function setLoading(isLoading, text = "") {
-  previewBtn.disabled = isLoading;
-  publishNowBtn.disabled = isLoading;
-  regenerateBtn.disabled = isLoading;
-  publishPreviewBtn.disabled = isLoading;
-
-  statusMessage.textContent = text;
-  statusMessage.className = isLoading ? "status loading" : "status";
-}
-
-function showError(message) {
-  statusMessage.textContent = message;
-  statusMessage.className = "status error";
-}
-
-function showSuccess(message) {
-  statusMessage.textContent = message;
-  statusMessage.className = "status success";
-}
-
-function renderTelegramText(text) {
-  telegramText.innerHTML = text.replace(/\n/g, "<br>");
-}
-
-function syncEditorToPreview() {
-  renderTelegramText(postEditor.value);
-}
-
-function getFormData() {
-  const formData = new FormData(form);
-
-  if (!photoInput.files || !photoInput.files[0]) {
-    throw new Error("Спочатку завантаж фото товару");
-  }
-
-  return formData;
-}
-
-async function generatePreview() {
-  const formData = getFormData();
-
-  setLoading(true, "Генеруємо попередній перегляд...");
-
-  const response = await fetch("/preview-post", {
-    method: "POST",
-    body: formData,
+  [previewBtn, publishSelectedBtn, scheduleSelectedBtn].forEach((button) => {
+    button.disabled = isLoading;
   });
 
+  if (isLoading) {
+    statusMessage.textContent = text;
+    statusMessage.className = "status loading";
+  }
+}
+
+function showMessage(message, type = "success") {
+  statusMessage.textContent = message;
+  statusMessage.className = `status ${type}`;
+}
+
+function selectedPlatforms() {
+  return [...form.querySelectorAll('input[name="selectedPlatforms"]:checked')].map(
+    (input) => input.value
+  );
+}
+
+function getFormPayload() {
+  const data = Object.fromEntries(new FormData(form).entries());
+
+  return {
+    title: data.title || "",
+    model: data.model || "",
+    price: data.price || "",
+    dropPrice: data.dropPrice || "",
+    sizes: data.sizes || "",
+    colors: data.colors || "",
+    fabric: data.fabric || "",
+    description: data.description || "",
+  };
+}
+
+function currentPost() {
+  return platformPosts.find((post) => post.platform === activePlatform);
+}
+
+function syncCurrentTextarea() {
+  const textarea = platformEditor.querySelector(".post-textarea");
+  const post = currentPost();
+
+  if (textarea && post) {
+    post.text = textarea.value;
+  }
+}
+
+function renderLocalGallery() {
+  const files = [...(photosInput.files || [])];
+
+  photoGallery.innerHTML = files
+    .map((file, index) => {
+      const url = URL.createObjectURL(file);
+      return `
+        <figure class="thumb">
+          <img src="${url}" alt="Фото ${index + 1}">
+          ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
+        </figure>
+      `;
+    })
+    .join("");
+}
+
+function renderSavedGallery() {
+  if (!currentImages.length) {
+    return "";
+  }
+
+  return `
+    <div class="preview-gallery">
+      ${currentImages
+        .map(
+          (image, index) => `
+            <figure class="thumb">
+              <img src="${image.imageUrl}" alt="Фото товару ${index + 1}">
+              ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
+            </figure>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderTabs() {
+  tabs.innerHTML = platformPosts
+    .map(
+      (post) => `
+        <button
+          type="button"
+          class="tab ${post.platform === activePlatform ? "active" : ""}"
+          data-platform="${post.platform}"
+        >
+          ${platformNames[post.platform] || post.platform}
+          <span>${post.status}</span>
+        </button>
+      `
+    )
+    .join("");
+}
+
+function renderPlatformEditor() {
+  const post = currentPost();
+
+  if (!post) {
+    platformEditor.innerHTML = "";
+    return;
+  }
+
+  productIdBadge.textContent = currentProduct ? `#${currentProduct.id}` : "";
+  platformEditor.innerHTML = `
+    ${renderSavedGallery()}
+    <div class="platform-status">
+      <span class="status-pill ${post.status}">${post.status}</span>
+      ${post.errorMessage ? `<strong>${escapeHtml(post.errorMessage)}</strong>` : ""}
+    </div>
+
+    <label>
+      Текст для ${platformNames[post.platform] || post.platform}
+      <textarea class="post-textarea" rows="14">${escapeHtml(post.text)}</textarea>
+    </label>
+
+    <div class="preview-text ${post.platform === "telegram" ? "telegram-preview" : ""}">
+      ${post.platform === "telegram"
+        ? post.text.replace(/\n/g, "<br>")
+        : escapeHtml(post.text).replace(/\n/g, "<br>")}
+    </div>
+
+    <div class="schedule-row">
+      <label>
+        Дата і час
+        <input type="datetime-local" class="schedule-at" value="${post.scheduledAt ? post.scheduledAt.slice(0, 16) : ""}">
+      </label>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn secondary regenerate-platform">Перегенерувати</button>
+      <button type="button" class="btn success publish-platform">Опублікувати зараз</button>
+      <button type="button" class="btn primary schedule-platform">Запланувати</button>
+    </div>
+  `;
+}
+
+function renderPreview() {
+  previewPanel.classList.remove("hidden");
+  renderTabs();
+  renderPlatformEditor();
+}
+
+async function savePost(post, status, scheduledAt = null) {
+  const response = await fetch(`/api/platform-posts/${post.id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: post.text,
+      status,
+      scheduledAt,
+    }),
+  });
   const data = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.message || "Не вдалося згенерувати пост");
+    throw new Error(data.message || "Не вдалося зберегти пост");
   }
 
-  currentPhotoPath = data.photoPath;
-  currentImageUrl = data.imageUrl;
-  currentProductId = data.productId;
-
-  telegramImage.src = currentImageUrl;
-  postEditor.value = data.generatedText;
-  renderTelegramText(data.generatedText);
-
-  previewPanel.classList.remove("hidden");
-
-  showSuccess("Попередній перегляд готовий ✅");
+  Object.assign(post, data.platformPost);
 }
 
-async function publishCurrentText() {
-  const text = postEditor.value.trim();
-
-  if (!text) {
-    throw new Error("Текст поста порожній");
+async function createPreview() {
+  if (!photosInput.files || !photosInput.files.length) {
+    throw new Error("Завантаж хоча б одне фото товару");
   }
 
-  if (!currentPhotoPath) {
-    throw new Error("Немає фото для публікації. Спочатку зроби попередній перегляд.");
+  const platforms = selectedPlatforms();
+
+  if (!platforms.length) {
+    throw new Error("Вибери хоча б одну платформу");
   }
 
-  setLoading(true, "Публікуємо в Telegram...");
+  const formData = new FormData(form);
+  formData.delete("selectedPlatforms");
+  formData.append("selectedPlatforms", JSON.stringify(platforms));
 
-  const response = await fetch("/publish-preview", {
+  setLoading(true, "Генеруємо прев’ю...");
+
+  const response = await fetch("/api/posts/preview", {
+    method: "POST",
+    body: formData,
+  });
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || "Не вдалося згенерувати прев’ю");
+  }
+
+  currentProduct = data.product;
+  currentImages = data.images || [];
+  platformPosts = data.platformPosts || [];
+  activePlatform = platformPosts[0]?.platform || "telegram";
+  renderPreview();
+  showMessage("Прев’ю готове");
+}
+
+async function regeneratePlatform(platform = activePlatform) {
+  syncCurrentTextarea();
+  setLoading(true, "Перегенеровуємо текст...");
+
+  const response = await fetch(`/api/posts/${currentProduct.id}/regenerate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      text,
-      photoPath: currentPhotoPath,
-      productId: currentProductId,
+      ...getFormPayload(),
+      platform,
     }),
   });
+  const data = await response.json();
 
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || "Не вдалося перегенерувати текст");
+  }
+
+  currentProduct = data.product;
+  currentImages = data.images || currentImages;
+  platformPosts = data.platformPosts || platformPosts;
+  activePlatform = platform;
+  renderPreview();
+  showMessage("Текст оновлено");
+}
+
+async function publishPost(post) {
+  syncCurrentTextarea();
+  await savePost(post, post.status === "scheduled" ? "draft" : post.status);
+  setLoading(true, `Публікуємо ${platformNames[post.platform] || post.platform}...`);
+
+  const response = await fetch(`/api/platform-posts/${post.id}/publish`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: post.text }),
+  });
   const data = await response.json();
 
   if (!response.ok || !data.success) {
     throw new Error(data.message || "Не вдалося опублікувати пост");
   }
 
-  showSuccess("Пост опубліковано в Telegram ✅");
+  Object.assign(post, data.platformPost);
+  renderPreview();
+  showMessage(`${platformNames[post.platform] || post.platform}: опубліковано`);
 }
 
-photoInput.addEventListener("change", () => {
-  const file = photoInput.files?.[0];
+async function schedulePost(post) {
+  syncCurrentTextarea();
+  const input = platformEditor.querySelector(".schedule-at");
 
-  if (!file) return;
+  if (!input.value) {
+    throw new Error("Вкажи дату і час публікації");
+  }
 
-  const url = URL.createObjectURL(file);
-  photoPreview.src = url;
-  photoPreview.classList.remove("hidden");
-});
+  await savePost(post, "scheduled", new Date(input.value).toISOString());
+  renderPreview();
+  showMessage(`${platformNames[post.platform] || post.platform}: заплановано`);
+}
+
+photosInput.addEventListener("change", renderLocalGallery);
 
 uploadBox.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -144,53 +317,104 @@ uploadBox.addEventListener("drop", (event) => {
   event.preventDefault();
   uploadBox.classList.remove("dragover");
 
-  const file = event.dataTransfer.files?.[0];
+  if (event.dataTransfer.files?.length) {
+    photosInput.files = event.dataTransfer.files;
+    renderLocalGallery();
+  }
+});
 
-  if (!file) return;
+tabs.addEventListener("click", (event) => {
+  const button = event.target.closest(".tab");
 
-  photoInput.files = event.dataTransfer.files;
+  if (!button) return;
 
-  const url = URL.createObjectURL(file);
-  photoPreview.src = url;
-  photoPreview.classList.remove("hidden");
+  syncCurrentTextarea();
+  activePlatform = button.dataset.platform;
+  renderPreview();
+});
+
+platformEditor.addEventListener("input", (event) => {
+  if (!event.target.classList.contains("post-textarea")) {
+    return;
+  }
+
+  syncCurrentTextarea();
+  const previewText = platformEditor.querySelector(".preview-text");
+  const post = currentPost();
+
+  if (previewText && post) {
+    previewText.innerHTML =
+      post.platform === "telegram"
+        ? post.text.replace(/\n/g, "<br>")
+        : escapeHtml(post.text).replace(/\n/g, "<br>");
+  }
+});
+
+platformEditor.addEventListener("click", async (event) => {
+  const post = currentPost();
+
+  if (!post) return;
+
+  try {
+    if (event.target.closest(".regenerate-platform")) {
+      await regeneratePlatform(post.platform);
+    }
+
+    if (event.target.closest(".publish-platform")) {
+      await publishPost(post);
+    }
+
+    if (event.target.closest(".schedule-platform")) {
+      await schedulePost(post);
+    }
+  } catch (error) {
+    showMessage(error.message, "error");
+  } finally {
+    setLoading(false, statusMessage.textContent);
+  }
 });
 
 previewBtn.addEventListener("click", async () => {
   try {
-    await generatePreview();
+    await createPreview();
   } catch (error) {
-    showError(error.message);
+    showMessage(error.message, "error");
   } finally {
     setLoading(false, statusMessage.textContent);
   }
 });
 
-regenerateBtn.addEventListener("click", async () => {
+publishSelectedBtn.addEventListener("click", async () => {
   try {
-    await generatePreview();
+    if (!currentProduct) {
+      await createPreview();
+    }
+
+    const platforms = selectedPlatforms();
+    for (const platform of platforms) {
+      const post = platformPosts.find((item) => item.platform === platform);
+      if (post) {
+        await publishPost(post);
+      }
+    }
   } catch (error) {
-    showError(error.message);
+    showMessage(error.message, "error");
   } finally {
     setLoading(false, statusMessage.textContent);
   }
 });
 
-publishPreviewBtn.addEventListener("click", async () => {
+scheduleSelectedBtn.addEventListener("click", async () => {
   try {
-    await publishCurrentText();
-  } catch (error) {
-    showError(error.message);
-  } finally {
-    setLoading(false, statusMessage.textContent);
-  }
-});
+    const post = currentPost();
 
-publishNowBtn.addEventListener("click", async () => {
-  try {
-    await generatePreview();
-    await publishCurrentText();
+    if (!post) {
+      throw new Error("Спочатку створи попередній перегляд");
+    }
+
+    await schedulePost(post);
   } catch (error) {
-    showError(error.message);
+    showMessage(error.message, "error");
   } finally {
     setLoading(false, statusMessage.textContent);
   }
@@ -198,27 +422,14 @@ publishNowBtn.addEventListener("click", async () => {
 
 newProductBtn.addEventListener("click", () => {
   form.reset();
-
-  currentPhotoPath = "";
-  currentImageUrl = "";
-  currentProductId = null;
-
-  photoPreview.src = "";
-  photoPreview.classList.add("hidden");
-
-  telegramImage.src = "";
-  telegramText.innerHTML = "";
-  postEditor.value = "";
-
+  photoGallery.innerHTML = "";
+  currentProduct = null;
+  currentImages = [];
+  platformPosts = [];
+  activePlatform = "telegram";
+  tabs.innerHTML = "";
+  platformEditor.innerHTML = "";
+  productIdBadge.textContent = "";
   previewPanel.classList.add("hidden");
-
-  statusMessage.textContent = "";
-  statusMessage.className = "status";
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
+  showMessage("", "");
 });
-
-postEditor.addEventListener("input", syncEditorToPreview);

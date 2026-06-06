@@ -1,86 +1,103 @@
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 import OpenAI from "openai";
 import { fetch } from "undici";
+import { getPlatform } from "./platforms";
+import { PlatformId, ProductInput } from "./platform-types";
 
 dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  fetch: fetch as any,
-});
+const model = process.env.OPENAI_MODEL || "gpt-5.4-mini";
+const maxVisionImages = 4;
+let openai: OpenAI | null = null;
 
-type ProductData = {
-  title: string;
-  price: string;
-  dropPrice?: string;
-  sizes?: string;
-  colors?: string;
-  fabric?: string;
-  model?: string;
+const mimeByExt: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
 };
 
-export async function generatePost(product: ProductData) {
-  const response = await openai.responses.create({
-    model: "gpt-5.4-mini",
-    input: `
-Ти — український SMM-копірайтер для магазину жіночого одягу.
+export function imageToDataUrl(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mime = mimeByExt[ext] || "image/jpeg";
+  const base64 = fs.readFileSync(filePath).toString("base64");
 
-Створи готовий пост для Telegram українською мовою.
+  return `data:${mime};base64,${base64}`;
+}
 
-Дані товару:
-Назва: ${product.title}
-Модель/код: ${product.model || "не вказано"}
-Ціна: ${product.price}
-Дроп ціна: ${product.dropPrice || "не вказано"}
-Розміри: ${product.sizes || "не вказано"}
-Кольори: ${product.colors || "не вказано"}
-Тканина: ${product.fabric || "не вказано"}
+export async function generatePlatformPost(
+  product: ProductInput,
+  platformId: PlatformId
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY не задано в .env");
+  }
 
-Правила:
-- Пиши тільки українською мовою.
-- Не використовуй англійські слова та фрази.
-- Не використовуй фрази:
-  "must have",
-  "виглядає дорого",
-  "без зайвих деталей",
-  "збирає погляди",
-  "база гардеробу",
-  "на всі випадки життя",
-  "ідеально під все",
-  "тренд сезону",
-  "родзинка образу".
-- Не вигадуй характеристики, яких немає в даних товару.
-- Не вигадуй склад тканини, якщо він не вказаний.
-- Не вигадуй кольори та розміри.
-- Пиши природно, як для живого магазину одягу.
-- Не використовуй надмірну кількість емодзі.
-- Виділяй важливі дані HTML-тегами Telegram.
-- Не використовуй HTML-теги <br>, <p>, <div>, <span>, <ul>, <li>.
-- Для нового рядка використовуй звичайний перенос рядка.
-- Дозволені тільки теги <b>, <i>, <u>, <s>, <code>.
-- Не використовуй markdown (** або __).
-- Використовуй тільки HTML-розмітку Telegram.
-
-Структура поста:
-1. Короткий заголовок.
-2. Продаючий опис 2–4 речення.
-3. Характеристики товару.
-4. Ціна та дроп ціна.
-5. Заклик до замовлення.
-
-Не пиши:
-- "пишіть в повідомлення"
-- "пишіть в дірект"
-- "для замовлення звертайтесь"
-
-Не додавай інформацію про кнопку замовлення.
-Не додавай посилання.
-
-Наприкінці додай від 3 до 5 релевантних українських хештегів.
-
-Формат відповіді має бути повністю готовий для публікації в Telegram.
-`,
+  openai ??= new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    fetch: fetch as any,
   });
 
-  return response.output_text;
+  const platform = getPlatform(platformId);
+  const prompt = platform.generatePrompt(product);
+  const imageInputs = product.photoPaths
+    .filter((photoPath) => fs.existsSync(photoPath))
+    .slice(0, maxVisionImages)
+    .map((photoPath) => ({
+      type: "input_image" as const,
+      image_url: imageToDataUrl(photoPath),
+      detail: "auto" as const,
+    }));
+
+  const response = await openai.responses.create({
+    model,
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: prompt,
+          },
+          ...imageInputs,
+        ],
+      },
+    ],
+  });
+
+  return response.output_text.trim();
+}
+
+export async function generatePostsForPlatforms(
+  product: ProductInput,
+  platformIds: PlatformId[]
+) {
+  const uniquePlatformIds = Array.from(new Set(platformIds));
+  const posts = await Promise.all(
+    uniquePlatformIds.map(async (platform) => ({
+      platform,
+      text: await generatePlatformPost(product, platform),
+      status: "draft" as const,
+    }))
+  );
+
+  return posts;
+}
+
+export async function generatePost(
+  product: Omit<ProductInput, "imageUrls" | "photoPaths"> & {
+    imageUrls?: string[];
+    photoPaths?: string[];
+  }
+) {
+  return generatePlatformPost(
+    {
+      ...product,
+      imageUrls: product.imageUrls || [],
+      photoPaths: product.photoPaths || [],
+    },
+    "telegram"
+  );
 }
