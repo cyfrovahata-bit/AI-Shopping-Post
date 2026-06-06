@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
-import { fetch } from "undici";
 import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
 
@@ -37,7 +36,6 @@ export async function generatePlatformPost(
 
   openai ??= new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-    fetch: fetch as any,
   });
 
   const platform = getPlatform(platformId);
