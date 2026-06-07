@@ -158,8 +158,9 @@ function renderSavedGallery() {
   const videoUrl = currentProduct?.videoUrl || "";
   const processedVideoUrl = currentProduct?.processedVideoUrl || "";
   const useProcessedVideo = currentProduct?.useProcessedVideo !== false;
+  const hasAnyVideo = videoUrl || processedVideoUrl;
 
-  if (!currentImages.length && !videoUrl) {
+  if (!currentImages.length && !hasAnyVideo) {
     return "";
   }
 
@@ -169,7 +170,7 @@ function renderSavedGallery() {
         processedVideoUrl
           ? `
             <figure class="thumb video-thumb">
-              <video src="${processedVideoUrl}" controls muted></video>
+              <video src="${processedVideoUrl}" controls muted playsinline></video>
               <figcaption>Reels</figcaption>
             </figure>
 
@@ -187,8 +188,8 @@ function renderSavedGallery() {
           : videoUrl
             ? `
               <figure class="thumb video-thumb">
-                <video src="${videoUrl}" controls muted></video>
-                <figcaption>Відео</figcaption>
+                <video src="${videoUrl}" controls muted playsinline></video>
+                <figcaption>Оригінал</figcaption>
               </figure>
             `
             : ""
