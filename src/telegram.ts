@@ -7,17 +7,11 @@ const defaultOrderUrl = "https://t.me/mariannavasulevska";
 type TelegramApiResponse = {
   ok: boolean;
   description?: string;
-  result?: {
-    message_id?: number;
-  };
+  result?: any;
 };
 
 function getReplyMarkup() {
   const orderUrl = process.env.ORDER_URL || defaultOrderUrl;
-
-  if (!orderUrl) {
-    return undefined;
-  }
 
   return {
     inline_keyboard: [
@@ -31,16 +25,98 @@ function getReplyMarkup() {
   };
 }
 
-function assertTelegramResponse(data: TelegramApiResponse) {
-  if (!data.ok || !data.result?.message_id) {
-    throw new Error(data.description || "Telegram не повернув message_id");
+function assertTelegramResponse(data: TelegramApiResponse, errorText: string) {
+  if (!data.ok) {
+    throw new Error(data.description || errorText);
   }
+}
+
+async function sendOrderButtonMessage(botToken: string, chatId: string) {
+  const response = await fetch(
+    `https://api.telegram.org/bot${botToken}/sendMessage`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: "🛒 Замовити товар:",
+        reply_markup: getReplyMarkup(),
+      }),
+    }
+  );
+
+  const data = (await response.json()) as TelegramApiResponse;
+  assertTelegramResponse(data, "Telegram sendMessage error");
+
+  return data.result?.message_id;
+}
+
+export async function sendTelegramMediaGroup(
+  text: string,
+  photoPaths: string[]
+) {
+  const botToken = process.env.BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!botToken || !chatId) {
+    throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
+  }
+
+  const photos = photoPaths.filter(Boolean).slice(0, 10);
+
+  if (photos.length < 2) {
+    throw new Error("Для media group потрібно мінімум 2 фото");
+  }
+
+  const form = new FormData();
+
+  form.append("chat_id", chatId);
+
+  const media = photos.map((_, index) => ({
+    type: "photo",
+    media: `attach://photo${index}`,
+    ...(index === 0
+      ? {
+          caption: text,
+          parse_mode: "HTML",
+        }
+      : {}),
+  }));
+
+  form.append("media", JSON.stringify(media));
+
+  photos.forEach((photoPath, index) => {
+    form.append(`photo${index}`, fs.createReadStream(photoPath));
+  });
+
+  const response = await fetch(
+    `https://api.telegram.org/bot${botToken}/sendMediaGroup`,
+    {
+      method: "POST",
+      body: form as any,
+    }
+  );
+
+  const data = (await response.json()) as TelegramApiResponse;
+  assertTelegramResponse(data, "Telegram sendMediaGroup error");
+
+  const firstMessageId = data.result?.[0]?.message_id;
+
+  await sendOrderButtonMessage(botToken, chatId);
+
+  return {
+    chatId,
+    messageId: firstMessageId,
+  };
 }
 
 export async function sendTelegramPost(
   text: string,
   photoPath?: string,
-  videoPath?: string
+  videoPath?: string,
+  photoPaths?: string[]
 ) {
   const botToken = process.env.BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -50,17 +126,20 @@ export async function sendTelegramPost(
     throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
   }
 
-    if (videoPath) {
+  const allPhotos = photoPaths?.length
+    ? photoPaths.filter(Boolean)
+    : photoPath
+      ? [photoPath]
+      : [];
+
+  if (videoPath) {
     const form = new FormData();
 
     form.append("chat_id", chatId);
     form.append("video", fs.createReadStream(videoPath));
     form.append("caption", text);
     form.append("parse_mode", "HTML");
-
-    if (replyMarkup) {
-      form.append("reply_markup", JSON.stringify(replyMarkup));
-    }
+    form.append("reply_markup", JSON.stringify(replyMarkup));
 
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/sendVideo`,
@@ -71,26 +150,26 @@ export async function sendTelegramPost(
     );
 
     const data = (await response.json()) as TelegramApiResponse;
-
-    assertTelegramResponse(data);
+    assertTelegramResponse(data, "Telegram sendVideo error");
 
     return {
       chatId,
-      messageId: data.result!.message_id!,
+      messageId: data.result?.message_id,
     };
   }
 
-  if (photoPath) {
+  if (allPhotos.length > 1) {
+    return sendTelegramMediaGroup(text, allPhotos);
+  }
+
+  if (allPhotos.length === 1) {
     const form = new FormData();
 
     form.append("chat_id", chatId);
-    form.append("photo", fs.createReadStream(photoPath));
+    form.append("photo", fs.createReadStream(allPhotos[0]));
     form.append("caption", text);
     form.append("parse_mode", "HTML");
-
-    if (replyMarkup) {
-      form.append("reply_markup", JSON.stringify(replyMarkup));
-    }
+    form.append("reply_markup", JSON.stringify(replyMarkup));
 
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/sendPhoto`,
@@ -99,13 +178,13 @@ export async function sendTelegramPost(
         body: form as any,
       }
     );
-    const data = (await response.json()) as TelegramApiResponse;
 
-    assertTelegramResponse(data);
+    const data = (await response.json()) as TelegramApiResponse;
+    assertTelegramResponse(data, "Telegram sendPhoto error");
 
     return {
       chatId,
-      messageId: data.result!.message_id!,
+      messageId: data.result?.message_id,
     };
   }
 
@@ -124,13 +203,13 @@ export async function sendTelegramPost(
       }),
     }
   );
-  const data = (await response.json()) as TelegramApiResponse;
 
-  assertTelegramResponse(data);
+  const data = (await response.json()) as TelegramApiResponse;
+  assertTelegramResponse(data, "Telegram sendMessage error");
 
   return {
     chatId,
-    messageId: data.result!.message_id!,
+    messageId: data.result?.message_id,
   };
 }
 
@@ -148,6 +227,7 @@ export async function editTelegramPost(
   }
 
   const method = mode === "caption" ? "editMessageCaption" : "editMessageText";
+
   const payload =
     mode === "caption"
       ? {
@@ -175,6 +255,7 @@ export async function editTelegramPost(
       body: JSON.stringify(payload),
     }
   );
+
   const data = (await response.json()) as TelegramApiResponse;
 
   if (!data.ok) {

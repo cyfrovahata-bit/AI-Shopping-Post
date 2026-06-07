@@ -118,12 +118,25 @@ function renderLocalVideo() {
 }
 
 function renderSavedGallery() {
-  if (!currentImages.length) {
+  const videoUrl = currentProduct?.videoUrl || "";
+
+  if (!currentImages.length && !videoUrl) {
     return "";
   }
 
   return `
     <div class="preview-gallery">
+      ${
+        videoUrl
+          ? `
+            <figure class="thumb video-thumb">
+              <video src="${videoUrl}" controls muted></video>
+              <figcaption>Відео</figcaption>
+            </figure>
+          `
+          : ""
+      }
+
       ${currentImages
         .map(
           (image, index) => `

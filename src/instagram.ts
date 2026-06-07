@@ -17,6 +17,10 @@ export function cleanInstagramCaption(text: string) {
 function assertPublicHttpsUrl(fileUrl: string) {
   const siteUrl = process.env.SITE_URL;
 
+  if (!fileUrl) {
+    throw new Error("Instagram потребує фото або відео для публікації");
+  }
+
   if (!siteUrl) {
     throw new Error(
       "Instagram потребує публічний HTTPS SITE_URL. Для локального тесту використай ngrok або деплой."
@@ -35,13 +39,13 @@ function assertPublicHttpsUrl(fileUrl: string) {
     );
   }
 
-const absoluteFileUrl = fileUrl.startsWith("http")
-  ? fileUrl
-  : `${siteUrl.replace(/\/$/, "")}${fileUrl}`;
+  const absoluteFileUrl = fileUrl.startsWith("http")
+    ? fileUrl
+    : `${siteUrl.replace(/\/$/, "")}${fileUrl.startsWith("/") ? "" : "/"}${fileUrl}`;
 
-const parsedFileUrl = new URL(absoluteFileUrl);
+  const parsedFileUrl = new URL(absoluteFileUrl);
 
-if (parsedFileUrl.protocol !== "https:") {
+  if (parsedFileUrl.protocol !== "https:") {
     throw new Error(
       "Instagram потребує публічний HTTPS SITE_URL. Для локального тесту використай ngrok або деплой."
     );
@@ -50,62 +54,38 @@ if (parsedFileUrl.protocol !== "https:") {
   return absoluteFileUrl;
 }
 
-export async function publishInstagramPost(
-  imageUrl: string | undefined,
-  caption: string,
-  videoUrl?: string
-) {
+async function createInstagramMediaContainer(params: URLSearchParams) {
   const userId = process.env.INSTAGRAM_USER_ID;
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
-
-  if (!userId || !accessToken) {
-    throw new Error("Instagram credentials missing");
-  }
-
-  const cleanCaption = cleanInstagramCaption(caption);
-  const publicFileUrl = assertPublicHttpsUrl(videoUrl || imageUrl || "");
-
-  console.log(videoUrl ? "Instagram video URL:" : "Instagram image URL:", publicFileUrl);
-
-  const createParams = videoUrl
-    ? new URLSearchParams({
-        media_type: "REELS",
-        video_url: publicFileUrl,
-        caption: cleanCaption,
-        access_token: accessToken,
-      })
-    : new URLSearchParams({
-        image_url: publicFileUrl,
-        caption: cleanCaption,
-        access_token: accessToken,
-      });
 
   const createRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media`,
     {
       method: "POST",
-      body: createParams,
+      body: params,
     }
   );
 
-  const containerData: any = await createRes.json();
+  const data: any = await createRes.json();
 
-  if (!createRes.ok || !containerData.id) {
-    console.error("Instagram create error:", containerData);
-    throw new Error(
-      containerData.error?.message || "Instagram media create failed"
-    );
+  if (!createRes.ok || !data.id) {
+    console.error("Instagram create error:", data);
+    throw new Error(data.error?.message || "Instagram media create failed");
   }
 
-  await new Promise((resolve) => setTimeout(resolve, videoUrl ? 60000 : 5000));
+  return data.id as string;
+}
+
+async function publishInstagramContainer(creationId: string) {
+  const userId = process.env.INSTAGRAM_USER_ID;
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
 
   const publishRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media_publish`,
     {
       method: "POST",
       body: new URLSearchParams({
-        creation_id: containerData.id,
-        access_token: accessToken,
+        creation_id: creationId,
+        access_token: accessToken || "",
       }),
     }
   );
@@ -118,4 +98,102 @@ export async function publishInstagramPost(
   }
 
   return publishData as { id: string };
+}
+
+export async function publishInstagramPost(
+  imageUrl: string | undefined,
+  caption: string,
+  videoUrl?: string,
+  imageUrls: string[] = []
+) {
+  const userId = process.env.INSTAGRAM_USER_ID;
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+
+  if (!userId || !accessToken) {
+    throw new Error("Instagram credentials missing");
+  }
+
+  const cleanCaption = cleanInstagramCaption(caption);
+
+  if (videoUrl) {
+    const publicVideoUrl = assertPublicHttpsUrl(videoUrl);
+
+    console.log("Instagram video URL:", publicVideoUrl);
+
+    const creationId = await createInstagramMediaContainer(
+      new URLSearchParams({
+        media_type: "REELS",
+        video_url: publicVideoUrl,
+        caption: cleanCaption,
+        access_token: accessToken,
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 60000));
+
+    return publishInstagramContainer(creationId);
+  }
+
+  const allImages =
+    imageUrls.length > 0
+      ? imageUrls.filter(Boolean)
+      : imageUrl
+        ? [imageUrl]
+        : [];
+
+  if (allImages.length > 1) {
+    const imagesForCarousel = allImages.slice(0, 10);
+    const children: string[] = [];
+
+    for (const img of imagesForCarousel) {
+      const publicImageUrl = assertPublicHttpsUrl(img);
+
+      console.log("Instagram carousel image URL:", publicImageUrl);
+
+      const childId = await createInstagramMediaContainer(
+        new URLSearchParams({
+          image_url: publicImageUrl,
+          is_carousel_item: "true",
+          access_token: accessToken,
+        })
+      );
+
+      children.push(childId);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    const carouselId = await createInstagramMediaContainer(
+      new URLSearchParams({
+        media_type: "CAROUSEL",
+        children: children.join(","),
+        caption: cleanCaption,
+        access_token: accessToken,
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    return publishInstagramContainer(carouselId);
+  }
+
+  if (allImages.length === 1) {
+    const publicImageUrl = assertPublicHttpsUrl(allImages[0]);
+
+    console.log("Instagram image URL:", publicImageUrl);
+
+    const creationId = await createInstagramMediaContainer(
+      new URLSearchParams({
+        image_url: publicImageUrl,
+        caption: cleanCaption,
+        access_token: accessToken,
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    return publishInstagramContainer(creationId);
+  }
+
+  throw new Error("Instagram потребує фото або відео товару для публікації");
 }

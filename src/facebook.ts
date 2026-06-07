@@ -20,7 +20,8 @@ export async function publishFacebookPost(
   imageUrl: string | undefined,
   caption: string,
   videoUrl?: string,
-  videoPath?: string
+  videoPath?: string,
+  imageUrls: string[] = []
 ) {
   const pageId = process.env.FACEBOOK_PAGE_ID;
   const accessToken = process.env.FACEBOOK_ACCESS_TOKEN;
@@ -53,6 +54,73 @@ export async function publishFacebookPost(
     }
 
     return data;
+  }
+
+    const allImages =
+    imageUrls.length > 0
+      ? imageUrls.filter(Boolean)
+      : imageUrl
+        ? [imageUrl]
+        : [];
+
+  if (allImages.length > 1) {
+    const attached_media: any[] = [];
+
+    for (const img of allImages) {
+      const publicImageUrl = buildPublicUrl(img);
+
+      const uploadRes = await fetch(
+        `https://graph.facebook.com/v25.0/${pageId}/photos`,
+        {
+          method: "POST",
+          body: new URLSearchParams({
+            url: publicImageUrl,
+            published: "false",
+            access_token: accessToken,
+          }),
+        }
+      );
+
+      const uploadData: any = await uploadRes.json();
+
+      if (!uploadRes.ok) {
+        console.error("Facebook album photo error:", uploadData);
+
+        throw new Error(
+          uploadData.error?.message ||
+            "Facebook album photo upload failed"
+        );
+      }
+
+      attached_media.push({
+        media_fbid: uploadData.id,
+      });
+    }
+
+    const albumRes = await fetch(
+      `https://graph.facebook.com/v25.0/${pageId}/feed`,
+      {
+        method: "POST",
+        body: new URLSearchParams({
+          message: caption,
+          attached_media: JSON.stringify(attached_media),
+          access_token: accessToken,
+        }),
+      }
+    );
+
+    const albumData: any = await albumRes.json();
+
+    if (!albumRes.ok) {
+      console.error("Facebook album publish error:", albumData);
+
+      throw new Error(
+        albumData.error?.message ||
+          "Facebook album publish failed"
+      );
+    }
+
+    return albumData;
   }
 
   if (!imageUrl) {

@@ -78,7 +78,12 @@ ${commonRules(product)}
 `.trim();
   },
   async publish({ text, photoPaths, videoPath }) {
-    const result = await sendTelegramPost(text, photoPaths[0], videoPath);
+    const result = await sendTelegramPost(
+      text,
+      photoPaths[0],
+      videoPath,
+      photoPaths
+    );
 
     return {
       externalChatId: result.chatId,
@@ -114,7 +119,12 @@ ${commonRules(product)}
       throw new Error("Instagram потребує фото або відео товару для публікації");
     }
 
-    const result = await publishInstagramPost(imageUrls[0], text, videoUrl);
+    const result = await publishInstagramPost(
+      imageUrls[0],
+      text,
+      videoUrl,
+      imageUrls
+    );
 
     return {
       externalPostId: result.id,
@@ -150,7 +160,13 @@ ${commonRules(product)}
       throw new Error("Facebook потребує фото або відео товару для публікації");
     }
 
-    const result = await publishFacebookPost(imageUrls[0], text, videoUrl, videoPath);
+    const result = await publishFacebookPost(
+      imageUrls[0],
+      text,
+      videoUrl,
+      videoPath,
+      imageUrls
+    );
 
     return {
       externalPostId: result.id || result.post_id,
