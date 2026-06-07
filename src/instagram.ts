@@ -115,6 +115,72 @@ export async function publishInstagramPost(
 
   const cleanCaption = cleanInstagramCaption(caption);
 
+  const allImages =
+    imageUrls.length > 0
+      ? imageUrls.filter(Boolean)
+      : imageUrl
+        ? [imageUrl]
+        : [];
+
+  /**
+   * ВАЖЛИВО:
+   * Instagram не підтримує Reels + фото в одному дописі.
+   * Тому якщо є videoUrl + фото — робимо Carousel:
+   * 1 елемент: video
+   * наступні елементи: photos
+   */
+  if (videoUrl && allImages.length > 0) {
+    const children: string[] = [];
+
+    const publicVideoUrl = assertPublicHttpsUrl(videoUrl);
+
+    console.log("Instagram carousel video URL:", publicVideoUrl);
+
+    const videoChildId = await createInstagramMediaContainer(
+      new URLSearchParams({
+        media_type: "VIDEO",
+        video_url: publicVideoUrl,
+        is_carousel_item: "true",
+        access_token: accessToken,
+      })
+    );
+
+    children.push(videoChildId);
+
+    const imagesForCarousel = allImages.slice(0, 9);
+
+    for (const img of imagesForCarousel) {
+      const publicImageUrl = assertPublicHttpsUrl(img);
+
+      console.log("Instagram carousel image URL:", publicImageUrl);
+
+      const childId = await createInstagramMediaContainer(
+        new URLSearchParams({
+          image_url: publicImageUrl,
+          is_carousel_item: "true",
+          access_token: accessToken,
+        })
+      );
+
+      children.push(childId);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 30000));
+
+    const carouselId = await createInstagramMediaContainer(
+      new URLSearchParams({
+        media_type: "CAROUSEL",
+        children: children.join(","),
+        caption: cleanCaption,
+        access_token: accessToken,
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+
+    return publishInstagramContainer(carouselId);
+  }
+
   if (videoUrl) {
     const publicVideoUrl = assertPublicHttpsUrl(videoUrl);
 
@@ -133,13 +199,6 @@ export async function publishInstagramPost(
 
     return publishInstagramContainer(creationId);
   }
-
-  const allImages =
-    imageUrls.length > 0
-      ? imageUrls.filter(Boolean)
-      : imageUrl
-        ? [imageUrl]
-        : [];
 
   if (allImages.length > 1) {
     const imagesForCarousel = allImages.slice(0, 10);

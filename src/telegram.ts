@@ -112,6 +112,66 @@ export async function sendTelegramMediaGroup(
   };
 }
 
+export async function sendTelegramMixedMediaGroup(
+  text: string,
+  videoPath: string,
+  photoPaths: string[]
+) {
+  const botToken = process.env.BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+
+  if (!botToken || !chatId) {
+    throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
+  }
+
+  const photos = photoPaths.filter(Boolean).slice(0, 9);
+
+  const form = new FormData();
+
+  form.append("chat_id", chatId);
+
+  const media = [
+    {
+      type: "video",
+      media: "attach://video0",
+      caption: text,
+      parse_mode: "HTML",
+    },
+    ...photos.map((_, index) => ({
+      type: "photo",
+      media: `attach://photo${index}`,
+    })),
+  ];
+
+  form.append("media", JSON.stringify(media));
+
+  form.append("video0", fs.createReadStream(videoPath));
+
+  photos.forEach((photoPath, index) => {
+    form.append(`photo${index}`, fs.createReadStream(photoPath));
+  });
+
+  const response = await fetch(
+    `https://api.telegram.org/bot${botToken}/sendMediaGroup`,
+    {
+      method: "POST",
+      body: form as any,
+    }
+  );
+
+  const data = (await response.json()) as TelegramApiResponse;
+  assertTelegramResponse(data, "Telegram mixed sendMediaGroup error");
+
+  const firstMessageId = data.result?.[0]?.message_id;
+
+  await sendOrderButtonMessage(botToken, chatId);
+
+  return {
+    chatId,
+    messageId: firstMessageId,
+  };
+}
+
 export async function sendTelegramPost(
   text: string,
   photoPath?: string,
@@ -131,6 +191,10 @@ export async function sendTelegramPost(
     : photoPath
       ? [photoPath]
       : [];
+
+  if (videoPath && allPhotos.length > 0) {
+    return sendTelegramMixedMediaGroup(text, videoPath, allPhotos);
+  }
 
   if (videoPath) {
     const form = new FormData();
