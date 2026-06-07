@@ -145,12 +145,12 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, imageUrls, videoUrl }) {
+  async publish({ text, imageUrls, videoUrl, videoPath }) {
     if (!videoUrl && !imageUrls[0]) {
       throw new Error("Facebook потребує фото або відео товару для публікації");
     }
 
-    const result = await publishFacebookPost(imageUrls[0], text, videoUrl);
+    const result = await publishFacebookPost(imageUrls[0], text, videoUrl, videoPath);
 
     return {
       externalPostId: result.id || result.post_id,

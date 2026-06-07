@@ -1,3 +1,5 @@
+import fs from "fs";
+import FormData from "form-data";
 import fetch from "node-fetch";
 
 function buildPublicUrl(fileUrl: string) {
@@ -17,7 +19,8 @@ function buildPublicUrl(fileUrl: string) {
 export async function publishFacebookPost(
   imageUrl: string | undefined,
   caption: string,
-  videoUrl?: string
+  videoUrl?: string,
+  videoPath?: string
 ) {
   const pageId = process.env.FACEBOOK_PAGE_ID;
   const accessToken = process.env.FACEBOOK_ACCESS_TOKEN;
@@ -26,18 +29,18 @@ export async function publishFacebookPost(
     throw new Error("Facebook credentials missing");
   }
 
-  if (videoUrl) {
-    const publicVideoUrl = buildPublicUrl(videoUrl);
+  if (videoPath) {
+    const form = new FormData();
+
+    form.append("source", fs.createReadStream(videoPath));
+    form.append("description", caption);
+    form.append("access_token", accessToken);
 
     const res = await fetch(
       `https://graph.facebook.com/v25.0/${pageId}/videos`,
       {
         method: "POST",
-        body: new URLSearchParams({
-          file_url: publicVideoUrl,
-          description: caption,
-          access_token: accessToken,
-        }),
+        body: form as any,
       }
     );
 
