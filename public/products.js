@@ -90,14 +90,22 @@ function renderProducts(products) {
   productsList.innerHTML = products
     .map((product) => {
       const firstImage = product.images?.[0]?.imageUrl || product.imageUrl || "";
+      const videoUrl = product.videoUrl || "";
 
       return `
         <article class="card product-card" data-id="${product.id}">
           <div>
-            ${firstImage ? `<img src="${firstImage}" class="product-img" alt="${escapeHtml(product.title)}">` : ""}
+            ${
+              videoUrl
+                ? `<video src="${videoUrl}" class="product-img" controls muted></video>`
+                : firstImage
+                  ? `<img src="${firstImage}" class="product-img" alt="${escapeHtml(product.title)}">`
+                  : ""
+            }
+
             <div class="image-strip">
               ${(product.images || [])
-                .slice(1, 5)
+                .slice(videoUrl ? 0 : 1, 5)
                 .map((image) => `<img src="${image.imageUrl}" alt="">`)
                 .join("")}
             </div>

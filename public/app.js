@@ -1,7 +1,9 @@
 const form = document.getElementById("productForm");
 const photosInput = document.getElementById("photos");
+const videoInput = document.getElementById("video");
 const uploadBox = document.getElementById("uploadBox");
 const photoGallery = document.getElementById("photoGallery");
+const videoPreview = document.getElementById("videoPreview");
 const previewBtn = document.getElementById("previewBtn");
 const publishSelectedBtn = document.getElementById("publishSelectedBtn");
 const scheduleSelectedBtn = document.getElementById("scheduleSelectedBtn");
@@ -95,6 +97,24 @@ function renderLocalGallery() {
       `;
     })
     .join("");
+}
+
+function renderLocalVideo() {
+  const file = videoInput?.files?.[0];
+
+  if (!file) {
+    videoPreview.innerHTML = "";
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+
+  videoPreview.innerHTML = `
+    <figure class="thumb video-thumb">
+      <video src="${url}" controls muted></video>
+      <figcaption>Відео</figcaption>
+    </figure>
+  `;
 }
 
 function renderSavedGallery() {
@@ -205,8 +225,11 @@ async function savePost(post, status, scheduledAt = null) {
 }
 
 async function createPreview() {
-  if (!photosInput.files || !photosInput.files.length) {
-    throw new Error("Завантаж хоча б одне фото товару");
+  const hasPhotos = photosInput.files && photosInput.files.length;
+  const hasVideo = videoInput?.files && videoInput.files.length;
+
+  if (!hasPhotos && !hasVideo) {
+    throw new Error("Завантаж хоча б одне фото або відео товару");
   }
 
   const platforms = selectedPlatforms();
@@ -304,6 +327,7 @@ async function schedulePost(post) {
 }
 
 photosInput.addEventListener("change", renderLocalGallery);
+videoInput?.addEventListener("change", renderLocalVideo);
 
 uploadBox.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -424,6 +448,7 @@ scheduleSelectedBtn.addEventListener("click", async () => {
 newProductBtn.addEventListener("click", () => {
   form.reset();
   photoGallery.innerHTML = "";
+  videoPreview.innerHTML = "";
   currentProduct = null;
   currentImages = [];
   platformPosts = [];

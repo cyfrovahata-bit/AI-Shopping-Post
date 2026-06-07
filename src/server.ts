@@ -302,10 +302,10 @@ async function startServer() {
         const files = getUploadedFiles(req);
         const video = fileToVideo(getUploadedVideo(req));
 
-        if (!files.length) {
+        if (!files.length && !video.videoUrl) {
           return res.status(400).json({
             success: false,
-            message: "Завантаж хоча б одне фото товару",
+            message: "Завантаж хоча б одне фото або відео товару",
           });
         }
 
@@ -359,7 +359,11 @@ async function startServer() {
         );
         const product = productInputFromBody(
           nextDetails!.product,
-          nextDetails!.images
+          nextDetails!.images,
+          {
+            videoUrl: nextDetails!.product.videoUrl,
+            videoPath: nextDetails!.product.videoPath,
+          }
         );
         const now = new Date().toISOString();
         const updatedPosts = [];
