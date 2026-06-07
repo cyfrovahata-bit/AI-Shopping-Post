@@ -186,7 +186,7 @@ export const platforms: Record<PlatformId, PublishingPlatform> = {
   rozetka: createFuturePlatform("rozetka", "Rozetka"),
   olx: createFuturePlatform("olx", "OLX"),
   shafa: createFuturePlatform("shafa", "Shafa.ua"),
-};
+}; 
 
 export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook"];
 
