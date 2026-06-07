@@ -46,8 +46,9 @@ export async function initDb() {
   await ensureColumn(db, "products", "userId", "TEXT DEFAULT 'default'");
   await ensureColumn(db, "products", "updatedAt", "TEXT");
   await ensureColumn(db, "products", "description", "TEXT");
-    await ensureColumn(db, "products", "videoUrl", "TEXT");
+  await ensureColumn(db, "products", "videoUrl", "TEXT");
   await ensureColumn(db, "products", "videoPath", "TEXT");
+  await ensureColumn(db, "products", "videoStyle", "TEXT DEFAULT 'fashion'");
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS product_images (
@@ -92,8 +93,9 @@ export async function initDb() {
     `
     UPDATE products
     SET updatedAt = COALESCE(updatedAt, createdAt, ?),
-        userId = COALESCE(userId, 'default')
-    WHERE updatedAt IS NULL OR userId IS NULL
+        userId = COALESCE(userId, 'default'),
+        videoStyle = COALESCE(videoStyle, 'fashion')
+    WHERE updatedAt IS NULL OR userId IS NULL OR videoStyle IS NULL
     `,
     [now]
   );

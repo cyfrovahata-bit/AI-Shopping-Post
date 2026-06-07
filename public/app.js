@@ -14,6 +14,22 @@ const platformEditor = document.getElementById("platformEditor");
 const statusMessage = document.getElementById("statusMessage");
 const productIdBadge = document.getElementById("productIdBadge");
 
+function initVideoStyles() {
+  const radios = document.querySelectorAll(
+    'input[name="videoStyle"]'
+  );
+
+  radios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      document
+        .querySelectorAll(".video-style-card")
+        .forEach((card) => card.classList.remove("active"));
+
+      radio.closest(".video-style-card")?.classList.add("active");
+    });
+  });
+}
+
 const platformNames = {
   telegram: "Telegram",
   instagram: "Instagram",
@@ -472,3 +488,5 @@ newProductBtn.addEventListener("click", () => {
   previewPanel.classList.add("hidden");
   showMessage("", "");
 });
+
+initVideoStyles();

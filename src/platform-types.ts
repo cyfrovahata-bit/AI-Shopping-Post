@@ -28,6 +28,7 @@ export type ProductInput = {
   photoPaths: string[];
   videoUrl?: string;
   videoPath?: string;
+  videoStyle?: string;
 };
 
 export type GeneratedPlatformPost = {

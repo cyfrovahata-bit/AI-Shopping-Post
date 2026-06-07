@@ -132,6 +132,8 @@ function productInputFromBody(
     photoPaths: images.map((image) => image.photoPath),
     videoUrl: video?.videoUrl || toText(body.videoUrl) || undefined,
     videoPath: video?.videoPath || toText(body.videoPath) || undefined,
+
+    videoStyle: toText(body.videoStyle) || "fashion",
   };
 }
 
@@ -201,11 +203,12 @@ async function insertProduct(
       photoPath,
       videoUrl,
       videoPath,
+      videoStyle,
       generatedPost,
       telegramPublished,
       telegramChatId,
       telegramMessageId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
     `,
     [
       "default",
@@ -223,6 +226,7 @@ async function insertProduct(
       firstImage?.photoPath || null,
       product.videoUrl || null,
       product.videoPath || null,
+      product.videoStyle || "fashion",
       telegramDraft?.text || null,
     ]
   );
@@ -271,6 +275,7 @@ async function updateProductFields(db: any, productId: number, body: any) {
         colors = ?,
         fabric = ?,
         description = ?,
+        videoStyle = ?,
         updatedAt = ?
     WHERE id = ?
     `,
@@ -283,6 +288,7 @@ async function updateProductFields(db: any, productId: number, body: any) {
       toText(body.colors),
       toText(body.fabric),
       toText(body.description),
+      toText(body.videoStyle) || "fashion",
       now,
       productId,
     ]

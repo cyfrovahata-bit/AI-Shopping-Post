@@ -28,6 +28,7 @@ async function getProductInput(db: Db, productId: number): Promise<ProductInput>
     photoPaths: images.map((image: any) => image.photoPath),
     videoUrl: product.videoUrl || undefined,
     videoPath: product.videoPath || undefined,
+    videoStyle: product.videoStyle || "fashion",
   };
 }
 
@@ -45,6 +46,7 @@ async function prepareVideoForPublishing(product: ProductInput) {
     inputPath: product.videoPath,
     uploadsDir: process.env.UPLOADS_DIR || "uploads",
     videoTexts,
+    videoStyle: product.videoStyle as any,
   });
 
   return {
