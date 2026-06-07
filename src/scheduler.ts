@@ -21,6 +21,8 @@ async function getProductInput(db: Db, productId: number): Promise<ProductInput>
     description: product.description || "",
     imageUrls: images.map((image: any) => image.imageUrl),
     photoPaths: images.map((image: any) => image.photoPath),
+    videoUrl: product.videoUrl || undefined,
+    videoPath: product.videoPath || undefined,
   };
 }
 
@@ -52,6 +54,8 @@ export async function publishPlatformPost(db: Db, postId: number) {
       text: post.text,
       photoPaths: product.photoPaths,
       imageUrls: product.imageUrls,
+      videoPath: product.videoPath,
+      videoUrl: product.videoUrl,
     });
     const publishedAt = new Date().toISOString();
 

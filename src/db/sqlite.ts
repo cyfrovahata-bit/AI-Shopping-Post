@@ -46,6 +46,8 @@ export async function initDb() {
   await ensureColumn(db, "products", "userId", "TEXT DEFAULT 'default'");
   await ensureColumn(db, "products", "updatedAt", "TEXT");
   await ensureColumn(db, "products", "description", "TEXT");
+    await ensureColumn(db, "products", "videoUrl", "TEXT");
+  await ensureColumn(db, "products", "videoPath", "TEXT");
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS product_images (

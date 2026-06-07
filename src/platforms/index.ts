@@ -77,8 +77,8 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, photoPaths }) {
-    const result = await sendTelegramPost(text, photoPaths[0]);
+  async publish({ text, photoPaths, videoPath }) {
+    const result = await sendTelegramPost(text, photoPaths[0], videoPath);
 
     return {
       externalChatId: result.chatId,
@@ -109,12 +109,12 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, imageUrls }) {
-    if (!imageUrls[0]) {
-      throw new Error("Instagram потребує фото товару для публікації");
+  async publish({ text, imageUrls, videoUrl }) {
+    if (!videoUrl && !imageUrls[0]) {
+      throw new Error("Facebook потребує фото або відео товару для публікації");
     }
 
-    const result = await publishInstagramPost(imageUrls[0], text);
+    const result = await publishFacebookPost(imageUrls[0], text, videoUrl);
 
     return {
       externalPostId: result.id,

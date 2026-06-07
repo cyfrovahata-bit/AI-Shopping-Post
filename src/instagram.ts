@@ -14,7 +14,7 @@ export function cleanInstagramCaption(text: string) {
     .trim();
 }
 
-function assertPublicHttpsUrl(imageUrl: string) {
+function assertPublicHttpsUrl(fileUrl: string) {
   const siteUrl = process.env.SITE_URL;
 
   if (!siteUrl) {
@@ -35,53 +35,69 @@ function assertPublicHttpsUrl(imageUrl: string) {
     );
   }
 
-  const absoluteImageUrl = imageUrl.startsWith("http")
-    ? imageUrl
-    : `${siteUrl.replace(/\/$/, "")}${imageUrl}`;
-  const parsedImageUrl = new URL(absoluteImageUrl);
+const absoluteFileUrl = fileUrl.startsWith("http")
+  ? fileUrl
+  : `${siteUrl.replace(/\/$/, "")}${fileUrl}`;
 
-  if (parsedImageUrl.protocol !== "https:") {
+const parsedFileUrl = new URL(absoluteFileUrl);
+
+if (parsedFileUrl.protocol !== "https:") {
     throw new Error(
       "Instagram потребує публічний HTTPS SITE_URL. Для локального тесту використай ngrok або деплой."
     );
   }
 
-  return absoluteImageUrl;
+  return absoluteFileUrl;
 }
 
-export async function publishInstagramPost(imageUrl: string, caption: string) {
+export async function publishInstagramPost(
+  imageUrl: string | undefined,
+  caption: string,
+  videoUrl?: string
+) {
   const userId = process.env.INSTAGRAM_USER_ID;
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
-  const publicImageUrl = assertPublicHttpsUrl(imageUrl);
 
   if (!userId || !accessToken) {
     throw new Error("Instagram credentials missing");
   }
 
   const cleanCaption = cleanInstagramCaption(caption);
+  const publicFileUrl = assertPublicHttpsUrl(videoUrl || imageUrl || "");
 
-  console.log("Instagram image URL:", publicImageUrl);
+  console.log(videoUrl ? "Instagram video URL:" : "Instagram image URL:", publicFileUrl);
+
+  const createParams = videoUrl
+    ? new URLSearchParams({
+        media_type: "REELS",
+        video_url: publicFileUrl,
+        caption: cleanCaption,
+        access_token: accessToken,
+      })
+    : new URLSearchParams({
+        image_url: publicFileUrl,
+        caption: cleanCaption,
+        access_token: accessToken,
+      });
 
   const createRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media`,
     {
       method: "POST",
-      body: new URLSearchParams({
-        image_url: publicImageUrl,
-        caption: cleanCaption,
-        access_token: accessToken,
-      }),
+      body: createParams,
     }
   );
+
   const containerData: any = await createRes.json();
 
   if (!createRes.ok || !containerData.id) {
+    console.error("Instagram create error:", containerData);
     throw new Error(
       containerData.error?.message || "Instagram media create failed"
     );
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+  await new Promise((resolve) => setTimeout(resolve, videoUrl ? 15000 : 5000));
 
   const publishRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media_publish`,
@@ -93,9 +109,11 @@ export async function publishInstagramPost(imageUrl: string, caption: string) {
       }),
     }
   );
+
   const publishData: any = await publishRes.json();
 
   if (!publishRes.ok || !publishData.id) {
+    console.error("Instagram publish error:", publishData);
     throw new Error(publishData.error?.message || "Instagram publish failed");
   }
 

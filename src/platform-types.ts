@@ -26,6 +26,8 @@ export type ProductInput = {
   description?: string;
   imageUrls: string[];
   photoPaths: string[];
+  videoUrl?: string;
+  videoPath?: string;
 };
 
 export type GeneratedPlatformPost = {
@@ -49,6 +51,8 @@ export interface PublishingPlatform {
     text: string;
     photoPaths: string[];
     imageUrls: string[];
+    videoPath?: string;
+    videoUrl?: string;
   }): Promise<{
     externalPostId?: string;
     externalChatId?: string;

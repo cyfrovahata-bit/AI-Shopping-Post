@@ -34,6 +34,7 @@ const uploadPhotos = upload.array("photos", 6);
 const uploadCompat = upload.fields([
   { name: "photos", maxCount: 6 },
   { name: "photo", maxCount: 1 },
+  { name: "video", maxCount: 1 },
 ]);
 
 app.use(express.json());
@@ -82,6 +83,18 @@ function getUploadedFiles(req: Request) {
   ].slice(0, 6);
 }
 
+function getUploadedVideo(req: Request) {
+  if (Array.isArray(req.files)) {
+    return undefined;
+  }
+
+  const groupedFiles = req.files as
+    | Record<string, Express.Multer.File[]>
+    | undefined;
+
+  return groupedFiles?.video?.[0];
+}
+
 function filesToImages(files: Express.Multer.File[]) {
   return files.map((file, index) => ({
     imageUrl: `/uploads/${file.filename}`,
@@ -90,9 +103,21 @@ function filesToImages(files: Express.Multer.File[]) {
   }));
 }
 
+function fileToVideo(file?: Express.Multer.File) {
+  if (!file) {
+    return {};
+  }
+
+  return {
+    videoUrl: `/uploads/${file.filename}`,
+    videoPath: file.path,
+  };
+}
+
 function productInputFromBody(
   body: Record<string, unknown>,
-  images: { imageUrl: string; photoPath: string }[]
+  images: { imageUrl: string; photoPath: string }[],
+  video?: { videoUrl?: string; videoPath?: string }
 ): ProductInput {
   return {
     title: toText(body.title),
@@ -105,6 +130,8 @@ function productInputFromBody(
     description: toText(body.description),
     imageUrls: images.map((image) => image.imageUrl),
     photoPaths: images.map((image) => image.photoPath),
+    videoUrl: video?.videoUrl || toText(body.videoUrl) || undefined,
+    videoPath: video?.videoPath || toText(body.videoPath) || undefined,
   };
 }
 
@@ -172,11 +199,13 @@ async function insertProduct(
       description,
       imageUrl,
       photoPath,
+      videoUrl,
+      videoPath,
       generatedPost,
       telegramPublished,
       telegramChatId,
       telegramMessageId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
     `,
     [
       "default",
@@ -192,6 +221,8 @@ async function insertProduct(
       product.description,
       firstImage?.imageUrl || null,
       firstImage?.photoPath || null,
+      product.videoUrl || null,
+      product.videoPath || null,
       telegramDraft?.text || null,
     ]
   );
@@ -265,10 +296,11 @@ async function startServer() {
 
   app.post(
     "/api/posts/preview",
-    uploadPhotos,
+    uploadCompat,
     async (req: Request, res: Response) => {
       try {
         const files = getUploadedFiles(req);
+        const video = fileToVideo(getUploadedVideo(req));
 
         if (!files.length) {
           return res.status(400).json({
@@ -278,7 +310,7 @@ async function startServer() {
         }
 
         const images = filesToImages(files);
-        const product = productInputFromBody(req.body, images);
+        const product = productInputFromBody(req.body, images, video);
         const platformIds = parsePlatforms(req.body.selectedPlatforms);
         const productId = await insertProduct(db, product, images, platformIds);
         const details = await getProductDetails(db, productId);
@@ -621,16 +653,17 @@ async function startServer() {
   app.post("/preview-post", uploadCompat, async (req: Request, res: Response) => {
     try {
       const files = getUploadedFiles(req);
+      const video = fileToVideo(getUploadedVideo(req));
 
-      if (!files.length) {
+      if (!files.length && !video.videoUrl) {
         return res.status(400).json({
           success: false,
-          message: "Фото не завантажено",
+          message: "Завантаж хоча б одне фото або відео товару",
         });
       }
 
       const images = filesToImages(files);
-      const product = productInputFromBody(req.body, images);
+      const product = productInputFromBody(req.body, images, video);
       const productId = await insertProduct(db, product, images, ["telegram"]);
       const details = await getProductDetails(db, productId);
       const telegramPost = details!.platformPosts.find(
