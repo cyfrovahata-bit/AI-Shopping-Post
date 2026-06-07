@@ -6,6 +6,7 @@ const statusFilter = document.getElementById("statusFilter");
 const platformNames = {
   telegram: "Telegram",
   instagram: "Instagram",
+  facebook: "Facebook",
 };
 
 function escapeHtml(value) {

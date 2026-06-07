@@ -15,6 +15,7 @@ const productIdBadge = document.getElementById("productIdBadge");
 const platformNames = {
   telegram: "Telegram",
   instagram: "Instagram",
+  facebook: "Facebook",
 };
 
 let currentProduct = null;
