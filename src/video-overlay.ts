@@ -2,7 +2,6 @@ import path from "path";
 import fs from "fs/promises";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import ffmpegPath from "ffmpeg-static";
 import type { VideoTextOverlay } from "./ai-generator";
 
 const execFileAsync = promisify(execFile);
@@ -66,10 +65,6 @@ function normalizeVideoTexts(videoTexts?: VideoTextOverlay[]): VideoTextOverlay[
 }
 
 export async function createReelsStyleVideo(input: VideoOverlayInput) {
-  if (!ffmpegPath) {
-    throw new Error("ffmpeg-static not found");
-  }
-
   await fs.mkdir(input.uploadsDir, { recursive: true });
 
   const outputName = `processed-${Date.now()}.mp4`;
@@ -85,7 +80,7 @@ export async function createReelsStyleVideo(input: VideoOverlayInput) {
     return `drawtext=text='${text}':fontcolor=white:fontsize=${fontSize}:borderw=4:bordercolor=black:x=(w-text_w)/2:y=${y}:enable='between(t,${item.start},${item.end})'`;
   });
 
-  await execFileAsync(ffmpegPath, [
+  await execFileAsync("ffmpeg", [
     "-y",
     "-i",
     input.inputPath,
