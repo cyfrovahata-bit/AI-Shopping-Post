@@ -111,13 +111,13 @@ ${commonRules(product)}
   },
   async publish({ text, imageUrls, videoUrl }) {
     if (!videoUrl && !imageUrls[0]) {
-      throw new Error("Facebook потребує фото або відео товару для публікації");
+      throw new Error("Instagram потребує фото або відео товару для публікації");
     }
 
-    const result = await publishFacebookPost(imageUrls[0], text, videoUrl);
+    const result = await publishInstagramPost(imageUrls[0], text, videoUrl);
 
     return {
-      externalPostId: result.id || result.post_id,
+      externalPostId: result.id,
       raw: result,
     };
   },
@@ -145,12 +145,12 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, imageUrls }) {
-    if (!imageUrls[0]) {
-      throw new Error("Facebook потребує фото товару для публікації");
+  async publish({ text, imageUrls, videoUrl }) {
+    if (!videoUrl && !imageUrls[0]) {
+      throw new Error("Facebook потребує фото або відео товару для публікації");
     }
 
-    const result = await publishFacebookPost(imageUrls[0], text);
+    const result = await publishFacebookPost(imageUrls[0], text, videoUrl);
 
     return {
       externalPostId: result.id || result.post_id,
