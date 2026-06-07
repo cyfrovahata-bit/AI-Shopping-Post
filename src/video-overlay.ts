@@ -12,25 +12,80 @@ export type VideoOverlayInput = {
   videoTexts?: VideoTextOverlay[];
 };
 
-function safeText(text: string) {
-  return text
+async function getVideoSize(inputPath: string) {
+  const { stdout } = await execFileAsync("ffprobe", [
+    "-v",
+    "error",
+    "-select_streams",
+    "v:0",
+    "-show_entries",
+    "stream=width,height",
+    "-of",
+    "json",
+    inputPath,
+  ]);
+
+  const data = JSON.parse(stdout);
+  const stream = data.streams?.[0];
+
+  return {
+    width: Number(stream?.width || 720),
+    height: Number(stream?.height || 1280),
+  };
+}
+
+function wrapText(text: string, maxLineLength: number) {
+  const words = text.split(" ").filter(Boolean);
+  let line = "";
+  const lines: string[] = [];
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+
+    if (candidate.length > maxLineLength && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+
+  if (line) {
+    lines.push(line);
+  }
+
+  return lines.slice(0, 2).join("\\n");
+}
+
+function safeText(text: string, videoWidth: number) {
+  const cleaned = text
     .replace(/\\/g, "\\\\")
     .replace(/:/g, "\\:")
     .replace(/'/g, "\\'")
     .replace(/\n/g, " ")
     .trim();
+
+  const maxLineLength = Math.max(8, Math.floor(videoWidth / 28));
+
+  return wrapText(cleaned, maxLineLength);
 }
 
 function getY(position: VideoTextOverlay["position"]) {
-  if (position === "top") return "h*0.16";
+  if (position === "top") return "h*0.18";
   if (position === "center") return "(h-text_h)/2";
-  return "h*0.78";
+  return "h*0.70";
 }
 
-function getFontSize(position: VideoTextOverlay["position"]) {
-  if (position === "center") return 62;
-  if (position === "bottom") return 48;
-  return 56;
+function getFontSize(
+  position: VideoTextOverlay["position"],
+  videoWidth: number
+) {
+  const scale = Math.max(0.65, Math.min(1.25, videoWidth / 720));
+
+  if (position === "center") return Math.round(54 * scale);
+  if (position === "bottom") return Math.round(44 * scale);
+
+  return Math.round(48 * scale);
 }
 
 function normalizeVideoTexts(videoTexts?: VideoTextOverlay[]): VideoTextOverlay[] {
@@ -55,7 +110,7 @@ function normalizeVideoTexts(videoTexts?: VideoTextOverlay[]): VideoTextOverlay[
     .filter((item) => item.text && item.start >= 0 && item.end > item.start)
     .slice(0, 5)
     .map((item) => ({
-      text: item.text.slice(0, 40),
+      text: String(item.text).slice(0, 50),
       start: Number(item.start),
       end: Number(item.end),
       position: ["top", "center", "bottom"].includes(item.position)
@@ -70,14 +125,15 @@ export async function createReelsStyleVideo(input: VideoOverlayInput) {
   const outputName = `processed-${Date.now()}.mp4`;
   const outputPath = path.join(input.uploadsDir, outputName);
 
+  const videoSize = await getVideoSize(input.inputPath);
   const texts = normalizeVideoTexts(input.videoTexts);
 
   const filters = texts.map((item) => {
-    const text = safeText(item.text);
+    const text = safeText(item.text, videoSize.width);
     const y = getY(item.position);
-    const fontSize = getFontSize(item.position);
+    const fontSize = getFontSize(item.position, videoSize.width);
 
-    return `drawtext=text='${text}':fontcolor=white:fontsize=${fontSize}:borderw=4:bordercolor=black:x=(w-text_w)/2:y=${y}:enable='between(t,${item.start},${item.end})'`;
+    return `drawtext=text='${text}':fontcolor=white:fontsize=${fontSize}:borderw=4:bordercolor=black:x=(w-text_w)/2:y=${y}:line_spacing=10:enable='between(t,${item.start},${item.end})'`;
   });
 
   await execFileAsync("ffmpeg", [

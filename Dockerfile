@@ -1,6 +1,6 @@
 FROM node:22
 
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg fonts-dejavu-core
 
 WORKDIR /app
 
