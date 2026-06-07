@@ -169,13 +169,13 @@ function renderSavedGallery() {
       ${
         processedVideoUrl
           ? `
-            <figure class="reel-preview">
-              <video src="${processedVideoUrl}" controls muted playsinline></video>
-              <figcaption>Reels</figcaption>
-            </figure>
+            <div class="reel-preview-wrap">
+              <figure class="reel-preview">
+                <video src="${processedVideoUrl}" controls muted playsinline></video>
+                <figcaption>Reels</figcaption>
+              </figure>
 
-            <div class="video-choice">
-              <label class="check">
+              <label class="check video-choice-check">
                 <input
                   type="checkbox"
                   id="useProcessedVideo"

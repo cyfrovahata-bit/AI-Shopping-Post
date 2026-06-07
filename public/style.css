@@ -667,8 +667,25 @@ select:focus {
   font-weight: 800;
 }
 
-.video-choice {
+.reel-preview-wrap {
+  width: 220px;
   margin-bottom: 16px;
+}
+
+.reel-preview {
+  width: 100%;
+  margin: 0;
+}
+
+.video-choice-check {
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.video-choice-check span {
+  line-height: 1.25;
 }
 
 @media (max-width: 960px) {
