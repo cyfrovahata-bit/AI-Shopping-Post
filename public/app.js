@@ -169,7 +169,7 @@ function renderSavedGallery() {
       ${
         processedVideoUrl
           ? `
-            <figure class="thumb video-thumb">
+            <figure class="reel-preview">
               <video src="${processedVideoUrl}" controls muted playsinline></video>
               <figcaption>Reels</figcaption>
             </figure>
