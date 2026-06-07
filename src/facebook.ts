@@ -37,7 +37,7 @@ export async function publishFacebookPost(
     form.append("access_token", accessToken);
 
     const res = await fetch(
-      `https://graph.facebook.com/v25.0/${pageId}/videos`,
+      `https://graph-video.facebook.com/v25.0/${pageId}/videos`,
       {
         method: "POST",
         body: form as any,
@@ -47,6 +47,7 @@ export async function publishFacebookPost(
     const data: any = await res.json();
 
     if (!res.ok) {
+      console.log(JSON.stringify(data, null, 2));
       console.error("Facebook video publish error:", data);
       throw new Error(data.error?.message || "Facebook video publish failed");
     }
