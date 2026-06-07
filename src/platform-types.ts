@@ -29,6 +29,10 @@ export type ProductInput = {
   videoUrl?: string;
   videoPath?: string;
   videoStyle?: string;
+  processedVideoUrl?: string;
+  processedVideoPath?: string;
+  useProcessedVideo?: boolean;
+  generateVideo?: boolean;
 };
 
 export type GeneratedPlatformPost = {

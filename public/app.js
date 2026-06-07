@@ -28,6 +28,27 @@ function initVideoStyles() {
       radio.closest(".video-style-card")?.classList.add("active");
     });
   });
+
+  const generateVideoInput = form.querySelector('input[name="generateVideo"]');
+
+  generateVideoInput?.addEventListener("change", syncVideoSettingsVisibility);
+
+  syncVideoSettingsVisibility();
+}
+
+function syncVideoSettingsVisibility() {
+  const videoSettings = document.getElementById("videoSettings");
+  const videoStyleSelect = document.getElementById("videoStyleSelect");
+  const generateVideoInput = form.querySelector('input[name="generateVideo"]');
+  const hasVideo = !!videoInput?.files?.length;
+
+  if (!videoSettings) return;
+
+  videoSettings.classList.toggle("hidden", !hasVideo);
+
+  if (videoStyleSelect && generateVideoInput) {
+    videoStyleSelect.classList.toggle("hidden", !generateVideoInput.checked);
+  }
 }
 
 const platformNames = {
@@ -135,6 +156,8 @@ function renderLocalVideo() {
 
 function renderSavedGallery() {
   const videoUrl = currentProduct?.videoUrl || "";
+  const processedVideoUrl = currentProduct?.processedVideoUrl || "";
+  const useProcessedVideo = currentProduct?.useProcessedVideo !== false;
 
   if (!currentImages.length && !videoUrl) {
     return "";
@@ -143,14 +166,32 @@ function renderSavedGallery() {
   return `
     <div class="preview-gallery">
       ${
-        videoUrl
+        processedVideoUrl
           ? `
             <figure class="thumb video-thumb">
-              <video src="${videoUrl}" controls muted></video>
-              <figcaption>Відео</figcaption>
+              <video src="${processedVideoUrl}" controls muted></video>
+              <figcaption>Reels</figcaption>
             </figure>
+
+            <div class="video-choice">
+              <label class="check">
+                <input
+                  type="checkbox"
+                  id="useProcessedVideo"
+                  ${useProcessedVideo ? "checked" : ""}
+                >
+                <span>Використовувати оформлене відео</span>
+              </label>
+            </div>
           `
-          : ""
+          : videoUrl
+            ? `
+              <figure class="thumb video-thumb">
+                <video src="${videoUrl}" controls muted></video>
+                <figcaption>Відео</figcaption>
+              </figure>
+            `
+            : ""
       }
 
       ${currentImages
@@ -356,7 +397,10 @@ async function schedulePost(post) {
 }
 
 photosInput.addEventListener("change", renderLocalGallery);
-videoInput?.addEventListener("change", renderLocalVideo);
+videoInput?.addEventListener("change", () => {
+  renderLocalVideo();
+  syncVideoSettingsVisibility();
+});
 
 uploadBox.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -428,6 +472,26 @@ platformEditor.addEventListener("click", async (event) => {
   }
 });
 
+platformEditor.addEventListener("change", async (event) => {
+  const checkbox = event.target.closest("#useProcessedVideo");
+
+  if (!checkbox || !currentProduct) {
+    return;
+  }
+
+  currentProduct.useProcessedVideo = checkbox.checked;
+
+  await fetch(`/api/products/${currentProduct.id}/video-choice`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      useProcessedVideo: checkbox.checked,
+    }),
+  });
+});
+
 previewBtn.addEventListener("click", async () => {
   try {
     await createPreview();
@@ -478,6 +542,7 @@ newProductBtn.addEventListener("click", () => {
   form.reset();
   photoGallery.innerHTML = "";
   videoPreview.innerHTML = "";
+  syncVideoSettingsVisibility();
   currentProduct = null;
   currentImages = [];
   platformPosts = [];

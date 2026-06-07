@@ -4,12 +4,20 @@ import fs from "fs";
 import multer from "multer";
 import path from "path";
 
-import { generatePlatformPost, generatePostsForPlatforms } from "./ai-generator";
+import {
+  generatePlatformPost,
+  generatePostsForPlatforms,
+  generateVideoTexts,
+} from "./ai-generator";
 import { initDb } from "./db/sqlite";
 import { editTelegramPost } from "./telegram";
 import { enabledPlatformIds, isPlatformId } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
 import { publishPlatformPost, startScheduler } from "./scheduler";
+import {
+  createReelsStyleVideo,
+  filePathToPublicUrl,
+} from "./video-overlay";
 
 dotenv.config();
 
@@ -134,6 +142,10 @@ function productInputFromBody(
     videoPath: video?.videoPath || toText(body.videoPath) || undefined,
 
     videoStyle: toText(body.videoStyle) || "fashion",
+    processedVideoUrl: toText(body.processedVideoUrl) || undefined,
+    processedVideoPath: toText(body.processedVideoPath) || undefined,
+    generateVideo: body.generateVideo !== "off" && body.generateVideo !== "0",
+    useProcessedVideo: body.useProcessedVideo !== "0" && body.useProcessedVideo !== false,
   };
 }
 
@@ -204,11 +216,15 @@ async function insertProduct(
       videoUrl,
       videoPath,
       videoStyle,
+      processedVideoUrl,
+      processedVideoPath,
+      useProcessedVideo,
+      generateVideo,
       generatedPost,
       telegramPublished,
       telegramChatId,
       telegramMessageId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
     `,
     [
       "default",
@@ -227,6 +243,10 @@ async function insertProduct(
       product.videoUrl || null,
       product.videoPath || null,
       product.videoStyle || "fashion",
+      product.processedVideoUrl || null,
+      product.processedVideoPath || null,
+      product.useProcessedVideo === false ? 0 : 1,
+      product.generateVideo === false ? 0 : 1,
       telegramDraft?.text || null,
     ]
   );
@@ -276,6 +296,8 @@ async function updateProductFields(db: any, productId: number, body: any) {
         fabric = ?,
         description = ?,
         videoStyle = ?,
+        useProcessedVideo = ?,
+        generateVideo = ?,
         updatedAt = ?
     WHERE id = ?
     `,
@@ -289,10 +311,32 @@ async function updateProductFields(db: any, productId: number, body: any) {
       toText(body.fabric),
       toText(body.description),
       toText(body.videoStyle) || "fashion",
+      body.useProcessedVideo === "0" || body.useProcessedVideo === false ? 0 : 1,
+      body.generateVideo === "off" || body.generateVideo === "0" ? 0 : 1,
       now,
       productId,
     ]
   );
+}
+
+async function generateProcessedVideo(product: ProductInput) {
+  if (!product.videoPath || product.generateVideo === false) {
+    return null;
+  }
+
+  const videoTexts = await generateVideoTexts(product);
+
+  const processedVideo = await createReelsStyleVideo({
+    inputPath: product.videoPath,
+    uploadsDir,
+    videoTexts,
+    videoStyle: product.videoStyle as any,
+  });
+
+  return {
+    processedVideoPath: processedVideo.outputPath,
+    processedVideoUrl: filePathToPublicUrl(processedVideo.outputPath),
+  };
 }
 
 async function startServer() {
@@ -319,6 +363,28 @@ async function startServer() {
         const product = productInputFromBody(req.body, images, video);
         const platformIds = parsePlatforms(req.body.selectedPlatforms);
         const productId = await insertProduct(db, product, images, platformIds);
+
+        const processedVideo = await generateProcessedVideo(product);
+
+        if (processedVideo) {
+          await db.run(
+            `
+            UPDATE products
+            SET processedVideoPath = ?,
+                processedVideoUrl = ?,
+                useProcessedVideo = 1,
+                updatedAt = ?
+            WHERE id = ?
+            `,
+            [
+              processedVideo.processedVideoPath,
+              processedVideo.processedVideoUrl,
+              new Date().toISOString(),
+              productId,
+            ]
+          );
+        }
+
         const details = await getProductDetails(db, productId);
 
         return res.json({

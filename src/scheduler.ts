@@ -1,10 +1,5 @@
-import { generateVideoTexts } from "./ai-generator";
 import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
-import {
-  createReelsStyleVideo,
-  filePathToPublicUrl,
-} from "./video-overlay";
 
 type Db = any;
 
@@ -29,29 +24,28 @@ async function getProductInput(db: Db, productId: number): Promise<ProductInput>
     videoUrl: product.videoUrl || undefined,
     videoPath: product.videoPath || undefined,
     videoStyle: product.videoStyle || "fashion",
+    processedVideoUrl: product.processedVideoUrl || undefined,
+    processedVideoPath: product.processedVideoPath || undefined,
+    useProcessedVideo: product.useProcessedVideo === 1,
+    generateVideo: product.generateVideo !== 0,
   };
 }
 
 async function prepareVideoForPublishing(product: ProductInput) {
-  if (!product.videoPath) {
+  if (
+    product.useProcessedVideo &&
+    product.processedVideoPath &&
+    product.processedVideoUrl
+  ) {
     return {
-      videoPath: product.videoPath,
-      videoUrl: product.videoUrl,
+      videoPath: product.processedVideoPath,
+      videoUrl: product.processedVideoUrl,
     };
   }
 
-  const videoTexts = await generateVideoTexts(product);
-
-  const processedVideo = await createReelsStyleVideo({
-    inputPath: product.videoPath,
-    uploadsDir: process.env.UPLOADS_DIR || "uploads",
-    videoTexts,
-    videoStyle: product.videoStyle as any,
-  });
-
   return {
-    videoPath: processedVideo.outputPath,
-    videoUrl: filePathToPublicUrl(processedVideo.outputPath),
+    videoPath: product.videoPath,
+    videoUrl: product.videoUrl,
   };
 }
 
