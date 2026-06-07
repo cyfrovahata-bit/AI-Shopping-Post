@@ -1,5 +1,10 @@
+import { generateVideoTexts } from "./ai-generator";
 import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
+import {
+  createReelsStyleVideo,
+  filePathToPublicUrl,
+} from "./video-overlay";
 
 type Db = any;
 
@@ -26,6 +31,28 @@ async function getProductInput(db: Db, productId: number): Promise<ProductInput>
   };
 }
 
+async function prepareVideoForPublishing(product: ProductInput) {
+  if (!product.videoPath) {
+    return {
+      videoPath: product.videoPath,
+      videoUrl: product.videoUrl,
+    };
+  }
+
+  const videoTexts = await generateVideoTexts(product);
+
+  const processedVideo = await createReelsStyleVideo({
+    inputPath: product.videoPath,
+    uploadsDir: process.env.UPLOADS_DIR || "uploads",
+    videoTexts,
+  });
+
+  return {
+    videoPath: processedVideo.outputPath,
+    videoUrl: filePathToPublicUrl(processedVideo.outputPath),
+  };
+}
+
 export async function publishPlatformPost(db: Db, postId: number) {
   const post = await db.get(`SELECT * FROM platform_posts WHERE id = ?`, [postId]);
 
@@ -49,14 +76,17 @@ export async function publishPlatformPost(db: Db, postId: number) {
   );
 
   try {
+    const preparedVideo = await prepareVideoForPublishing(product);
+
     const result = await platform.publish({
       product,
       text: post.text,
       photoPaths: product.photoPaths,
       imageUrls: product.imageUrls,
-      videoPath: product.videoPath,
-      videoUrl: product.videoUrl,
+      videoPath: preparedVideo.videoPath,
+      videoUrl: preparedVideo.videoUrl,
     });
+
     const publishedAt = new Date().toISOString();
 
     await db.run(
