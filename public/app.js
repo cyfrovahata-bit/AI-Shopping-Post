@@ -61,6 +61,16 @@ let currentProduct = null;
 let currentImages = [];
 let platformPosts = [];
 let activePlatform = "telegram";
+let selectedPhotoFiles = [];
+let selectedVideoFile = null;
+
+function setInputFiles(input, files) {
+  const dataTransfer = new DataTransfer();
+
+  files.forEach((file) => dataTransfer.items.add(file));
+
+  input.files = dataTransfer.files;
+}
 
 function escapeHtml(value) {
   return String(value || "")
@@ -121,33 +131,42 @@ function syncCurrentTextarea() {
 }
 
 function renderLocalGallery() {
-  const files = [...(photosInput.files || [])];
-
-  photoGallery.innerHTML = files
+  photoGallery.innerHTML = selectedPhotoFiles
     .map((file, index) => {
       const url = URL.createObjectURL(file);
       return `
         <figure class="thumb">
+          <button type="button" class="remove-media remove-photo" data-index="${index}">×</button>
           <img src="${url}" alt="Фото ${index + 1}">
           ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
         </figure>
       `;
     })
     .join("");
+
+  if (selectedPhotoFiles.length || selectedVideoFile) {
+    photoGallery.insertAdjacentHTML(
+      "beforeend",
+      `
+        <button type="button" class="clear-media-btn" id="clearAllMediaBtn">
+          Очистити все
+        </button>
+      `
+    );
+  }
 }
 
 function renderLocalVideo() {
-  const file = videoInput?.files?.[0];
-
-  if (!file) {
+  if (!selectedVideoFile) {
     videoPreview.innerHTML = "";
     return;
   }
 
-  const url = URL.createObjectURL(file);
+  const url = URL.createObjectURL(selectedVideoFile);
 
   videoPreview.innerHTML = `
     <figure class="thumb video-thumb">
+      <button type="button" class="remove-media remove-video">×</button>
       <video src="${url}" controls muted></video>
       <figcaption>Відео</figcaption>
     </figure>
@@ -397,8 +416,55 @@ async function schedulePost(post) {
   showMessage(`${platformNames[post.platform] || post.platform}: заплановано`);
 }
 
-photosInput.addEventListener("change", renderLocalGallery);
+photosInput.addEventListener("change", () => {
+  const newFiles = [...(photosInput.files || [])];
+
+  selectedPhotoFiles = [...selectedPhotoFiles, ...newFiles].slice(0, 6);
+  setInputFiles(photosInput, selectedPhotoFiles);
+  renderLocalGallery();
+});
+
 videoInput?.addEventListener("change", () => {
+  selectedVideoFile = videoInput.files?.[0] || null;
+
+  if (selectedVideoFile) {
+    setInputFiles(videoInput, [selectedVideoFile]);
+  }
+
+  renderLocalVideo();
+  syncVideoSettingsVisibility();
+});
+
+photoGallery.addEventListener("click", (event) => {
+  const removePhotoBtn = event.target.closest(".remove-photo");
+  const clearAllBtn = event.target.closest("#clearAllMediaBtn");
+
+  if (removePhotoBtn) {
+    const index = Number(removePhotoBtn.dataset.index);
+
+    selectedPhotoFiles.splice(index, 1);
+    setInputFiles(photosInput, selectedPhotoFiles);
+    renderLocalGallery();
+  }
+
+  if (clearAllBtn) {
+    selectedPhotoFiles = [];
+    selectedVideoFile = null;
+
+    setInputFiles(photosInput, []);
+    setInputFiles(videoInput, []);
+
+    renderLocalGallery();
+    renderLocalVideo();
+    syncVideoSettingsVisibility();
+  }
+});
+
+videoPreview.addEventListener("click", (event) => {
+  if (!event.target.closest(".remove-video")) return;
+
+  selectedVideoFile = null;
+  setInputFiles(videoInput, []);
   renderLocalVideo();
   syncVideoSettingsVisibility();
 });
@@ -541,6 +607,8 @@ scheduleSelectedBtn.addEventListener("click", async () => {
 
 newProductBtn.addEventListener("click", () => {
   form.reset();
+  selectedPhotoFiles = [];
+  selectedVideoFile = null;
   photoGallery.innerHTML = "";
   videoPreview.innerHTML = "";
   syncVideoSettingsVisibility();
