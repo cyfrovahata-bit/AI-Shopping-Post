@@ -1,5 +1,6 @@
 import { publishInstagramPost } from "../instagram";
 import { sendTelegramPost } from "../telegram";
+import { publishFacebookPost } from "../facebook";
 import { PlatformId, ProductInput, PublishingPlatform } from "../platform-types";
 
 const bannedPhrases = `
@@ -122,6 +123,42 @@ ${commonRules(product)}
   },
 };
 
+export const facebookPlatform: PublishingPlatform = {
+  id: "facebook",
+  name: "Facebook",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    return `
+${commonRules(product)}
+
+Створи готовий пост для Facebook-сторінки.
+
+Правила Facebook:
+- Без HTML і markdown.
+- Текст природний, короткий і зрозумілий.
+- Можна трохи тепліше, ніж Instagram, але без перебільшень.
+- Використовуй нормальні абзаци.
+- Додай короткий CTA.
+- 5-8 релевантних українських хештегів.
+- Не використовуй англійські фрази.
+
+Поверни тільки готовий текст поста.
+`.trim();
+  },
+  async publish({ text, imageUrls }) {
+    if (!imageUrls[0]) {
+      throw new Error("Facebook потребує фото товару для публікації");
+    }
+
+    const result = await publishFacebookPost(imageUrls[0], text);
+
+    return {
+      externalPostId: result.id || result.post_id,
+      raw: result,
+    };
+  },
+};
+
 function createFuturePlatform(id: PlatformId, name: string): PublishingPlatform {
   return {
     id,
@@ -143,7 +180,7 @@ ${commonRules(product)}
 export const platforms: Record<PlatformId, PublishingPlatform> = {
   telegram: telegramPlatform,
   instagram: instagramPlatform,
-  facebook: createFuturePlatform("facebook", "Facebook"),
+  facebook: facebookPlatform,
   viber: createFuturePlatform("viber", "Viber"),
   prom: createFuturePlatform("prom", "Prom"),
   rozetka: createFuturePlatform("rozetka", "Rozetka"),
@@ -151,7 +188,7 @@ export const platforms: Record<PlatformId, PublishingPlatform> = {
   shafa: createFuturePlatform("shafa", "Shafa.ua"),
 };
 
-export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram"];
+export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook"];
 
 export function getPlatform(id: PlatformId) {
   const platform = platforms[id];

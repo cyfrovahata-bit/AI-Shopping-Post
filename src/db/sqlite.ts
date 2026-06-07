@@ -16,8 +16,10 @@ async function ensureColumn(
 }
 
 export async function initDb() {
+  const dbPath = process.env.DB_PATH || "./database.sqlite";
+
   const db = await open({
-    filename: "./database.sqlite",
+    filename: dbPath,
     driver: sqlite3.Database,
   });
 
