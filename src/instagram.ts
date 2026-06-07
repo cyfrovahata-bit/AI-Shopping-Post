@@ -97,7 +97,7 @@ export async function publishInstagramPost(
     );
   }
 
-  await new Promise((resolve) => setTimeout(resolve, videoUrl ? 15000 : 5000));
+  await new Promise((resolve) => setTimeout(resolve, videoUrl ? 60000 : 5000));
 
   const publishRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media_publish`,

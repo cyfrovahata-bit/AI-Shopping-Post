@@ -117,7 +117,7 @@ ${commonRules(product)}
     const result = await publishFacebookPost(imageUrls[0], text, videoUrl);
 
     return {
-      externalPostId: result.id,
+      externalPostId: result.id || result.post_id,
       raw: result,
     };
   },
