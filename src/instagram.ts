@@ -60,6 +60,8 @@ export async function publishInstagramPost(imageUrl: string, caption: string) {
 
   const cleanCaption = cleanInstagramCaption(caption);
 
+  console.log("Instagram image URL:", publicImageUrl);
+
   const createRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media`,
     {
@@ -78,6 +80,8 @@ export async function publishInstagramPost(imageUrl: string, caption: string) {
       containerData.error?.message || "Instagram media create failed"
     );
   }
+
+  await new Promise((resolve) => setTimeout(resolve, 5000));
 
   const publishRes = await fetch(
     `https://graph.facebook.com/v25.0/${userId}/media_publish`,
