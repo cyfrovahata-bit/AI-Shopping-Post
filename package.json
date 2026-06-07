@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
-    "build": "tsc --noEmit"
+    "build": "npm rebuild sqlite3 --build-from-source && tsc --noEmit"
   },
+  
   "keywords": [],
   "author": "",
   "license": "ISC",
