@@ -1,0 +1,254 @@
+{
+  "cookies": [
+    {
+      "name": "language",
+      "value": "uk",
+      "domain": "shafa.ua",
+      "path": "/",
+      "expires": 1812403349.495218,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "sc",
+      "value": "1FDBB3AF-D85D-57A9-EFC9-7776997126D8",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1812399280,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "g",
+      "value": "vzGqJJAO9r0G0UBt7qdq_1780863280296",
+      "domain": ".creativecdn.com",
+      "path": "/",
+      "expires": 1812399280.322424,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "c",
+      "value": "vzGqJJAO9r0G0UBt7qdq_Ucd0Z4LT2bTI0vpzr3aE_1780863280296",
+      "domain": ".creativecdn.com",
+      "path": "/",
+      "expires": 1812399280.322492,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://shafa.ua",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "ts",
+      "value": "1780863280",
+      "domain": ".creativecdn.com",
+      "path": "/",
+      "expires": 1812399280.322518,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://shafa.ua",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "_gcl_au",
+      "value": "1.1.786574795.1780863280",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1788639280,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.1957257245.1780863280",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1815427350.135747,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_fbp",
+      "value": "fb.1.1780863280697.224468545218936500",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1788643350,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "IDE",
+      "value": "AHWqTUl71sLdNrjGx7oZhJEsMgMuoEKfbpQCcgGr3qU5m432wBwpql4CJS429vpNCfk",
+      "domain": ".doubleclick.net",
+      "path": "/",
+      "expires": 1814559281.614553,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "shafa_csrftoken",
+      "value": "uwf2j4aHYkxxdUtdct0Pfs9ixLuFiiEO",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1812316950.060835,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "last_visit",
+      "value": "1780863211",
+      "domain": "shafa.ua",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "shafa_sessionid",
+      "value": "722ic0fys39ewovu1hs27sx7ety4b5jm",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1783282484.852873,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "udmts",
+      "value": "1780863286.0",
+      "domain": ".udmserve.net",
+      "path": "/",
+      "expires": 1812399286.617752,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "dt",
+      "value": "D3B14F6B-5E8D-3CC2-B7C4-088F2608A065",
+      "domain": ".udmserve.net",
+      "path": "/",
+      "expires": 1812399286.617844,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "rtbh",
+      "value": "u6P8ZuTTd2AnpW7v5capnWK_GcUuQGWTgBeI30Hg-Yg",
+      "domain": ".udmserve.net",
+      "path": "/",
+      "expires": 1788639286.617873,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "msnartbhs",
+      "value": "u6P8ZuTTd2AnpW7v5capnWK_GcUuQGWTgBeI30Hg-Yg",
+      "domain": ".missena.io",
+      "path": "/",
+      "expires": 1783456842.822939,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "VP",
+      "value": "part_gGJliYGKuo7u",
+      "domain": ".contextweb.com",
+      "path": "/",
+      "expires": 1811968846.337482,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://shafa.ua",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "INGRESSCOOKIE",
+      "value": "96ced87c19e18a04",
+      "domain": "bh.contextweb.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__rtbh.lid",
+      "value": "%7B%22eventType%22%3A%22lid%22%2C%22id%22%3A%22C5bEE0g3SJiTUP7cTuMQ%22%2C%22expiryDate%22%3A%222027-06-07T21%3A22%3A29.999Z%22%7D",
+      "domain": "shafa.ua",
+      "path": "/",
+      "expires": 1812403349,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_ga_VJYG1MWHR2",
+      "value": "GS2.1.s1780867341$o2$g1$t1780867350$j51$l1$h980185576",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1815427350.135395,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://shafa.ua",
+      "localStorage": [
+        {
+          "name": "lastExternalReferrerTime",
+          "value": "1780867350051"
+        },
+        {
+          "name": "__rtbh.lid",
+          "value": "{\"eventType\":\"lid\",\"id\":\"C5bEE0g3SJiTUP7cTuMQ\",\"expiryDate\":\"2027-06-07T21:22:29.999Z\"}"
+        },
+        {
+          "name": "mainPageShowedBanners",
+          "value": "{\"apps\":\"Sun, 07 Jun 2026 20:14:40 GMT\",\"smart\":\"Sun, 07 Jun 2026 20:40:42 GMT\"}"
+        },
+        {
+          "name": "utmLabels",
+          "value": "[{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780863279967},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780864838412},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780867341076}]"
+        },
+        {
+          "name": "lastExternalReferrer",
+          "value": "empty"
+        },
+        {
+          "name": "_gcl_ls",
+          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":0,\"timeouts\":0,\"errors\":0,\"eopCount\":0,\"creationTimeMs\":1780863280435},\"expires\":1788639280435}}"
+        },
+        {
+          "name": "scCartItems",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "origin": "https://clerk.c.prom.st",
+      "localStorage": [
+        {
+          "name": "clerk.client_id",
+          "value": "c-yCRs7HgQsTAa1RId7XRGJqjN"
+        }
+      ]
+    }
+  ]
+}
