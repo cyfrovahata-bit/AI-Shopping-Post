@@ -669,7 +669,12 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     let finalUrl = page.url();
     try {
       await page.waitForURL(
-        url => url.toString().includes("/item/") || url.toString().includes("/closet") || url.toString().includes("/profile"),
+        url => {
+          const s = url.toString();
+          return s.includes("/item/") || s.includes("/closet") || s.includes("/profile")
+            || s.includes("/promot") || s.includes("/boost") || s.includes("/cabinet")
+            || !s.includes("/new"); // будь-яка сторінка крім форми = успіх
+        },
         { timeout: 30000 }
       );
       finalUrl = page.url();
@@ -682,10 +687,12 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       const errorText = await page.locator('[class*="error"], [class*="Error"], .alert, [role="alert"]').first().textContent().catch(() => "");
       await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
 
-      if (errorText) throw new Error(`Shafa показала помилку: ${errorText.trim()}`);
-      if (finalUrl.includes("/new") || finalUrl.includes("/edit")) {
+      if (finalUrl.includes("/new")) {
+        if (errorText) throw new Error(`Shafa показала помилку: ${errorText.trim()}`);
         throw new Error("Форма не відправилась — сторінка не змінилась після сабміту");
       }
+      // Будь-який інший URL (promote, cabinet, тощо) — вважаємо успіхом
+      console.log(`[Shafa] Accepted as success: ${finalUrl}`);
     }
 
     // Save updated session
