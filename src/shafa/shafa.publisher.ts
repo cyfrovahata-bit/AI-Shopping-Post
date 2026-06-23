@@ -624,7 +624,6 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       "--disable-accelerated-2d-canvas",
       "--no-first-run",
       "--no-zygote",
-      "--single-process",
       "--disable-background-networking",
       "--disable-default-apps",
       "--mute-audio",
