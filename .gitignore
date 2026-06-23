@@ -3,3 +3,6 @@ database.sqlite
 src/uploads
 .env
 dist.env
+shafa-session.json
+*.png
+test-images/
