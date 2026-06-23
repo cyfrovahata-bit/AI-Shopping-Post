@@ -1,5 +1,6 @@
 import { chromium, type BrowserContext, type Page } from "playwright";
 import * as fs from "fs/promises";
+import * as fsSync from "fs";
 import path from "path";
 import { ShafaProduct } from "./shafa.types";
 
@@ -562,6 +563,12 @@ async function isAuthorized(page: Page) {
   );
 }
 
+async function saveSession(context: BrowserContext, sessionPath: string) {
+  const dir = path.dirname(path.resolve(sessionPath));
+  if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
+  await context.storageState({ path: sessionPath });
+}
+
 async function loginToShafa(
   page: Page, context: BrowserContext,
   sessionPath: string, email: string, password: string
@@ -574,7 +581,7 @@ async function loginToShafa(
   await humanPause(700);
   await page.getByRole("button", { name: /Увійти|Войти/i }).click();
   await page.waitForTimeout(5000);
-  await context.storageState({ path: sessionPath });
+  await saveSession(context, sessionPath);
 }
 
 // ─── Публічна функція ─────────────────────────────────────────────────────
@@ -639,6 +646,9 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       console.log("[Shafa] JS submit btn:", jsFound);
     }
     await page.waitForTimeout(8000);
+
+    // Save updated session (Shafa may refresh cookies during the session)
+    await saveSession(context, sessionPath).catch(() => {});
 
     await page.screenshot({ path: "shafa-after-submit.png", fullPage: true }).catch(() => {});
     const url = page.url();
