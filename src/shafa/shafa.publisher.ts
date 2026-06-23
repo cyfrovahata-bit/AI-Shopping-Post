@@ -614,7 +614,21 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
   const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
   const browser = await chromium.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-plugins",
+      "--disable-accelerated-2d-canvas",
+      "--no-first-run",
+      "--no-zygote",
+      "--single-process",
+      "--disable-background-networking",
+      "--disable-default-apps",
+      "--mute-audio",
+    ],
   });
 
   const context = (await fileExists(sessionPath))
@@ -664,34 +678,24 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       if (!jsFound) throw new Error("Кнопка 'Додати річ' не знайдена на сторінці");
     }
 
-    // Чекаємо переходу на сторінку опублікованого товару
-    // Shafa після успішної публікації редиректить на /uk/item/... або /uk/closet
+    // Чекаємо переходу — Shafa робить редирект після успішної публікації
     let finalUrl = page.url();
     try {
       await page.waitForURL(
-        url => {
-          const s = url.toString();
-          return s.includes("/item/") || s.includes("/closet") || s.includes("/profile")
-            || s.includes("/promot") || s.includes("/boost") || s.includes("/cabinet")
-            || !s.includes("/new"); // будь-яка сторінка крім форми = успіх
-        },
-        { timeout: 30000 }
+        url => !url.toString().includes("/new"),
+        { timeout: 20000 }
       );
       finalUrl = page.url();
       console.log(`[Shafa] Success! Redirected to: ${finalUrl}`);
     } catch {
-      // URL не змінився — перевіримо помилки на сторінці
       finalUrl = page.url();
-      console.log(`[Shafa] No redirect after 30s, current url: ${finalUrl}`);
-
+      console.log(`[Shafa] No redirect after 20s, current url: ${finalUrl}`);
       const errorText = await page.locator('[class*="error"], [class*="Error"], .alert, [role="alert"]').first().textContent().catch(() => "");
       await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
-
       if (finalUrl.includes("/new")) {
         if (errorText) throw new Error(`Shafa показала помилку: ${errorText.trim()}`);
-        throw new Error("Форма не відправилась — сторінка не змінилась після сабміту");
+        throw new Error("Форма не відправилась — URL не змінився після сабміту");
       }
-      // Будь-який інший URL (promote, cabinet, тощо) — вважаємо успіхом
       console.log(`[Shafa] Accepted as success: ${finalUrl}`);
     }
 
