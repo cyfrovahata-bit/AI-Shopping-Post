@@ -62,7 +62,9 @@ async function uploadImages(page: Page, imagePaths: string[]) {
   for (const rp of resolved) {
     if (!(await fileExists(rp))) throw new Error(`Фото не знайдено: ${rp}`);
   }
-  await page.locator('input[type="file"]').first().setInputFiles(resolved);
+  // Wait for file input — after fresh login the React app takes longer to mount
+  await page.locator('input[type="file"]').first().waitFor({ state: "attached", timeout: 90000 });
+  await page.locator('input[type="file"]').first().setInputFiles(resolved, { timeout: 90000 });
   await page.waitForTimeout(5000);
 }
 
@@ -500,8 +502,8 @@ async function fillPrice(page: Page, price: string) {
 // ─── Основний потік ───────────────────────────────────────────────────────
 
 async function fillShafaForm(page: Page, product: ShafaProduct) {
-  await page.goto("https://shafa.ua/uk/new", { waitUntil: "domcontentloaded", timeout: 60000 });
-  await humanPause(1200);
+  await page.goto("https://shafa.ua/uk/new", { waitUntil: "networkidle", timeout: 90000 });
+  await humanPause(2000);
 
   await dismissModals(page);
   await uploadImages(page, product.imagePaths);
@@ -588,7 +590,10 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
   if (!email || !password) throw new Error("SHAFA_EMAIL або SHAFA_PASSWORD не задані в .env");
 
   const sessionPath = process.env.SHAFA_SESSION_PATH || "./shafa-session.json";
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+  });
 
   const context = (await fileExists(sessionPath))
     ? await browser.newContext({ storageState: sessionPath })
