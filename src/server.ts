@@ -18,6 +18,12 @@ import {
   createReelsStyleVideo,
   filePathToPublicUrl,
 } from "./video-overlay";
+import {
+  buildAuthUrl,
+  completeFacebookOAuth,
+  selectFacebookPage,
+  getFacebookStatus,
+} from "./facebook-auth";
 
 dotenv.config();
 
@@ -887,6 +893,75 @@ async function startServer() {
       });
     }
   });
+
+  // ── Facebook OAuth ─────────────────────────────────────────────────────────
+
+  // GET /api/facebook/status — current token info
+  app.get("/api/facebook/status", (_req: Request, res: Response) => {
+    res.json(getFacebookStatus());
+  });
+
+  // GET /auth/facebook — start OAuth (requires ?appId=&appSecret= or they're in .env)
+  app.get("/auth/facebook", (req: Request, res: Response) => {
+    const appId = (req.query.appId as string) || process.env.FACEBOOK_APP_ID || "";
+    const appSecret = (req.query.appSecret as string) || process.env.FACEBOOK_APP_SECRET || "";
+    if (!appId || !appSecret) {
+      return res.status(400).send("Потрібні App ID та App Secret. Введи їх на сторінці налаштувань.");
+    }
+    const redirectUri = `http://localhost:${PORT}/auth/facebook/callback`;
+    const state = Buffer.from(JSON.stringify({ appId, appSecret })).toString("base64");
+    const url = buildAuthUrl({ appId, appSecret, redirectUri }, state);
+    // Save for callback
+    (req as any).session = { appId, appSecret };
+    res.redirect(url);
+  });
+
+  // GET /auth/facebook/callback — Facebook redirects here after user approves
+  app.get("/auth/facebook/callback", async (req: Request, res: Response) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const error = req.query.error as string;
+
+    if (error) {
+      return res.redirect(`/facebook-setup.html?error=${encodeURIComponent(req.query.error_description as string || error)}`);
+    }
+    if (!code || !state) {
+      return res.redirect("/facebook-setup.html?error=missing_code");
+    }
+
+    try {
+      const { appId, appSecret } = JSON.parse(Buffer.from(state, "base64").toString());
+      const redirectUri = `http://localhost:${PORT}/auth/facebook/callback`;
+      const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
+
+      if (pages.length === 1) {
+        // Auto-select single page
+        const result = await selectFacebookPage(pages[0].id);
+        const igPart = result.instagram ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
+        return res.redirect(`/facebook-setup.html?success=1&pageId=${pages[0].id}&pageName=${encodeURIComponent(pages[0].name)}${igPart}`);
+      }
+
+      // Multiple pages — redirect with list for user to pick
+      const pagesParam = encodeURIComponent(JSON.stringify(pages));
+      res.redirect(`/facebook-setup.html?choosePage=1&pages=${pagesParam}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.redirect(`/facebook-setup.html?error=${encodeURIComponent(msg)}`);
+    }
+  });
+
+  // POST /api/facebook/select-page — user picks a page
+  app.post("/api/facebook/select-page", async (req: Request, res: Response) => {
+    const { pageId } = req.body as { pageId: string };
+    try {
+      const result = await selectFacebookPage(pageId);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // ── End Facebook OAuth ──────────────────────────────────────────────────────
 
   app.listen(PORT, () => {
     console.log(`Server started: http://localhost:${PORT}`);
