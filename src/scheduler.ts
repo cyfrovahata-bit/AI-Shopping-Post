@@ -93,6 +93,10 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
   try {
     const preparedVideo = await prepareVideoForPublishing(product);
 
+    // Shafa uses Playwright (~2 min) — retrying creates duplicate posts, so 1 attempt only
+    const isShafa = post.platform === "shafa";
+    const maxAttempts = isShafa ? 1 : 3;
+
     const result = await withRetry(
       () =>
         platform.publish({
@@ -104,7 +108,7 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
           videoUrl: preparedVideo.videoUrl,
           extras,
         }),
-      3,
+      maxAttempts,
       4000
     );
 

@@ -394,14 +394,15 @@ async function startServer() {
         });
       } catch (error) {
         console.error("Preview error:", error);
-
-        return res.status(500).json({
-          success: false,
-          message:
-            error instanceof Error
-              ? error.message
-              : "Помилка генерації попереднього перегляду",
-        });
+        const raw = error instanceof Error ? error.message : String(error);
+        const friendly = raw.includes("API key") || raw.includes("401") || raw.includes("403")
+          ? "OpenAI: недійсний або прострочений API-ключ. Перевір OPENAI_API_KEY у .env"
+          : raw.includes("rate") || raw.includes("429")
+            ? "OpenAI: перевищено ліміт запитів. Спробуй через хвилину."
+            : raw.includes("JSON") || raw.includes("parse") || raw.includes("Unexpected")
+              ? `Помилка розбору відповіді AI: ${raw.slice(0, 120)}`
+              : raw || "Помилка генерації попереднього перегляду";
+        return res.status(500).json({ success: false, message: friendly });
       }
     }
   );

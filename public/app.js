@@ -629,18 +629,29 @@ async function publishPost(post) {
   const platformLabel = platformNames[post.platform] || post.platform;
   const isShafa = post.platform === "shafa";
   setLoading(true, isShafa
-    ? `Публікуємо на Shafa.ua — це займає ~2 хвилини...`
+    ? `Shafa.ua — заповнює форму (~2 хв), не закривайте вкладку...`
     : `Публікуємо ${platformLabel}...`
   );
 
-  const response = await fetch(`/api/platform-posts/${post.id}/publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: post.text,
-      ...(isShafa ? { extras: shafaExtras } : {}),
-    }),
-  });
+  // Shafa takes up to 3 min — use AbortController with 4-minute timeout
+  const controller = new AbortController();
+  const timeoutId = isShafa ? setTimeout(() => controller.abort(), 4 * 60 * 1000) : null;
+
+  let response;
+  try {
+    response = await fetch(`/api/platform-posts/${post.id}/publish`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: post.text,
+        ...(isShafa ? { extras: shafaExtras } : {}),
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+
   const data = await response.json();
   if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося опублікувати пост");
 
