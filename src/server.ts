@@ -923,10 +923,10 @@ async function startServer() {
     const error = req.query.error as string;
 
     if (error) {
-      return res.redirect(`/facebook-setup.html?error=${encodeURIComponent(req.query.error_description as string || error)}`);
+      return res.redirect(`/setup.html?fbError=${encodeURIComponent(req.query.error_description as string || error)}`);
     }
     if (!code || !state) {
-      return res.redirect("/facebook-setup.html?error=missing_code");
+      return res.redirect("/setup.html?fbError=missing_code");
     }
 
     try {
@@ -935,18 +935,16 @@ async function startServer() {
       const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
 
       if (pages.length === 1) {
-        // Auto-select single page
         const result = await selectFacebookPage(pages[0].id);
         const igPart = result.instagram ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
-        return res.redirect(`/facebook-setup.html?success=1&pageId=${pages[0].id}&pageName=${encodeURIComponent(pages[0].name)}${igPart}`);
+        return res.redirect(`/setup.html?fbSuccess=1&pageId=${pages[0].id}&pageName=${encodeURIComponent(pages[0].name)}${igPart}`);
       }
 
-      // Multiple pages — redirect with list for user to pick
       const pagesParam = encodeURIComponent(JSON.stringify(pages));
-      res.redirect(`/facebook-setup.html?choosePage=1&pages=${pagesParam}`);
+      res.redirect(`/setup.html?choosePage=1&pages=${pagesParam}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      res.redirect(`/facebook-setup.html?error=${encodeURIComponent(msg)}`);
+      res.redirect(`/setup.html?fbError=${encodeURIComponent(msg)}`);
     }
   });
 
@@ -959,6 +957,67 @@ async function startServer() {
     } catch (err) {
       res.status(500).json({ success: false, message: err instanceof Error ? err.message : String(err) });
     }
+  });
+
+  // POST /api/facebook/save-app — save App ID + App Secret without starting OAuth
+  app.post("/api/facebook/save-app", (req: Request, res: Response) => {
+    const { appId, appSecret } = req.body as { appId: string; appSecret: string };
+    if (!appId || !appSecret) return res.status(400).json({ success: false, message: "Потрібні App ID та App Secret" });
+    if (!/^\d+$/.test(appId)) return res.status(400).json({ success: false, message: "App ID повинен містити тільки цифри" });
+    if (appSecret.length < 20) return res.status(400).json({ success: false, message: "App Secret занадто короткий" });
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ FACEBOOK_APP_ID: appId, FACEBOOK_APP_SECRET: appSecret });
+    res.json({ success: true });
+  });
+
+  // POST /api/facebook/verify — test if current tokens actually work
+  app.post("/api/facebook/verify", async (_req: Request, res: Response) => {
+    const status = getFacebookStatus();
+    if (!status.connected) return res.json({ ok: false, reason: "not_connected" });
+    try {
+      const token = process.env.FACEBOOK_ACCESS_TOKEN || "";
+      const pageId = process.env.FACEBOOK_PAGE_ID || "";
+      const r = await fetch(`https://graph.facebook.com/v25.0/${pageId}?fields=name,fan_count&access_token=${token}`);
+      const d = await r.json() as any;
+      if (d.error) return res.json({ ok: false, reason: d.error.message });
+      res.json({ ok: true, pageName: d.name, fans: d.fan_count });
+    } catch (e) {
+      res.json({ ok: false, reason: e instanceof Error ? e.message : String(e) });
+    }
+  });
+
+  // ── Telegram setup ─────────────────────────────────────────────────────────
+
+  app.get("/api/telegram/status", async (_req: Request, res: Response) => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) return res.json({ connected: false });
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+      const d = await r.json() as any;
+      if (d.ok) res.json({ connected: true, username: d.result.username });
+      else res.json({ connected: false });
+    } catch { res.json({ connected: false }); }
+  });
+
+  app.post("/api/telegram/save-token", (req: Request, res: Response) => {
+    const { token } = req.body as { token: string };
+    if (!token || !token.includes(":")) return res.status(400).json({ success: false, message: "Невірний формат токена" });
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ TELEGRAM_BOT_TOKEN: token });
+    res.json({ success: true });
+  });
+
+  // ── Site URL ───────────────────────────────────────────────────────────────
+
+  app.get("/api/site-url", (_req: Request, res: Response) => {
+    res.json({ url: process.env.SITE_URL || "" });
+  });
+
+  app.post("/api/site-url", (req: Request, res: Response) => {
+    const { url } = req.body as { url: string };
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ SITE_URL: url || "" });
+    res.json({ success: true });
   });
 
   // ── End Facebook OAuth ──────────────────────────────────────────────────────
