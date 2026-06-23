@@ -3,44 +3,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Історія постів</title>
+  <title>Історія постів — AI Post</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <main class="app">
+  <div class="app">
     <header class="topbar">
-      <div>
-        <p class="badge">AI Shopping Post</p>
-        <h1>Історія</h1>
-        <p>Пошук, статуси платформ і редагування збережених постів.</p>
+      <div class="topbar-left">
+        <div class="logo">
+          <div class="logo-icon">✦</div>
+          <span class="logo-name">AI Post</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <span class="badge">Історія</span>
       </div>
-      <a href="/" class="btn secondary">Створити пост</a>
+      <a href="/" class="btn secondary">+ Новий товар</a>
     </header>
 
-    <section class="card filters">
-      <input
-        type="search"
-        id="productsSearch"
-        placeholder="Пошук за назвою або артикулом"
-      />
-      <select id="platformFilter">
-        <option value="">Усі платформи</option>
-        <option value="telegram">Telegram</option>
-        <option value="instagram">Instagram</option>
-        <option value="facebook">Facebook</option>
-      </select>
-      <select id="statusFilter">
-        <option value="">Усі статуси</option>
-        <option value="draft">draft</option>
-        <option value="scheduled">scheduled</option>
-        <option value="publishing">publishing</option>
-        <option value="published">published</option>
-        <option value="failed">failed</option>
-      </select>
-    </section>
+    <div class="page-body">
+      <section class="card filters">
+        <input
+          type="search"
+          id="productsSearch"
+          placeholder="Пошук за назвою або артикулом..."
+        />
+        <select id="platformFilter">
+          <option value="">Усі платформи</option>
+          <option value="telegram">Telegram</option>
+          <option value="instagram">Instagram</option>
+          <option value="facebook">Facebook</option>
+          <option value="shafa">Shafa.ua</option>
+        </select>
+        <select id="statusFilter">
+          <option value="">Усі статуси</option>
+          <option value="draft">Чернетка</option>
+          <option value="scheduled">Заплановано</option>
+          <option value="publishing">Публікується</option>
+          <option value="published">Опубліковано</option>
+          <option value="failed">Помилка</option>
+        </select>
+      </section>
 
-    <section id="productsList" class="products-list">Завантаження...</section>
-  </main>
+      <section id="productsList" class="products-list">Завантаження...</section>
+    </div>
+  </div>
 
   <script src="/products.js"></script>
 </body>

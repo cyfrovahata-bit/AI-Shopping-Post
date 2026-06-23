@@ -7,181 +7,198 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <main class="app">
+  <div class="app">
     <header class="topbar">
-      <div>
-        <p class="badge">AI Shopping Post</p>
-        <h1>Пости товарів</h1>
-        <p>Генерація, прев’ю, редагування, планування і публікація для різних платформ.</p>
+      <div class="topbar-left">
+        <div class="logo">
+          <div class="logo-icon">✦</div>
+          <span class="logo-name">AI Post</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <span class="badge">Shopping</span>
+        <span class="topbar-desc">Публікація товарів для магазину одягу</span>
       </div>
       <a href="/products" class="btn secondary">Історія</a>
     </header>
 
-    <section class="layout">
-      <form id="productForm" class="card form-card">
-        <div class="section-title">
-          <h2>Товар</h2>
-          <button type="button" id="newProductBtn" class="btn ghost">Новий товар</button>
-        </div>
+    <div class="page-body">
+      <div class="layout">
+        <form id="productForm" class="card form-card">
+          <div class="section-title">
+            <div class="section-label">
+              <span class="ico">📦</span>
+              <h2>Новий товар</h2>
+            </div>
+            <button type="button" id="newProductBtn" class="btn ghost">Очистити</button>
+          </div>
 
-        <label class="upload-box" id="uploadBox">
-          <input type="file" id="photos" name="photos" accept="image/*" multiple />
-          <span class="upload-icon">+</span>
-          <strong>Завантажити фото</strong>
-          <small>Можна перетягнути до 6 зображень. Перше буде головним.</small>
-        </label>
+          <!-- Медіа -->
+          <div class="media-row">
+            <label class="upload-box" id="uploadBox">
+              <input type="file" id="photos" name="photos" accept="image/*" multiple />
+              <div class="upload-icon">🖼</div>
+              <strong>Фото товару</strong>
+              <small>До 6 зображень. Перше — головне.</small>
+            </label>
 
-        <label class="upload-box video-upload-box">
-          <input type="file" id="video" name="video" accept="video/mp4" />
-          <span class="upload-icon">▶</span>
-          <strong>Завантажити відео</strong>
-          <small>MP4 відео для Telegram, Facebook та Instagram Reels.</small>
-        </label>
+            <label class="upload-box video-upload-box">
+              <input type="file" id="video" name="video" accept="video/mp4" />
+              <div class="upload-icon">▶</div>
+              <strong>Відео / Reels</strong>
+              <small>MP4 для Telegram, Instagram, Facebook.</small>
+            </label>
+          </div>
 
-        <div id="photoGallery" class="photo-gallery"></div>
-        <div id="videoPreview" class="photo-gallery"></div>
+          <div id="photoGallery" class="photo-gallery"></div>
+          <div id="videoPreview" class="photo-gallery"></div>
 
-        <div class="video-settings hidden" id="videoSettings">
-          <div class="video-settings-head">
-            <div>
-              <strong>Оформлення Reels</strong>
-              <small>Стиль запамʼятовується для цього товару</small>
+          <div class="video-settings hidden" id="videoSettings">
+            <div class="video-settings-head">
+              <div>
+                <strong>Стиль оформлення Reels</strong>
+                <small>Стиль запам'ятовується для цього товару</small>
+              </div>
+              <label class="video-toggle">
+                <input type="checkbox" name="generateVideo" checked />
+                <span>Генерувати відео</span>
+              </label>
             </div>
 
-            <label class="video-toggle">
-              <input type="checkbox" name="generateVideo" checked />
-              <span>Генерувати відео</span>
+            <div class="video-style-select" id="videoStyleSelect">
+              <label class="video-style-card active">
+                <input type="radio" name="videoStyle" value="fashion" checked />
+                <span class="style-preview fashion-preview">
+                  <b>Fashion</b>
+                  <em>1290 грн</em>
+                </span>
+                <strong>Fashion</strong>
+                <small>Для більшості товарів</small>
+              </label>
+
+              <label class="video-style-card">
+                <input type="radio" name="videoStyle" value="minimal" />
+                <span class="style-preview minimal-preview">
+                  <b>Minimal</b>
+                  <em>new drop</em>
+                </span>
+                <strong>Minimal</strong>
+                <small>Спокійний стиль</small>
+              </label>
+
+              <label class="video-style-card">
+                <input type="radio" name="videoStyle" value="premium" />
+                <span class="style-preview premium-preview">
+                  <b>Premium</b>
+                  <em>limited</em>
+                </span>
+                <strong>Premium</strong>
+                <small>Дорожча подача</small>
+              </label>
+
+              <label class="video-style-card">
+                <input type="radio" name="videoStyle" value="sale" />
+                <span class="style-preview sale-preview">
+                  <b>SALE</b>
+                  <em>-30%</em>
+                </span>
+                <strong>Sale</strong>
+                <small>Акції та знижки</small>
+              </label>
+            </div>
+          </div>
+
+          <!-- Основна інформація -->
+          <div class="form-divider">Основна інформація</div>
+
+          <div class="grid">
+            <label>
+              Назва товару
+              <input type="text" name="title" placeholder="Костюм з льону" required />
+            </label>
+            <label>
+              Модель / артикул
+              <input type="text" name="model" placeholder="097" />
+            </label>
+            <label>
+              Ціна
+              <input type="text" name="price" placeholder="980 грн" required />
+            </label>
+            <label>
+              Дроп ціна
+              <input type="text" name="dropPrice" placeholder="805 грн" />
+            </label>
+            <label>
+              Розміри
+              <input type="text" name="sizes" placeholder="42-44, 46-48" />
+            </label>
+            <label>
+              Кольори
+              <input type="text" name="colors" placeholder="чорний, молочний" />
             </label>
           </div>
 
-          <div class="video-style-select" id="videoStyleSelect">
-            <label class="video-style-card active">
-              <input type="radio" name="videoStyle" value="fashion" checked />
-              <span class="style-preview fashion-preview">
-                <b>Fashion</b>
-                <em>1290 грн</em>
-              </span>
-              <strong>Fashion</strong>
-              <small>Для більшості товарів</small>
-            </label>
+          <label>
+            Тканина / матеріал
+            <input type="text" name="fabric" placeholder="фактурний льон" />
+          </label>
 
-            <label class="video-style-card">
-              <input type="radio" name="videoStyle" value="minimal" />
-              <span class="style-preview minimal-preview">
-                <b>Minimal</b>
-                <em>new drop</em>
-              </span>
-              <strong>Minimal</strong>
-              <small>Спокійний стиль</small>
-            </label>
+          <label>
+            Додатковий опис
+            <textarea name="description" rows="3" placeholder="Особливості посадки, комплектація, нюанси..."></textarea>
+          </label>
 
-            <label class="video-style-card">
-              <input type="radio" name="videoStyle" value="premium" />
-              <span class="style-preview premium-preview">
-                <b>Premium</b>
-                <em>limited</em>
-              </span>
-              <strong>Premium</strong>
-              <small>Дорожча подача</small>
-            </label>
+          <!-- Платформи -->
+          <div class="form-divider">Платформи для публікації</div>
 
-            <label class="video-style-card">
-              <input type="radio" name="videoStyle" value="sale" />
-              <span class="style-preview sale-preview">
-                <b>SALE</b>
-                <em>-30%</em>
-              </span>
-              <strong>Sale</strong>
-              <small>Акції та знижки</small>
+          <fieldset class="platforms">
+            <legend>Платформи</legend>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="telegram" checked />
+              <span class="platform-icon">✈</span>
+              <span>Telegram</span>
             </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="instagram" checked />
+              <span class="platform-icon">📸</span>
+              <span>Instagram</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="facebook" checked />
+              <span class="platform-icon">📘</span>
+              <span>Facebook</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="shafa" />
+              <span class="platform-icon">🛍</span>
+              <span>Shafa.ua</span>
+            </label>
+          </fieldset>
+
+          <!-- Дії -->
+          <div class="actions sticky-actions">
+            <button type="button" id="previewBtn" class="btn primary">Прев'ю</button>
+            <button type="button" id="publishSelectedBtn" class="btn success">Опублікувати</button>
+            <button type="button" id="scheduleSelectedBtn" class="btn secondary">Запланувати</button>
           </div>
-        </div>        
 
-        <div class="grid">
-          <label>
-            Назва
-            <input type="text" name="title" placeholder="Костюм з льону" required />
-          </label>
+          <p id="statusMessage" class="status"></p>
+        </form>
 
-          <label>
-            Модель / артикул
-            <input type="text" name="model" placeholder="097" />
-          </label>
-
-          <label>
-            Ціна
-            <input type="text" name="price" placeholder="980 грн" required />
-          </label>
-
-          <label>
-            Дроп ціна
-            <input type="text" name="dropPrice" placeholder="805 грн" />
-          </label>
-
-          <label>
-            Розміри
-            <input type="text" name="sizes" placeholder="42-44, 46-48" />
-          </label>
-
-          <label>
-            Кольори
-            <input type="text" name="colors" placeholder="чорний, молочний, рожевий" />
-          </label>
-        </div>
-
-        <label>
-          Тканина / матеріал
-          <input type="text" name="fabric" placeholder="фактурний льон" />
-        </label>
-
-        <label>
-          Додатковий опис
-          <textarea name="description" rows="4" placeholder="Особливості посадки, комплектація, важливі нюанси"></textarea>
-        </label>
-
-        <fieldset class="platforms">
-          <legend>Платформи</legend>
-          <label class="check">
-            <input type="checkbox" name="selectedPlatforms" value="telegram" checked />
-            <span>Telegram</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" name="selectedPlatforms" value="instagram" checked />
-            <span>Instagram</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" name="selectedPlatforms" value="facebook" checked />
-            <span>Facebook</span>
-          </label>
-          <label class="check">
-            <input type="checkbox" name="selectedPlatforms" value="shafa" />
-            <span>Shafa.ua</span>
-          </label>
-        </fieldset>
-
-        <div class="actions sticky-actions">
-          <button type="button" id="previewBtn" class="btn primary">Попередній перегляд</button>
-          <button type="button" id="publishSelectedBtn" class="btn success">Опублікувати обране</button>
-          <button type="button" id="scheduleSelectedBtn" class="btn secondary">Запланувати</button>
-        </div>
-
-        <p id="statusMessage" class="status"></p>
-      </form>
-
-      <section class="card preview-panel hidden" id="previewPanel">
-        <div class="section-title">
-          <div>
-            <h2>Прев’ю</h2>
-            <p>Окремий текст для кожної вибраної платформи.</p>
+        <section class="card preview-panel hidden" id="previewPanel">
+          <div class="section-title">
+            <div class="section-label">
+              <span class="ico">👁</span>
+              <h2>Прев'ю</h2>
+            </div>
+            <span id="productIdBadge" class="small-badge"></span>
           </div>
-          <span id="productIdBadge" class="small-badge"></span>
-        </div>
 
-        <div id="tabs" class="tabs"></div>
-        <div id="platformEditor" class="platform-editor"></div>
-      </section>
-    </section>
-  </main>
+          <div id="tabs" class="tabs"></div>
+          <div id="platformEditor" class="platform-editor"></div>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <script src="./app.js"></script>
 </body>
