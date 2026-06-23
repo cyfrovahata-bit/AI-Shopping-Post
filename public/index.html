@@ -7,6 +7,14 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+  <!-- Progress bar -->
+  <div class="progress-bar hidden" id="progressBar">
+    <div class="progress-track"><div class="progress-fill"></div></div>
+    <span class="progress-msg" id="progressMsg"></span>
+  </div>
+
   <div class="app">
     <header class="topbar">
       <div class="topbar-left">
@@ -149,6 +157,13 @@
 
           <!-- Платформи -->
           <div class="form-divider">Платформи для публікації</div>
+
+          <div class="presets-bar">
+            <select id="presetSelect" class="preset-select">
+              <option value="">Шаблон налаштувань...</option>
+            </select>
+            <button type="button" id="savePresetBtn" class="btn ghost">Зберегти шаблон</button>
+          </div>
 
           <fieldset class="platforms">
             <legend>Платформи</legend>

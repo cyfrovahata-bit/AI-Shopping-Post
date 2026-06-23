@@ -1,49 +1,193 @@
-const form = document.getElementById("productForm");
-const photosInput = document.getElementById("photos");
-const videoInput = document.getElementById("video");
-const uploadBox = document.getElementById("uploadBox");
-const photoGallery = document.getElementById("photoGallery");
-const videoPreview = document.getElementById("videoPreview");
-const previewBtn = document.getElementById("previewBtn");
-const publishSelectedBtn = document.getElementById("publishSelectedBtn");
+// ── DOM refs ────────────────────────────────────────────
+const form                = document.getElementById("productForm");
+const photosInput         = document.getElementById("photos");
+const videoInput          = document.getElementById("video");
+const uploadBox           = document.getElementById("uploadBox");
+const photoGallery        = document.getElementById("photoGallery");
+const videoPreview        = document.getElementById("videoPreview");
+const previewBtn          = document.getElementById("previewBtn");
+const publishSelectedBtn  = document.getElementById("publishSelectedBtn");
 const scheduleSelectedBtn = document.getElementById("scheduleSelectedBtn");
-const newProductBtn = document.getElementById("newProductBtn");
-const previewPanel = document.getElementById("previewPanel");
-const tabs = document.getElementById("tabs");
-const platformEditor = document.getElementById("platformEditor");
-const statusMessage = document.getElementById("statusMessage");
-const productIdBadge = document.getElementById("productIdBadge");
+const newProductBtn       = document.getElementById("newProductBtn");
+const previewPanel        = document.getElementById("previewPanel");
+const tabs                = document.getElementById("tabs");
+const platformEditor      = document.getElementById("platformEditor");
+const statusMessage       = document.getElementById("statusMessage");
+const productIdBadge      = document.getElementById("productIdBadge");
 
+// ── 1. TOAST NOTIFICATIONS ───────────────────────────────
+function showToast(message, type = "success", duration = 4500) {
+  const container = document.getElementById("toastContainer");
+  if (!container || !message) return;
+
+  const icon = type === "success" ? "✓" : type === "error" ? "✕" : "⋯";
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-msg">${escapeHtml(message)}</span>
+    <button class="toast-close" aria-label="Закрити">×</button>
+  `;
+  toast.querySelector(".toast-close").addEventListener("click", () => dismissToast(toast));
+  container.appendChild(toast);
+
+  if (duration > 0) setTimeout(() => dismissToast(toast), duration);
+}
+
+function dismissToast(toast) {
+  if (!toast.parentNode) return;
+  toast.classList.add("toast-out");
+  setTimeout(() => toast.remove(), 260);
+}
+
+function showMessage(message, type = "success") {
+  if (statusMessage) {
+    statusMessage.textContent = message;
+    statusMessage.className = `status ${type}`;
+  }
+  if (message) showToast(message, type);
+}
+
+// ── 2. PROGRESS BAR ──────────────────────────────────────
+function setLoading(isLoading, text = "") {
+  [previewBtn, publishSelectedBtn, scheduleSelectedBtn].forEach(b => {
+    b.disabled = isLoading;
+  });
+
+  const bar = document.getElementById("progressBar");
+  const msg = document.getElementById("progressMsg");
+
+  if (isLoading) {
+    bar?.classList.remove("hidden");
+    if (msg) msg.textContent = text;
+    if (statusMessage) {
+      statusMessage.textContent = text;
+      statusMessage.className = "status loading";
+    }
+  } else {
+    bar?.classList.add("hidden");
+    if (msg) msg.textContent = "";
+  }
+}
+
+// ── 5. PRESETS (localStorage) ────────────────────────────
+const PRESETS_KEY      = "ai-post-presets-v1";
+const LAST_SETTINGS_KEY = "ai-post-last-settings-v1";
+
+function getPresets() {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]"); } catch { return []; }
+}
+
+function savePresetData(name) {
+  const presets = getPresets().filter(p => p.name !== name);
+  presets.unshift({
+    name,
+    platforms: selectedPlatforms(),
+    videoStyle: form.querySelector('input[name="videoStyle"]:checked')?.value || "fashion",
+  });
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets.slice(0, 8)));
+  refreshPresetSelect();
+  showToast(`Шаблон «${name}» збережено`, "success", 3000);
+}
+
+function applyPreset(name) {
+  const preset = getPresets().find(p => p.name === name);
+  if (!preset) return;
+  form.querySelectorAll('input[name="selectedPlatforms"]').forEach(cb => {
+    cb.checked = preset.platforms.includes(cb.value);
+  });
+  if (preset.videoStyle) {
+    const radio = form.querySelector(`input[name="videoStyle"][value="${preset.videoStyle}"]`);
+    if (radio) {
+      radio.checked = true;
+      form.querySelectorAll(".video-style-card").forEach(c => c.classList.remove("active"));
+      radio.closest(".video-style-card")?.classList.add("active");
+    }
+  }
+  saveLastSettings();
+}
+
+function refreshPresetSelect() {
+  const sel = document.getElementById("presetSelect");
+  if (!sel) return;
+  const presets = getPresets();
+  sel.innerHTML = `<option value="">Шаблон налаштувань...</option>` +
+    presets.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("");
+}
+
+function saveLastSettings() {
+  try {
+    localStorage.setItem(LAST_SETTINGS_KEY, JSON.stringify({
+      platforms: selectedPlatforms(),
+      videoStyle: form.querySelector('input[name="videoStyle"]:checked')?.value || "fashion",
+    }));
+  } catch {}
+}
+
+function loadLastSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LAST_SETTINGS_KEY) || "{}");
+    if (s.platforms?.length) {
+      form.querySelectorAll('input[name="selectedPlatforms"]').forEach(cb => {
+        cb.checked = s.platforms.includes(cb.value);
+      });
+    }
+    if (s.videoStyle) {
+      const radio = form.querySelector(`input[name="videoStyle"][value="${s.videoStyle}"]`);
+      if (radio) {
+        radio.checked = true;
+        form.querySelectorAll(".video-style-card").forEach(c => c.classList.remove("active"));
+        radio.closest(".video-style-card")?.classList.add("active");
+      }
+    }
+  } catch {}
+}
+
+function initPresets() {
+  refreshPresetSelect();
+  loadLastSettings();
+
+  document.getElementById("presetSelect")?.addEventListener("change", e => {
+    if (e.target.value) applyPreset(e.target.value);
+    e.target.value = "";
+  });
+
+  document.getElementById("savePresetBtn")?.addEventListener("click", () => {
+    const name = prompt("Назва шаблону (наприклад: TG + Instagram):");
+    if (name?.trim()) savePresetData(name.trim());
+  });
+
+  // Auto-save last settings when platforms or video style change
+  form.addEventListener("change", e => {
+    if (
+      e.target.name === "selectedPlatforms" ||
+      e.target.name === "videoStyle"
+    ) saveLastSettings();
+  });
+}
+
+// ── Video style ──────────────────────────────────────────
 function initVideoStyles() {
-  const radios = document.querySelectorAll(
-    'input[name="videoStyle"]'
-  );
-
-  radios.forEach((radio) => {
+  document.querySelectorAll('input[name="videoStyle"]').forEach(radio => {
     radio.addEventListener("change", () => {
-      document
-        .querySelectorAll(".video-style-card")
-        .forEach((card) => card.classList.remove("active"));
-
+      document.querySelectorAll(".video-style-card").forEach(c => c.classList.remove("active"));
       radio.closest(".video-style-card")?.classList.add("active");
     });
   });
 
-  const generateVideoInput = form.querySelector('input[name="generateVideo"]');
-
-  generateVideoInput?.addEventListener("change", syncVideoSettingsVisibility);
+  form.querySelector('input[name="generateVideo"]')
+    ?.addEventListener("change", syncVideoSettingsVisibility);
 
   syncVideoSettingsVisibility();
 }
 
 function syncVideoSettingsVisibility() {
-  const videoSettings = document.getElementById("videoSettings");
+  const videoSettings   = document.getElementById("videoSettings");
   const videoStyleSelect = document.getElementById("videoStyleSelect");
   const generateVideoInput = form.querySelector('input[name="generateVideo"]');
   const hasVideo = !!videoInput?.files?.length;
 
   if (!videoSettings) return;
-
   videoSettings.classList.toggle("hidden", !hasVideo);
 
   if (videoStyleSelect && generateVideoInput) {
@@ -51,29 +195,29 @@ function syncVideoSettingsVisibility() {
   }
 }
 
+// ── Platform names / constants ───────────────────────────
 const platformNames = {
-  telegram: "Telegram",
+  telegram:  "Telegram",
   instagram: "Instagram",
-  facebook: "Facebook",
-  shafa: "Shafa.ua",
+  facebook:  "Facebook",
+  shafa:     "Shafa.ua",
 };
 
 const SHAFA_CATEGORY_PRESETS = [
-  { label: "Сукні міді",        path: ["Жіночий одяг", "Плаття", "Сукні міді"] },
-  { label: "Міні-сукні",        path: ["Жіночий одяг", "Плаття", "Міні-сукні"] },
-  { label: "Максі-сукні",       path: ["Жіночий одяг", "Плаття", "Максі-сукні"] },
-  { label: "Блузи та сорочки",  path: ["Жіночий одяг", "Блузи та сорочки", "Блузи"] },
-  { label: "Топи",              path: ["Жіночий одяг", "Топи та футболки", "Топи"] },
-  { label: "Футболки",          path: ["Жіночий одяг", "Топи та футболки", "Футболки"] },
-  { label: "Светри",            path: ["Жіночий одяг", "Светри та кардигани", "Светри"] },
-  { label: "Куртки",            path: ["Жіночий одяг", "Верхній одяг", "Куртки"] },
-  { label: "Пальта",            path: ["Жіночий одяг", "Верхній одяг", "Пальта"] },
-  { label: "Спідниці міді",     path: ["Жіночий одяг", "Спідниці", "Міді"] },
-  { label: "Джинси",            path: ["Жіночий одяг", "Штани та шорти", "Джинси"] },
-  { label: "Штани",             path: ["Жіночий одяг", "Штани та шорти", "Штани"] },
+  { label: "Сукні міді",       path: ["Жіночий одяг", "Плаття", "Сукні міді"] },
+  { label: "Міні-сукні",       path: ["Жіночий одяг", "Плаття", "Міні-сукні"] },
+  { label: "Максі-сукні",      path: ["Жіночий одяг", "Плаття", "Максі-сукні"] },
+  { label: "Блузи та сорочки", path: ["Жіночий одяг", "Блузи та сорочки", "Блузи"] },
+  { label: "Топи",             path: ["Жіночий одяг", "Топи та футболки", "Топи"] },
+  { label: "Футболки",         path: ["Жіночий одяг", "Топи та футболки", "Футболки"] },
+  { label: "Светри",           path: ["Жіночий одяг", "Светри та кардигани", "Светри"] },
+  { label: "Куртки",           path: ["Жіночий одяг", "Верхній одяг", "Куртки"] },
+  { label: "Пальта",           path: ["Жіночий одяг", "Верхній одяг", "Пальта"] },
+  { label: "Спідниці міді",    path: ["Жіночий одяг", "Спідниці", "Міді"] },
+  { label: "Джинси",           path: ["Жіночий одяг", "Штани та шорти", "Джинси"] },
+  { label: "Штани",            path: ["Жіночий одяг", "Штани та шорти", "Штани"] },
 ];
 
-// Дані Shafa-полів, які вводить користувач вручну
 let shafaExtras = {
   brand: "",
   categoryPath: ["Жіночий одяг", "Плаття", "Сукні міді"],
@@ -89,14 +233,14 @@ function renderShafaExtras() {
   );
   return `
     <div class="shafa-extras">
-      <h4 style="margin:16px 0 10px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.5px">
-        Додаткові поля для Shafa.ua
+      <h4 style="margin:16px 0 10px;font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-weight:600">
+        Поля для Shafa.ua
       </h4>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
         <label style="grid-column:1/-1">
-          Категорія (швидкий вибір)
-          <select id="shafaCategoryPreset" style="width:100%">
-            <option value="-1">— обрати шаблон —</option>
+          Категорія
+          <select id="shafaCategoryPreset">
+            <option value="-1">— шаблон категорії —</option>
             ${SHAFA_CATEGORY_PRESETS.map((p, i) =>
               `<option value="${i}" ${catMatch === i ? "selected" : ""}>${p.label}</option>`
             ).join("")}
@@ -111,11 +255,11 @@ function renderShafaExtras() {
           <input type="text" id="shafaCat2" value="${escapeHtml(shafaExtras.categoryPath[1] || "")}" placeholder="Плаття">
         </label>
         <label style="grid-column:1/-1">
-          Розділ 3 (підкатегорія)
+          Підкатегорія
           <input type="text" id="shafaCat3" value="${escapeHtml(shafaExtras.categoryPath[2] || "")}" placeholder="Сукні міді">
         </label>
         <label>
-          Бренд (необов'язково)
+          Бренд
           <input type="text" id="shafaBrand" value="${escapeHtml(shafaExtras.brand)}" placeholder="Zara, H&M, No name...">
         </label>
         <label>
@@ -136,7 +280,7 @@ function renderShafaExtras() {
           </select>
         </label>
         <label>
-          Довжина рукава
+          Рукав
           <select id="shafaSleeveLength">
             <option value="">— не вказано</option>
             ${["Без рукавів","Довгий","Короткий","Три чверті"].map(v =>
@@ -159,55 +303,50 @@ function renderShafaExtras() {
 }
 
 function syncShafaExtras() {
-  const preset   = document.getElementById("shafaCategoryPreset");
-  const cat1     = document.getElementById("shafaCat1");
-  const cat2     = document.getElementById("shafaCat2");
-  const cat3     = document.getElementById("shafaCat3");
-  const brand    = document.getElementById("shafaBrand");
-  const cond     = document.getElementById("shafaCondition");
-  const season   = document.getElementById("shafaSeason");
-  const sleeve   = document.getElementById("shafaSleeveLength");
-  const ukraine  = document.getElementById("shafaMadeInUkraine");
+  const preset  = document.getElementById("shafaCategoryPreset");
+  const cat1    = document.getElementById("shafaCat1");
+  const cat2    = document.getElementById("shafaCat2");
+  const cat3    = document.getElementById("shafaCat3");
+  const brand   = document.getElementById("shafaBrand");
+  const cond    = document.getElementById("shafaCondition");
+  const season  = document.getElementById("shafaSeason");
+  const sleeve  = document.getElementById("shafaSleeveLength");
+  const ukraine = document.getElementById("shafaMadeInUkraine");
 
-  if (preset) {
-    preset.addEventListener("change", () => {
-      const idx = Number(preset.value);
-      if (idx >= 0 && SHAFA_CATEGORY_PRESETS[idx]) {
-        const path = SHAFA_CATEGORY_PRESETS[idx].path;
-        if (cat1) cat1.value = path[0] || "";
-        if (cat2) cat2.value = path[1] || "";
-        if (cat3) cat3.value = path[2] || "";
-        shafaExtras.categoryPath = [...path];
-      }
-    });
-  }
-
-  [cat1, cat2, cat3].forEach((el, i) => {
-    el?.addEventListener("input", () => {
-      shafaExtras.categoryPath[i] = el.value;
-    });
+  preset?.addEventListener("change", () => {
+    const idx = Number(preset.value);
+    if (idx >= 0 && SHAFA_CATEGORY_PRESETS[idx]) {
+      const path = SHAFA_CATEGORY_PRESETS[idx].path;
+      if (cat1) cat1.value = path[0] || "";
+      if (cat2) cat2.value = path[1] || "";
+      if (cat3) cat3.value = path[2] || "";
+      shafaExtras.categoryPath = [...path];
+    }
   });
 
-  brand?.addEventListener("input",  () => { shafaExtras.brand          = brand.value; });
-  cond?.addEventListener("change",  () => { shafaExtras.condition      = cond.value; });
-  season?.addEventListener("change",() => { shafaExtras.season         = season.value; });
-  sleeve?.addEventListener("change",() => { shafaExtras.sleeveLength   = sleeve.value; });
-  ukraine?.addEventListener("change",()=> { shafaExtras.madeInUkraine  = ukraine.value; });
+  [cat1, cat2, cat3].forEach((el, i) => {
+    el?.addEventListener("input", () => { shafaExtras.categoryPath[i] = el.value; });
+  });
+
+  brand?.addEventListener("input",   () => { shafaExtras.brand         = brand.value; });
+  cond?.addEventListener("change",   () => { shafaExtras.condition     = cond.value; });
+  season?.addEventListener("change", () => { shafaExtras.season        = season.value; });
+  sleeve?.addEventListener("change", () => { shafaExtras.sleeveLength  = sleeve.value; });
+  ukraine?.addEventListener("change",() => { shafaExtras.madeInUkraine = ukraine.value; });
 }
 
-let currentProduct = null;
-let currentImages = [];
-let platformPosts = [];
-let activePlatform = "telegram";
+// ── State ────────────────────────────────────────────────
+let currentProduct    = null;
+let currentImages     = [];
+let platformPosts     = [];
+let activePlatform    = "telegram";
 let selectedPhotoFiles = [];
-let selectedVideoFile = null;
+let selectedVideoFile  = null;
 
 function setInputFiles(input, files) {
-  const dataTransfer = new DataTransfer();
-
-  files.forEach((file) => dataTransfer.items.add(file));
-
-  input.files = dataTransfer.files;
+  const dt = new DataTransfer();
+  files.forEach(f => dt.items.add(f));
+  input.files = dt.files;
 }
 
 function escapeHtml(value) {
@@ -218,31 +357,12 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function setLoading(isLoading, text = "") {
-  [previewBtn, publishSelectedBtn, scheduleSelectedBtn].forEach((button) => {
-    button.disabled = isLoading;
-  });
-
-  if (isLoading) {
-    statusMessage.textContent = text;
-    statusMessage.className = "status loading";
-  }
-}
-
-function showMessage(message, type = "success") {
-  statusMessage.textContent = message;
-  statusMessage.className = `status ${type}`;
-}
-
 function selectedPlatforms() {
-  return [...form.querySelectorAll('input[name="selectedPlatforms"]:checked')].map(
-    (input) => input.value
-  );
+  return [...form.querySelectorAll('input[name="selectedPlatforms"]:checked')].map(i => i.value);
 }
 
 function getFormPayload() {
   const data = Object.fromEntries(new FormData(form).entries());
-
   return {
     title: data.title || "",
     model: data.model || "",
@@ -256,52 +376,85 @@ function getFormPayload() {
 }
 
 function currentPost() {
-  return platformPosts.find((post) => post.platform === activePlatform);
+  return platformPosts.find(p => p.platform === activePlatform);
 }
 
 function syncCurrentTextarea() {
   const textarea = platformEditor.querySelector(".post-textarea");
   const post = currentPost();
+  if (textarea && post) post.text = textarea.value;
+}
 
-  if (textarea && post) {
-    post.text = textarea.value;
+// ── 1. DRAG-AND-DROP PHOTO REORDER ───────────────────────
+let dragSrcIndex = null;
+
+function renderLocalGallery() {
+  photoGallery.innerHTML = selectedPhotoFiles.map((file, index) => {
+    const url = URL.createObjectURL(file);
+    return `
+      <figure class="thumb" draggable="true" data-index="${index}" title="Перетягни для зміни порядку">
+        <button type="button" class="remove-media remove-photo" data-index="${index}" title="Видалити">×</button>
+        <img src="${url}" alt="Фото ${index + 1}">
+        ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
+      </figure>
+    `;
+  }).join("");
+
+  if (selectedPhotoFiles.length || selectedVideoFile) {
+    photoGallery.insertAdjacentHTML("beforeend",
+      `<button type="button" class="clear-media-btn" id="clearAllMediaBtn">Очистити все</button>`
+    );
+  }
+
+  // Attach drag events to each thumb
+  photoGallery.querySelectorAll(".thumb[draggable]").forEach(thumb => {
+    thumb.addEventListener("dragstart", onThumbDragStart);
+    thumb.addEventListener("dragover",  onThumbDragOver);
+    thumb.addEventListener("dragleave", onThumbDragLeave);
+    thumb.addEventListener("drop",      onThumbDrop);
+    thumb.addEventListener("dragend",   onThumbDragEnd);
+  });
+}
+
+function onThumbDragStart(e) {
+  dragSrcIndex = Number(this.dataset.index);
+  this.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+}
+
+function onThumbDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+  photoGallery.querySelectorAll(".thumb").forEach(t => t.classList.remove("drag-over"));
+  this.classList.add("drag-over");
+}
+
+function onThumbDragLeave() {
+  this.classList.remove("drag-over");
+}
+
+function onThumbDrop(e) {
+  e.stopPropagation();
+  const targetIndex = Number(this.dataset.index);
+  if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+    const [moved] = selectedPhotoFiles.splice(dragSrcIndex, 1);
+    selectedPhotoFiles.splice(targetIndex, 0, moved);
+    setInputFiles(photosInput, selectedPhotoFiles);
+    renderLocalGallery();
+    showToast("Порядок фото змінено", "success", 2000);
   }
 }
 
-function renderLocalGallery() {
-  photoGallery.innerHTML = selectedPhotoFiles
-    .map((file, index) => {
-      const url = URL.createObjectURL(file);
-      return `
-        <figure class="thumb">
-          <button type="button" class="remove-media remove-photo" data-index="${index}">×</button>
-          <img src="${url}" alt="Фото ${index + 1}">
-          ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
-        </figure>
-      `;
-    })
-    .join("");
-
-  if (selectedPhotoFiles.length || selectedVideoFile) {
-    photoGallery.insertAdjacentHTML(
-      "beforeend",
-      `
-        <button type="button" class="clear-media-btn" id="clearAllMediaBtn">
-          Очистити все
-        </button>
-      `
-    );
-  }
+function onThumbDragEnd() {
+  photoGallery.querySelectorAll(".thumb").forEach(t => {
+    t.classList.remove("dragging", "drag-over");
+  });
+  dragSrcIndex = null;
 }
 
 function renderLocalVideo() {
-  if (!selectedVideoFile) {
-    videoPreview.innerHTML = "";
-    return;
-  }
-
+  if (!selectedVideoFile) { videoPreview.innerHTML = ""; return; }
   const url = URL.createObjectURL(selectedVideoFile);
-
   videoPreview.innerHTML = `
     <figure class="thumb video-thumb">
       <button type="button" class="remove-media remove-video">×</button>
@@ -312,91 +465,66 @@ function renderLocalVideo() {
 }
 
 function renderSavedGallery() {
-  const videoUrl = currentProduct?.videoUrl || "";
+  const videoUrl          = currentProduct?.videoUrl || "";
   const processedVideoUrl = currentProduct?.processedVideoUrl || "";
   const useProcessedVideo = currentProduct?.useProcessedVideo !== false;
-  const hasAnyVideo = videoUrl || processedVideoUrl;
+  const hasAnyVideo       = videoUrl || processedVideoUrl;
 
-  if (!currentImages.length && !hasAnyVideo) {
-    return "";
-  }
+  if (!currentImages.length && !hasAnyVideo) return "";
 
   return `
     <div class="preview-gallery">
-      ${
-        processedVideoUrl
-          ? `
-            <div class="reel-preview-wrap">
-              <figure class="reel-preview">
-                <video src="${processedVideoUrl}" controls muted playsinline></video>
-                <figcaption>Reels</figcaption>
-              </figure>
+      ${processedVideoUrl ? `
+        <div class="reel-preview-wrap">
+          <figure class="reel-preview">
+            <video src="${processedVideoUrl}" controls muted playsinline></video>
+            <figcaption>Reels</figcaption>
+          </figure>
+          <label class="check video-choice-check">
+            <input type="checkbox" id="useProcessedVideo" ${useProcessedVideo ? "checked" : ""}>
+            <span>Використовувати оформлене відео</span>
+          </label>
+        </div>
+      ` : videoUrl ? `
+        <figure class="thumb video-thumb">
+          <video src="${videoUrl}" controls muted playsinline></video>
+          <figcaption>Оригінал</figcaption>
+        </figure>
+      ` : ""}
 
-              <label class="check video-choice-check">
-                <input
-                  type="checkbox"
-                  id="useProcessedVideo"
-                  ${useProcessedVideo ? "checked" : ""}
-                >
-                <span>Використовувати оформлене відео</span>
-              </label>
-            </div>
-          `
-          : videoUrl
-            ? `
-              <figure class="thumb video-thumb">
-                <video src="${videoUrl}" controls muted playsinline></video>
-                <figcaption>Оригінал</figcaption>
-              </figure>
-            `
-            : ""
-      }
-
-      ${currentImages
-        .map(
-          (image, index) => `
-            <figure class="thumb">
-              <img src="${image.imageUrl}" alt="Фото товару ${index + 1}">
-              ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
-            </figure>
-          `
-        )
-        .join("")}
+      ${currentImages.map((image, index) => `
+        <figure class="thumb">
+          <img src="${image.imageUrl}" alt="Фото ${index + 1}">
+          ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
+        </figure>
+      `).join("")}
     </div>
   `;
 }
 
 function renderTabs() {
-  tabs.innerHTML = platformPosts
-    .map(
-      (post) => `
-        <button
-          type="button"
-          class="tab ${post.platform === activePlatform ? "active" : ""}"
-          data-platform="${post.platform}"
-        >
-          ${platformNames[post.platform] || post.platform}
-          <span>${post.status}</span>
-        </button>
-      `
-    )
-    .join("");
+  tabs.innerHTML = platformPosts.map(post => `
+    <button
+      type="button"
+      class="tab ${post.platform === activePlatform ? "active" : ""}"
+      data-platform="${post.platform}"
+    >
+      ${platformNames[post.platform] || post.platform}
+      <span>${post.status}</span>
+    </button>
+  `).join("");
 }
 
 function renderPlatformEditor() {
   const post = currentPost();
-
-  if (!post) {
-    platformEditor.innerHTML = "";
-    return;
-  }
+  if (!post) { platformEditor.innerHTML = ""; return; }
 
   productIdBadge.textContent = currentProduct ? `#${currentProduct.id}` : "";
   platformEditor.innerHTML = `
     ${renderSavedGallery()}
     <div class="platform-status">
       <span class="status-pill ${post.status}">${post.status}</span>
-      ${post.errorMessage ? `<strong>${escapeHtml(post.errorMessage)}</strong>` : ""}
+      ${post.errorMessage ? `<strong style="color:var(--red);font-size:13px">${escapeHtml(post.errorMessage)}</strong>` : ""}
     </div>
 
     <label>
@@ -426,7 +554,6 @@ function renderPlatformEditor() {
     </div>
   `;
 
-  // Підключаємо listeners для Shafa-полів після рендеру
   if (post.platform === "shafa") syncShafaExtras();
 }
 
@@ -436,63 +563,43 @@ function renderPreview() {
   renderPlatformEditor();
 }
 
+// ── API calls ────────────────────────────────────────────
 async function savePost(post, status, scheduledAt = null) {
   const response = await fetch(`/api/platform-posts/${post.id}`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      text: post.text,
-      status,
-      scheduledAt,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: post.text, status, scheduledAt }),
   });
   const data = await response.json();
-
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || "Не вдалося зберегти пост");
-  }
-
+  if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося зберегти пост");
   Object.assign(post, data.platformPost);
 }
 
 async function createPreview() {
-  const hasPhotos = photosInput.files && photosInput.files.length;
-  const hasVideo = videoInput?.files && videoInput.files.length;
+  const hasPhotos = photosInput.files?.length;
+  const hasVideo  = videoInput?.files?.length;
 
-  if (!hasPhotos && !hasVideo) {
-    throw new Error("Завантаж хоча б одне фото або відео товару");
-  }
+  if (!hasPhotos && !hasVideo) throw new Error("Завантаж хоча б одне фото або відео товару");
 
   const platforms = selectedPlatforms();
-
-  if (!platforms.length) {
-    throw new Error("Вибери хоча б одну платформу");
-  }
+  if (!platforms.length) throw new Error("Вибери хоча б одну платформу");
 
   const formData = new FormData(form);
   formData.delete("selectedPlatforms");
   formData.append("selectedPlatforms", JSON.stringify(platforms));
 
-  setLoading(true, "Генеруємо прев’ю...");
+  setLoading(true, "Генеруємо прев'ю...");
 
-  const response = await fetch("/api/posts/preview", {
-    method: "POST",
-    body: formData,
-  });
+  const response = await fetch("/api/posts/preview", { method: "POST", body: formData });
   const data = await response.json();
-
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || "Не вдалося згенерувати прев’ю");
-  }
+  if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося згенерувати прев'ю");
 
   currentProduct = data.product;
-  currentImages = data.images || [];
-  platformPosts = data.platformPosts || [];
+  currentImages  = data.images || [];
+  platformPosts  = data.platformPosts || [];
   activePlatform = platformPosts[0]?.platform || "telegram";
   renderPreview();
-  showMessage("Прев’ю готове");
+  showMessage("Прев'ю готове");
 }
 
 async function regeneratePlatform(platform = activePlatform) {
@@ -501,23 +608,15 @@ async function regeneratePlatform(platform = activePlatform) {
 
   const response = await fetch(`/api/posts/${currentProduct.id}/regenerate`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      ...getFormPayload(),
-      platform,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...getFormPayload(), platform }),
   });
   const data = await response.json();
-
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || "Не вдалося перегенерувати текст");
-  }
+  if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося перегенерувати текст");
 
   currentProduct = data.product;
-  currentImages = data.images || currentImages;
-  platformPosts = data.platformPosts || platformPosts;
+  currentImages  = data.images || currentImages;
+  platformPosts  = data.platformPosts || platformPosts;
   activePlatform = platform;
   renderPreview();
   showMessage("Текст оновлено");
@@ -526,247 +625,191 @@ async function regeneratePlatform(platform = activePlatform) {
 async function publishPost(post) {
   syncCurrentTextarea();
   await savePost(post, post.status === "scheduled" ? "draft" : post.status);
-  setLoading(true, `Публікуємо ${platformNames[post.platform] || post.platform}...`);
+
+  const platformLabel = platformNames[post.platform] || post.platform;
+  const isShafa = post.platform === "shafa";
+  setLoading(true, isShafa
+    ? `Публікуємо на Shafa.ua — це займає ~2 хвилини...`
+    : `Публікуємо ${platformLabel}...`
+  );
 
   const response = await fetch(`/api/platform-posts/${post.id}/publish`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text: post.text,
-      ...(post.platform === "shafa" ? { extras: shafaExtras } : {}),
+      ...(isShafa ? { extras: shafaExtras } : {}),
     }),
   });
   const data = await response.json();
-
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || "Не вдалося опублікувати пост");
-  }
+  if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося опублікувати пост");
 
   Object.assign(post, data.platformPost);
   renderPreview();
-  showMessage(`${platformNames[post.platform] || post.platform}: опубліковано`);
+  showMessage(`${platformLabel}: опубліковано ✓`);
 }
 
 async function schedulePost(post) {
   syncCurrentTextarea();
   const input = platformEditor.querySelector(".schedule-at");
-
-  if (!input.value) {
-    throw new Error("Вкажи дату і час публікації");
-  }
+  if (!input.value) throw new Error("Вкажи дату і час публікації");
 
   await savePost(post, "scheduled", new Date(input.value).toISOString());
   renderPreview();
   showMessage(`${platformNames[post.platform] || post.platform}: заплановано`);
 }
 
+// ── Event listeners ───────────────────────────────────────
 photosInput.addEventListener("change", () => {
-  const newFiles = [...(photosInput.files || [])];
-
-  selectedPhotoFiles = [...selectedPhotoFiles, ...newFiles].slice(0, 6);
+  selectedPhotoFiles = [...selectedPhotoFiles, ...(photosInput.files || [])].slice(0, 6);
   setInputFiles(photosInput, selectedPhotoFiles);
   renderLocalGallery();
 });
 
 videoInput?.addEventListener("change", () => {
   selectedVideoFile = videoInput.files?.[0] || null;
-
-  if (selectedVideoFile) {
-    setInputFiles(videoInput, [selectedVideoFile]);
-  }
-
+  if (selectedVideoFile) setInputFiles(videoInput, [selectedVideoFile]);
   renderLocalVideo();
   syncVideoSettingsVisibility();
 });
 
-photoGallery.addEventListener("click", (event) => {
-  const removePhotoBtn = event.target.closest(".remove-photo");
-  const clearAllBtn = event.target.closest("#clearAllMediaBtn");
+photoGallery.addEventListener("click", e => {
+  const removeBtn  = e.target.closest(".remove-photo");
+  const clearAllBtn = e.target.closest("#clearAllMediaBtn");
 
-  if (removePhotoBtn) {
-    const index = Number(removePhotoBtn.dataset.index);
-
-    selectedPhotoFiles.splice(index, 1);
+  if (removeBtn) {
+    selectedPhotoFiles.splice(Number(removeBtn.dataset.index), 1);
     setInputFiles(photosInput, selectedPhotoFiles);
     renderLocalGallery();
   }
 
   if (clearAllBtn) {
     selectedPhotoFiles = [];
-    selectedVideoFile = null;
-
+    selectedVideoFile  = null;
     setInputFiles(photosInput, []);
     setInputFiles(videoInput, []);
-
     renderLocalGallery();
     renderLocalVideo();
     syncVideoSettingsVisibility();
   }
 });
 
-videoPreview.addEventListener("click", (event) => {
-  if (!event.target.closest(".remove-video")) return;
-
+videoPreview.addEventListener("click", e => {
+  if (!e.target.closest(".remove-video")) return;
   selectedVideoFile = null;
   setInputFiles(videoInput, []);
   renderLocalVideo();
   syncVideoSettingsVisibility();
 });
 
-uploadBox.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  uploadBox.classList.add("dragover");
-});
-
-uploadBox.addEventListener("dragleave", () => {
+// Drag-drop upload from desktop
+uploadBox.addEventListener("dragover", e => { e.preventDefault(); uploadBox.classList.add("dragover"); });
+uploadBox.addEventListener("dragleave", ()  => uploadBox.classList.remove("dragover"));
+uploadBox.addEventListener("drop", e => {
+  e.preventDefault();
   uploadBox.classList.remove("dragover");
-});
-
-uploadBox.addEventListener("drop", (event) => {
-  event.preventDefault();
-  uploadBox.classList.remove("dragover");
-
-  if (event.dataTransfer.files?.length) {
-    photosInput.files = event.dataTransfer.files;
+  if (e.dataTransfer.files?.length) {
+    photosInput.files = e.dataTransfer.files;
     renderLocalGallery();
   }
 });
 
-tabs.addEventListener("click", (event) => {
-  const button = event.target.closest(".tab");
-
-  if (!button) return;
-
+tabs.addEventListener("click", e => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
   syncCurrentTextarea();
-  activePlatform = button.dataset.platform;
+  activePlatform = btn.dataset.platform;
   renderPreview();
 });
 
-platformEditor.addEventListener("input", (event) => {
-  if (!event.target.classList.contains("post-textarea")) {
-    return;
-  }
-
+platformEditor.addEventListener("input", e => {
+  if (!e.target.classList.contains("post-textarea")) return;
   syncCurrentTextarea();
   const previewText = platformEditor.querySelector(".preview-text");
   const post = currentPost();
-
   if (previewText && post) {
-    previewText.innerHTML =
-      post.platform === "telegram"
-        ? post.text.replace(/\n/g, "<br>")
-        : escapeHtml(post.text).replace(/\n/g, "<br>");
+    previewText.innerHTML = post.platform === "telegram"
+      ? post.text.replace(/\n/g, "<br>")
+      : escapeHtml(post.text).replace(/\n/g, "<br>");
   }
 });
 
-platformEditor.addEventListener("click", async (event) => {
+platformEditor.addEventListener("click", async e => {
   const post = currentPost();
-
   if (!post) return;
-
   try {
-    if (event.target.closest(".regenerate-platform")) {
-      await regeneratePlatform(post.platform);
-    }
-
-    if (event.target.closest(".publish-platform")) {
-      await publishPost(post);
-    }
-
-    if (event.target.closest(".schedule-platform")) {
-      await schedulePost(post);
-    }
-  } catch (error) {
-    showMessage(error.message, "error");
+    if (e.target.closest(".regenerate-platform"))  await regeneratePlatform(post.platform);
+    if (e.target.closest(".publish-platform"))     await publishPost(post);
+    if (e.target.closest(".schedule-platform"))    await schedulePost(post);
+  } catch (err) {
+    showMessage(err.message, "error");
   } finally {
-    setLoading(false, statusMessage.textContent);
+    setLoading(false, statusMessage?.textContent || "");
   }
 });
 
-platformEditor.addEventListener("change", async (event) => {
-  const checkbox = event.target.closest("#useProcessedVideo");
-
-  if (!checkbox || !currentProduct) {
-    return;
-  }
-
+platformEditor.addEventListener("change", async e => {
+  const checkbox = e.target.closest("#useProcessedVideo");
+  if (!checkbox || !currentProduct) return;
   currentProduct.useProcessedVideo = checkbox.checked;
-
   await fetch(`/api/products/${currentProduct.id}/video-choice`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      useProcessedVideo: checkbox.checked,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ useProcessedVideo: checkbox.checked }),
   });
 });
 
 previewBtn.addEventListener("click", async () => {
-  try {
-    await createPreview();
-  } catch (error) {
-    showMessage(error.message, "error");
-  } finally {
-    setLoading(false, statusMessage.textContent);
-  }
+  try { await createPreview(); }
+  catch (err) { showMessage(err.message, "error"); }
+  finally { setLoading(false); }
 });
 
 publishSelectedBtn.addEventListener("click", async () => {
   try {
-    if (!currentProduct) {
-      await createPreview();
+    if (!currentProduct) await createPreview();
+    for (const platform of selectedPlatforms()) {
+      const post = platformPosts.find(p => p.platform === platform);
+      if (post) await publishPost(post);
     }
-
-    const platforms = selectedPlatforms();
-    for (const platform of platforms) {
-      const post = platformPosts.find((item) => item.platform === platform);
-      if (post) {
-        await publishPost(post);
-      }
-    }
-  } catch (error) {
-    showMessage(error.message, "error");
+  } catch (err) {
+    showMessage(err.message, "error");
   } finally {
-    setLoading(false, statusMessage.textContent);
+    setLoading(false);
   }
 });
 
 scheduleSelectedBtn.addEventListener("click", async () => {
   try {
     const post = currentPost();
-
-    if (!post) {
-      throw new Error("Спочатку створи попередній перегляд");
-    }
-
+    if (!post) throw new Error("Спочатку створи попередній перегляд");
     await schedulePost(post);
-  } catch (error) {
-    showMessage(error.message, "error");
+  } catch (err) {
+    showMessage(err.message, "error");
   } finally {
-    setLoading(false, statusMessage.textContent);
+    setLoading(false);
   }
 });
 
 newProductBtn.addEventListener("click", () => {
   form.reset();
   selectedPhotoFiles = [];
-  selectedVideoFile = null;
-  photoGallery.innerHTML = "";
-  videoPreview.innerHTML = "";
+  selectedVideoFile  = null;
+  photoGallery.innerHTML   = "";
+  videoPreview.innerHTML   = "";
   syncVideoSettingsVisibility();
   currentProduct = null;
-  currentImages = [];
-  platformPosts = [];
+  currentImages  = [];
+  platformPosts  = [];
   activePlatform = "telegram";
-  tabs.innerHTML = "";
+  tabs.innerHTML          = "";
   platformEditor.innerHTML = "";
   productIdBadge.textContent = "";
   previewPanel.classList.add("hidden");
-  showMessage("", "");
+  loadLastSettings();
+  showToast("Форму очищено", "success", 2000);
 });
 
+// ── Init ─────────────────────────────────────────────────
 initVideoStyles();
+initPresets();

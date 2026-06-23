@@ -829,6 +829,7 @@ textarea {
 
 /* ── Misc ─────────────────────────────────────────────── */
 .hidden { display: none !important; }
+.status { display: none; } /* replaced by toasts */
 .small-badge {
   display: inline-flex;
   align-items: center;
@@ -850,6 +851,122 @@ textarea {
 
 .video-choice-check span { line-height: 1.3; }
 
+/* ── Toast notifications ──────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 68px;
+  right: 16px;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 340px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--r);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.22s ease;
+  pointer-events: all;
+}
+
+.toast-success { border-left-color: var(--accent); }
+.toast-error   { border-left-color: var(--red); }
+.toast-loading { border-left-color: var(--blue); }
+
+.toast-icon { font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.toast-success .toast-icon { color: var(--accent); }
+.toast-error   .toast-icon { color: var(--red); }
+.toast-loading .toast-icon { color: var(--blue); }
+
+.toast-msg { flex: 1; font-size: 13px; color: var(--text); line-height: 1.4; }
+
+.toast-close {
+  border: 0; background: none; color: var(--text3);
+  cursor: pointer; font-size: 18px; line-height: 1; padding: 0 2px;
+  flex-shrink: 0; transition: color 0.15s;
+}
+.toast-close:hover { color: var(--text); }
+
+.toast-out { animation: toast-out 0.25s ease forwards; }
+
+@keyframes toast-in  { from { transform: translateX(16px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes toast-out { from { opacity: 1; } to { transform: translateX(16px); opacity: 0; } }
+
+/* ── Progress bar ─────────────────────────────────────── */
+.progress-bar {
+  position: fixed;
+  top: 56px;
+  left: 0; right: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  background: rgba(22, 27, 34, 0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+
+.progress-track {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #58d6a8);
+  border-radius: 999px;
+  animation: indeterminate 1.6s ease-in-out infinite;
+  transform-origin: left;
+}
+
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%) scaleX(0.4); }
+  50%  { transform: translateX(60%)   scaleX(0.6); }
+  100% { transform: translateX(200%)  scaleX(0.4); }
+}
+
+.progress-msg {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  white-space: nowrap;
+  min-width: 140px;
+}
+
+/* ── Drag-and-drop photos ─────────────────────────────── */
+.thumb[draggable] { cursor: grab; }
+.thumb[draggable]:active { cursor: grabbing; }
+.thumb.dragging  { opacity: 0.4; border-style: dashed; }
+.thumb.drag-over { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+/* ── Presets bar ──────────────────────────────────────── */
+.presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.preset-select {
+  flex: 1;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 1fr; }
@@ -869,7 +986,31 @@ textarea {
   .topbar { padding: 0 14px; }
   .form-card, .preview-panel { padding: 14px; }
   .grid { grid-template-columns: 1fr; }
-  .btn { height: 42px; }
-  .sticky-actions { margin: 0 -14px -14px; padding: 10px 14px; }
   .video-style-select { grid-template-columns: repeat(2, 1fr); }
+
+  /* Mobile bottom action sheet */
+  .sticky-actions {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 200;
+    margin: 0;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(22, 27, 34, 0.98);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .sticky-actions .btn:first-child {
+    grid-column: 1 / -1;
+    height: 46px;
+    font-size: 15px;
+  }
+
+  .sticky-actions .btn { height: 42px; }
+
+  .toast-container { right: 10px; left: 10px; max-width: unset; }
+  .progress-bar { padding: 7px 14px; }
 }
