@@ -1,16 +1,6 @@
 {
   "cookies": [
     {
-      "name": "language",
-      "value": "uk",
-      "domain": "shafa.ua",
-      "path": "/",
-      "expires": 1812403349.495218,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "Lax"
-    },
-    {
       "name": "sc",
       "value": "1FDBB3AF-D85D-57A9-EFC9-7776997126D8",
       "domain": ".shafa.ua",
@@ -25,7 +15,7 @@
       "value": "vzGqJJAO9r0G0UBt7qdq_1780863280296",
       "domain": ".creativecdn.com",
       "path": "/",
-      "expires": 1812399280.322424,
+      "expires": 1813695525.43772,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
@@ -35,19 +25,7 @@
       "value": "vzGqJJAO9r0G0UBt7qdq_Ucd0Z4LT2bTI0vpzr3aE_1780863280296",
       "domain": ".creativecdn.com",
       "path": "/",
-      "expires": 1812399280.322492,
-      "httpOnly": false,
-      "secure": true,
-      "sameSite": "None",
-      "partitionKey": "https://shafa.ua",
-      "_crHasCrossSiteAncestor": true
-    },
-    {
-      "name": "ts",
-      "value": "1780863280",
-      "domain": ".creativecdn.com",
-      "path": "/",
-      "expires": 1812399280.322518,
+      "expires": 1813695525.437869,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None",
@@ -69,7 +47,7 @@
       "value": "GA1.1.1957257245.1780863280",
       "domain": ".shafa.ua",
       "path": "/",
-      "expires": 1815427350.135747,
+      "expires": 1816755374.522439,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -79,27 +57,17 @@
       "value": "fb.1.1780863280697.224468545218936500",
       "domain": ".shafa.ua",
       "path": "/",
-      "expires": 1788643350,
+      "expires": 1789971374,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
-    },
-    {
-      "name": "IDE",
-      "value": "AHWqTUl71sLdNrjGx7oZhJEsMgMuoEKfbpQCcgGr3qU5m432wBwpql4CJS429vpNCfk",
-      "domain": ".doubleclick.net",
-      "path": "/",
-      "expires": 1814559281.614553,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
     },
     {
       "name": "shafa_csrftoken",
       "value": "uwf2j4aHYkxxdUtdct0Pfs9ixLuFiiEO",
       "domain": ".shafa.ua",
       "path": "/",
-      "expires": 1812316950.060835,
+      "expires": 1813644974.625298,
       "httpOnly": false,
       "secure": true,
       "sameSite": "Lax"
@@ -187,21 +155,63 @@
       "sameSite": "None"
     },
     {
-      "name": "__rtbh.lid",
-      "value": "%7B%22eventType%22%3A%22lid%22%2C%22id%22%3A%22C5bEE0g3SJiTUP7cTuMQ%22%2C%22expiryDate%22%3A%222027-06-07T21%3A22%3A29.999Z%22%7D",
+      "name": "language",
+      "value": "uk",
+      "domain": ".shafa.ua",
+      "path": "/",
+      "expires": 1813731374.205893,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ts",
+      "value": "1782159529",
+      "domain": ".creativecdn.com",
+      "path": "/",
+      "expires": 1813695525.437987,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "https://shafa.ua",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "IDE",
+      "value": "AHWqTUlUF45niON-ex8xxiWONNMtRv4ylDHiZVfVdmE4aAcadQc8OnfIqBy0rCZr",
+      "domain": ".doubleclick.net",
+      "path": "/",
+      "expires": 1814559277.655058,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__rtbh.uid",
+      "value": "%7B%22eventType%22%3A%22uid%22%2C%22expiryDate%22%3A%222027-06-23T05%3A35%3A06.761Z%22%7D",
       "domain": "shafa.ua",
       "path": "/",
-      "expires": 1812403349,
+      "expires": 1813728906,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__rtbh.lid",
+      "value": "%7B%22eventType%22%3A%22lid%22%2C%22id%22%3A%22C5bEE0g3SJiTUP7cTuMQ%22%2C%22expiryDate%22%3A%222027-06-23T06%3A16%3A14.485Z%22%7D",
+      "domain": "shafa.ua",
+      "path": "/",
+      "expires": 1813731374,
       "httpOnly": false,
       "secure": true,
       "sameSite": "None"
     },
     {
       "name": "_ga_VJYG1MWHR2",
-      "value": "GS2.1.s1780867341$o2$g1$t1780867350$j51$l1$h980185576",
+      "value": "GS2.1.s1782185440$o4$g1$t1782195374$j55$l1$h901108444",
       "domain": ".shafa.ua",
       "path": "/",
-      "expires": 1815427350.135395,
+      "expires": 1816755374.52211,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
@@ -212,20 +222,24 @@
       "origin": "https://shafa.ua",
       "localStorage": [
         {
-          "name": "lastExternalReferrerTime",
-          "value": "1780867350051"
+          "name": "__rtbh.lid",
+          "value": "{\"eventType\":\"lid\",\"id\":\"C5bEE0g3SJiTUP7cTuMQ\",\"expiryDate\":\"2027-06-23T06:16:14.485Z\"}"
         },
         {
-          "name": "__rtbh.lid",
-          "value": "{\"eventType\":\"lid\",\"id\":\"C5bEE0g3SJiTUP7cTuMQ\",\"expiryDate\":\"2027-06-07T21:22:29.999Z\"}"
+          "name": "lastExternalReferrerTime",
+          "value": "1782195369994"
         },
         {
           "name": "mainPageShowedBanners",
-          "value": "{\"apps\":\"Sun, 07 Jun 2026 20:14:40 GMT\",\"smart\":\"Sun, 07 Jun 2026 20:40:42 GMT\"}"
+          "value": "{\"apps\":\"Mon, 22 Jun 2026 20:18:43 GMT\",\"smart\":\"Mon, 22 Jun 2026 20:24:04 GMT\"}"
         },
         {
           "name": "utmLabels",
-          "value": "[{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780863279967},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780864838412},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780867341076}]"
+          "value": "[{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780863279967},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780864838412},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1780867341076},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782159523603},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782159844557},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782160083935},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782160353346},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782160746681},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782161213287},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782161537158},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782161784277},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782162101630},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782162437086},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782185439712},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782185481307},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782185520996},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782185637838},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782185841508},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782186077643},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782187262604},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782187579895},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782187825047},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782188526182},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782188748491},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782188945523},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782189118537},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782189349341},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782189509870},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782189767893},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782189968718},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782190251139},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782190458855},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782190649844},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782190983417},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782191229660},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782191533511},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782192271007},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782192494963},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782192669276},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782192906765},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782193184200},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782193464852},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782195145648},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782195244223},{\"utmSource\":\"direct\",\"utmMedium\":\"direct\",\"utmCampaign\":\"direct\",\"timestamp\":1782195368685}]"
+        },
+        {
+          "name": "__rtbh.uid",
+          "value": "{\"eventType\":\"uid\",\"expiryDate\":\"2027-06-23T05:35:06.761Z\"}"
         },
         {
           "name": "lastExternalReferrer",
@@ -233,7 +247,7 @@
         },
         {
           "name": "_gcl_ls",
-          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":0,\"timeouts\":0,\"errors\":0,\"eopCount\":0,\"creationTimeMs\":1780863280435},\"expires\":1788639280435}}"
+          "value": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":0,\"timeouts\":0,\"errors\":0,\"eopCount\":0,\"creationTimeMs\":1780863280435},\"expires\":1788639280435},\"gsid_dc\":{\"value\":{\"joinId\":\"2QMqtDRvwXPjl-InCBYKuIzriRurqXJGfw\",\"lastJoinedTimeMs\":1782195369543},\"expires\":1782195669543}}"
         },
         {
           "name": "scCartItems",

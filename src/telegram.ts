@@ -2,7 +2,7 @@ import fs from "fs";
 import FormData from "form-data";
 import fetch from "node-fetch";
 
-const defaultOrderUrl = "https://t.me/mariannavasulevska";
+const defaultOrderUrl = "";
 
 type TelegramApiResponse = {
   ok: boolean;
@@ -12,6 +12,7 @@ type TelegramApiResponse = {
 
 function getReplyMarkup() {
   const orderUrl = process.env.ORDER_URL || defaultOrderUrl;
+  if (!orderUrl) return null;
 
   return {
     inline_keyboard: [
@@ -32,6 +33,9 @@ function assertTelegramResponse(data: TelegramApiResponse, errorText: string) {
 }
 
 async function sendOrderButtonMessage(botToken: string, chatId: string) {
+  const replyMarkup = getReplyMarkup();
+  if (!replyMarkup) return null;
+
   const response = await fetch(
     `https://api.telegram.org/bot${botToken}/sendMessage`,
     {
@@ -42,7 +46,7 @@ async function sendOrderButtonMessage(botToken: string, chatId: string) {
       body: JSON.stringify({
         chat_id: chatId,
         text: "🛒 Замовити товар:",
-        reply_markup: getReplyMarkup(),
+        reply_markup: replyMarkup,
       }),
     }
   );
@@ -203,7 +207,7 @@ export async function sendTelegramPost(
     form.append("video", fs.createReadStream(videoPath));
     form.append("caption", text);
     form.append("parse_mode", "HTML");
-    form.append("reply_markup", JSON.stringify(replyMarkup));
+    if (replyMarkup) form.append("reply_markup", JSON.stringify(replyMarkup));
 
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/sendVideo`,
@@ -233,7 +237,7 @@ export async function sendTelegramPost(
     form.append("photo", fs.createReadStream(allPhotos[0]));
     form.append("caption", text);
     form.append("parse_mode", "HTML");
-    form.append("reply_markup", JSON.stringify(replyMarkup));
+    if (replyMarkup) form.append("reply_markup", JSON.stringify(replyMarkup));
 
     const response = await fetch(
       `https://api.telegram.org/bot${botToken}/sendPhoto`,

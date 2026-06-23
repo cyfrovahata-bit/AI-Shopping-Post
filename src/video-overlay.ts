@@ -1,10 +1,17 @@
 import path from "path";
 import fs from "fs/promises";
+import fsSync from "fs";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import type { VideoTextOverlay } from "./ai-generator";
 
 const execFileAsync = promisify(execFile);
+
+// Шрифт відносно кореня проекту. На Windows ffmpeg приймає forward slashes.
+const FONT_PATH = path
+  .join(__dirname, "../fonts/Arial-Bold.ttf")
+  .replace(/\\/g, "/");
+const HAS_FONT = fsSync.existsSync(FONT_PATH);
 
 export type VideoStyle = "minimal" | "fashion" | "premium" | "sale";
 
@@ -40,9 +47,10 @@ const VIDEO_STYLES: Record<VideoStyle, VideoStyleConfig> = {
     borderColor: "white@0.95",
     borderWidth: 2,
     boxBorderWidth: 18,
-    topPrefix: "✦ ",
+    // Без emoji — ffmpeg не рендерить їх без спеціального шрифту
+    topPrefix: "",
     centerPrefix: "",
-    bottomPrefix: "↗ ",
+    bottomPrefix: "",
   },
   premium: {
     fontColor: "white",
@@ -50,9 +58,9 @@ const VIDEO_STYLES: Record<VideoStyle, VideoStyleConfig> = {
     borderColor: "gold@0.9",
     borderWidth: 2,
     boxBorderWidth: 20,
-    topPrefix: "PREMIUM · ",
+    topPrefix: "PREMIUM  ",
     centerPrefix: "",
-    bottomPrefix: "✦ ",
+    bottomPrefix: "",
   },
   sale: {
     fontColor: "white",
@@ -60,9 +68,9 @@ const VIDEO_STYLES: Record<VideoStyle, VideoStyleConfig> = {
     borderColor: "white@0.95",
     borderWidth: 3,
     boxBorderWidth: 20,
-    topPrefix: "SALE · ",
-    centerPrefix: "🔥 ",
-    bottomPrefix: "👉 ",
+    topPrefix: "SALE  ",
+    centerPrefix: "",
+    bottomPrefix: "",
   },
 };
 
@@ -110,9 +118,11 @@ function safeText(text: string, videoWidth: number) {
 }
 
 function getY(position: VideoTextOverlay["position"]) {
-  if (position === "top") return "h*0.16";
+  // top: нижче верхнього edge (safe zone)
+  if (position === "top") return "h*0.10";
   if (position === "center") return "(h-text_h)/2";
-  return "h*0.70";
+  // bottom: вище UI-елементів Instagram/TikTok (safe zone ~80%)
+  return "h*0.76";
 }
 
 function getFontSize(
@@ -180,8 +190,9 @@ function buildDrawTextFilter(
   const y = getY(item.position);
   const fontSize = getFontSize(item.position, videoWidth, style);
 
-  return [
-    `drawtext=text='${text}'`,
+  const parts = [`drawtext=text='${text}'`];
+  if (HAS_FONT) parts.push(`fontfile='${FONT_PATH}'`);
+  parts.push(
     `fontcolor=${styleConfig.fontColor}`,
     `fontsize=${fontSize}`,
     `box=1`,
@@ -192,8 +203,9 @@ function buildDrawTextFilter(
     `x=(w-text_w)/2`,
     `y=${y}`,
     `line_spacing=10`,
-    `enable='between(t,${item.start},${item.end})'`,
-  ].join(":");
+    `enable='between(t,${item.start},${item.end})'`
+  );
+  return parts.join(":");
 }
 
 export async function createReelsStyleVideo(input: VideoOverlayInput) {
@@ -223,6 +235,9 @@ export async function createReelsStyleVideo(input: VideoOverlayInput) {
     "veryfast",
     "-crf",
     "23",
+    // Обов'язково для Instagram/TikTok — без цього відео можуть відхилити
+    "-pix_fmt",
+    "yuv420p",
     "-c:a",
     "aac",
     "-b:a",

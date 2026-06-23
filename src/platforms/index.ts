@@ -1,6 +1,8 @@
 import { publishInstagramPost } from "../instagram";
 import { sendTelegramPost } from "../telegram";
 import { publishFacebookPost } from "../facebook";
+import { publishToShafa, mapProductToShafa } from "../shafa";
+import { SHAFA_COLORS } from "../shafa/shafa.types";
 import { PlatformId, ProductInput, PublishingPlatform } from "../platform-types";
 
 const bannedPhrases = `
@@ -193,18 +195,140 @@ ${commonRules(product)}
   };
 }
 
+export const shafaPlatform: PublishingPlatform = {
+  id: "shafa",
+  name: "Shafa.ua",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    return `
+${commonRules(product)}
+
+Ти заповнюєш картку товару для маркетплейсу Shafa.ua. Поверни ТІЛЬКИ валідний JSON без markdown і без пояснень.
+
+НАЗВА (title):
+- Довжина РІВНО 145-148 символів — після генерації ПОРАХУЙ символи і підкоригуй якщо треба
+- Обовʼязково: фасон/силует, довжину виробу, матеріал (якщо відомий), колір
+- Вкажи акцент якщо є: рукава-буфи, рукава-ліхтарики, широкі рукави, волани, рюші, складки, відкриті плечі, корсетний верх
+- Якщо розміри батал (XL+, XXL+, 3XL+, 50+) — вкажи "великий розмір" або "батал"
+- Якщо це трендова річ — додай "тренд"
+- Назва має максимально охопити пошукові запити покупця
+
+ОПИС (description):
+- Мінімум 6-8 речень, розгорнутий і детальний
+- Опиши: силует і посадку, відчуття тканини, для яких подій підходить, як поєднувати, догляд за виробом (якщо відомо), чому варто обрати саме цю річ
+- Природна мова, без кліше, без хештегів і emoji
+
+КЛЮЧОВІ СЛОВА (keywords):
+- Масив мінімум 25-30 слів/фраз — чим більше, тим краще
+- Порядок: кольори → фасони → силует → тип пошиття → акценти → тип рукава → матеріал → сезони → події → стиль → тип принту
+- Якщо батал — включи "великий розмір", "батал", "plus size"
+- Включи синоніми і варіанти написання популярних запитів
+
+КОЛЬОРИ (colors):
+- Масив з 1-2 кольорів ТІЛЬКИ з цього списку:
+${JSON.stringify([...SHAFA_COLORS])}
+
+РОЗМІРИ (sizes):
+- Масив з 2-4 підходящих розмірів із цього списку: "XХS","ХS","S","M","L","XL","XXL","XXXL","4XL","5XL","XXS-XS","XS-S","S-M","M-L","L-XL","XL-XXL","One size"
+- Базуйся на даних товару, якщо не вказано — вибери S, M, L
+
+СЕЗОНИ (seasons):
+- Масив із: "Весна", "Демісезон", "Зима", "Літо", "Осінь"
+- Будь щедрим: літня → ["Літо","Весна","Демісезон"]; зимова → ["Зима","Осінь","Демісезон"]
+
+ДОВЖИНА РУКАВА (sleeveLength):
+- ТІЛЬКИ одне з: "Без рукавів", "Довгий", "Короткий", "Три чверті", або null
+
+ФАСОН РУКАВА (sleeveStyle):
+- Масив із: "Рукави буфи", "Рукави ліхтарики", "Широкі рукави"
+- [] якщо рукав звичайний або відсутній
+
+ОСОБЛИВОСТІ (features):
+- Масив із: "Великі розміри", "Коктейльні", "На випускний", "Пишні"
+- [] якщо не підходить
+
+МАТЕРІАЛИ (materials):
+- Масив матеріалів з опису товару; [] якщо невідомо
+
+СИЛУЕТ (silhouette) — вибір з переліку:
+- Масив значень. Точні назви: "Вільні", "З відкритими плечима", "З відкритою спиною", "Обтислі", "Оверсайз", "Приталені", "Прямі", "Розкльошені", "Трапеція"
+- Вибери все що підходить до виробу на фото
+
+ФАСОН (fashionCut) — вибір з переліку (для категорії Плаття):
+- Масив. Точні назви: "На запах", "Плаття-гольф", "Плаття-кімоно", "Плаття-комбінезон", "Плаття-майка", "Плаття-піджак", "Плаття-поло", "Плаття-светр", "Плаття-сорочка", "Плаття-трапеція", "Плаття-туніка", "Плаття-футболка", "Плаття-футляр", "Плаття-халат", "Плаття-худі"
+- Вибери відповідно до виробу
+
+ПРИНТ (print) — вибір з переліку:
+- Масив ТІЛЬКИ якщо є реальний принт. Точні назви: "Квітковий", "У горох", "У смужку", "У клітинку", "Абстракція", "Тваринний", "Геометричний", "Зебра", "Леопардовий", "Камуфляж", "Малюнок", "Напис", "Аніме", "Новорічний", "Український"
+- [] якщо виріб ОДНОТОННИЙ — не вказуй нічого
+
+СТИЛЬ (style) — вибір з переліку:
+- Масив всіх підходящих стилів. Точні назви: "Повсякденний", "Діловий", "Святковий", "Вечірній", "Романтичний", "Бохо", "Вінтажний", "Готичний", "Класичний", "Спортивний"
+
+ДЕКОР (decor) — вибір з переліку:
+- Одне значення. Якщо без декору: "Без декору". Точні назви: "Мереживо", "Паєтки", "Вишивка", "Стрази", "Оборки", "Люрекс", "Рюши", "Пір'я", "Бахрома", "Волани", "Ґудзики", "Бант", "Зав'язки"
+
+ОСОБЛИВОСТІ МОДЕЛІ (modelFeatures) — вибір з переліку:
+- Масив деталей крою/конструкції. Точні назви: "З декольте", "На бретельках", "З розрізом на нозі", "З поясом", "З кишенями", "З капюшоном", "З коміром", "З корсетом", "На ґудзиках", "На змійці", "На резинці", "На шнурівці", "В рубчик", "В'язані", "Без застібки", "Плісе"
+
+Поверни JSON:
+{
+  "title": "...",
+  "description": "...",
+  "keywords": ["...", ...],
+  "colors": ["..."],
+  "sizes": ["S", "M", "L"],
+  "seasons": ["..."],
+  "sleeveLength": "..." або null,
+  "sleeveStyle": ["..."],
+  "features": ["..."],
+  "materials": ["..."],
+  "silhouette": ["..."],
+  "fashionCut": ["..."],
+  "print": [],
+  "style": ["..."],
+  "decor": "...",
+  "modelFeatures": ["..."]
+}
+`.trim();
+  },
+  async publish({ product, text, photoPaths, extras }) {
+    const shafaProduct = mapProductToShafa(product, text);
+    shafaProduct.imagePaths = photoPaths.length ? photoPaths : shafaProduct.imagePaths;
+
+    // Поля, які задає користувач вручну в preview
+    if (extras) {
+      if (extras.brand)         shafaProduct.brand         = String(extras.brand);
+      if (extras.condition)     shafaProduct.condition     = extras.condition as typeof shafaProduct.condition;
+      if (extras.madeInUkraine) shafaProduct.madeInUkraine = extras.madeInUkraine as typeof shafaProduct.madeInUkraine;
+      if (extras.sleeveLength)  shafaProduct.sleeveLength  = String(extras.sleeveLength);
+      if (Array.isArray(extras.seasons) && extras.seasons.length) {
+        shafaProduct.seasons = extras.seasons as string[];
+      } else if (typeof extras.season === "string" && extras.season) {
+        shafaProduct.seasons = [extras.season];
+      }
+      if (Array.isArray(extras.categoryPath) && extras.categoryPath.length) {
+        shafaProduct.categoryPath = extras.categoryPath as string[];
+      }
+    }
+
+    const result = await publishToShafa(shafaProduct);
+    return { externalPostId: result.externalPostId };
+  },
+};
+
 export const platforms: Record<PlatformId, PublishingPlatform> = {
   telegram: telegramPlatform,
   instagram: instagramPlatform,
   facebook: facebookPlatform,
+  shafa: shafaPlatform,
   viber: createFuturePlatform("viber", "Viber"),
   prom: createFuturePlatform("prom", "Prom"),
   rozetka: createFuturePlatform("rozetka", "Rozetka"),
   olx: createFuturePlatform("olx", "OLX"),
-  shafa: createFuturePlatform("shafa", "Shafa.ua"),
-}; 
+};
 
-export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook"];
+export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "shafa"];
 
 export function getPlatform(id: PlatformId) {
   const platform = platforms[id];

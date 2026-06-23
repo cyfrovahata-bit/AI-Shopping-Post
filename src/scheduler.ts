@@ -3,6 +3,25 @@ import { PlatformId, ProductInput } from "./platform-types";
 
 type Db = any;
 
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  baseDelayMs = 5000
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, baseDelayMs * attempt));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function getProductInput(db: Db, productId: number): Promise<ProductInput> {
   const product = await db.get(`SELECT * FROM products WHERE id = ?`, [productId]);
   const images = await db.all(
@@ -49,7 +68,7 @@ async function prepareVideoForPublishing(product: ProductInput) {
   };
 }
 
-export async function publishPlatformPost(db: Db, postId: number) {
+export async function publishPlatformPost(db: Db, postId: number, extras?: Record<string, unknown>) {
   const post = await db.get(`SELECT * FROM platform_posts WHERE id = ?`, [postId]);
 
   if (!post) {
@@ -74,14 +93,20 @@ export async function publishPlatformPost(db: Db, postId: number) {
   try {
     const preparedVideo = await prepareVideoForPublishing(product);
 
-    const result = await platform.publish({
-      product,
-      text: post.text,
-      photoPaths: product.photoPaths,
-      imageUrls: product.imageUrls,
-      videoPath: preparedVideo.videoPath,
-      videoUrl: preparedVideo.videoUrl,
-    });
+    const result = await withRetry(
+      () =>
+        platform.publish({
+          product,
+          text: post.text,
+          photoPaths: product.photoPaths,
+          imageUrls: product.imageUrls,
+          videoPath: preparedVideo.videoPath,
+          videoUrl: preparedVideo.videoUrl,
+          extras,
+        }),
+      3,
+      4000
+    );
 
     const publishedAt = new Date().toISOString();
 

@@ -573,7 +573,10 @@ async function startServer() {
         );
       }
 
-      const result = await publishPlatformPost(db, id);
+      const extras = req.body.extras && typeof req.body.extras === "object"
+        ? req.body.extras as Record<string, unknown>
+        : undefined;
+      const result = await publishPlatformPost(db, id, extras);
       const platformPost = await db.get(`SELECT * FROM platform_posts WHERE id = ?`, [
         id,
       ]);

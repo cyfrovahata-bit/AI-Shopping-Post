@@ -55,7 +55,145 @@ const platformNames = {
   telegram: "Telegram",
   instagram: "Instagram",
   facebook: "Facebook",
+  shafa: "Shafa.ua",
 };
+
+const SHAFA_CATEGORY_PRESETS = [
+  { label: "Сукні міді",        path: ["Жіночий одяг", "Плаття", "Сукні міді"] },
+  { label: "Міні-сукні",        path: ["Жіночий одяг", "Плаття", "Міні-сукні"] },
+  { label: "Максі-сукні",       path: ["Жіночий одяг", "Плаття", "Максі-сукні"] },
+  { label: "Блузи та сорочки",  path: ["Жіночий одяг", "Блузи та сорочки", "Блузи"] },
+  { label: "Топи",              path: ["Жіночий одяг", "Топи та футболки", "Топи"] },
+  { label: "Футболки",          path: ["Жіночий одяг", "Топи та футболки", "Футболки"] },
+  { label: "Светри",            path: ["Жіночий одяг", "Светри та кардигани", "Светри"] },
+  { label: "Куртки",            path: ["Жіночий одяг", "Верхній одяг", "Куртки"] },
+  { label: "Пальта",            path: ["Жіночий одяг", "Верхній одяг", "Пальта"] },
+  { label: "Спідниці міді",     path: ["Жіночий одяг", "Спідниці", "Міді"] },
+  { label: "Джинси",            path: ["Жіночий одяг", "Штани та шорти", "Джинси"] },
+  { label: "Штани",             path: ["Жіночий одяг", "Штани та шорти", "Штани"] },
+];
+
+// Дані Shafa-полів, які вводить користувач вручну
+let shafaExtras = {
+  brand: "",
+  categoryPath: ["Жіночий одяг", "Плаття", "Сукні міді"],
+  condition: "Новий",
+  season: "",
+  sleeveLength: "",
+  madeInUkraine: "",
+};
+
+function renderShafaExtras() {
+  const catMatch = SHAFA_CATEGORY_PRESETS.findIndex(
+    p => JSON.stringify(p.path) === JSON.stringify(shafaExtras.categoryPath)
+  );
+  return `
+    <div class="shafa-extras">
+      <h4 style="margin:16px 0 10px;font-size:13px;color:#666;text-transform:uppercase;letter-spacing:.5px">
+        Додаткові поля для Shafa.ua
+      </h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <label style="grid-column:1/-1">
+          Категорія (швидкий вибір)
+          <select id="shafaCategoryPreset" style="width:100%">
+            <option value="-1">— обрати шаблон —</option>
+            ${SHAFA_CATEGORY_PRESETS.map((p, i) =>
+              `<option value="${i}" ${catMatch === i ? "selected" : ""}>${p.label}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          Розділ 1
+          <input type="text" id="shafaCat1" value="${escapeHtml(shafaExtras.categoryPath[0] || "")}" placeholder="Жіночий одяг">
+        </label>
+        <label>
+          Розділ 2
+          <input type="text" id="shafaCat2" value="${escapeHtml(shafaExtras.categoryPath[1] || "")}" placeholder="Плаття">
+        </label>
+        <label style="grid-column:1/-1">
+          Розділ 3 (підкатегорія)
+          <input type="text" id="shafaCat3" value="${escapeHtml(shafaExtras.categoryPath[2] || "")}" placeholder="Сукні міді">
+        </label>
+        <label>
+          Бренд (необов'язково)
+          <input type="text" id="shafaBrand" value="${escapeHtml(shafaExtras.brand)}" placeholder="Zara, H&M, No name...">
+        </label>
+        <label>
+          Стан
+          <select id="shafaCondition">
+            ${["Новий","Ідеальний","Дуже хороший","Хороший","Задовільний"].map(v =>
+              `<option value="${v}" ${shafaExtras.condition === v ? "selected" : ""}>${v}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          Сезон
+          <select id="shafaSeason">
+            <option value="">— не вказано</option>
+            ${["Весна","Демісезон","Зима","Літо","Осінь"].map(v =>
+              `<option value="${v}" ${shafaExtras.season === v ? "selected" : ""}>${v}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          Довжина рукава
+          <select id="shafaSleeveLength">
+            <option value="">— не вказано</option>
+            ${["Без рукавів","Довгий","Короткий","Три чверті"].map(v =>
+              `<option value="${v}" ${shafaExtras.sleeveLength === v ? "selected" : ""}>${v}</option>`
+            ).join("")}
+          </select>
+        </label>
+        <label>
+          Зроблено в Україні
+          <select id="shafaMadeInUkraine">
+            <option value="">— ні</option>
+            ${["Виробництво","Хендмейд"].map(v =>
+              `<option value="${v}" ${shafaExtras.madeInUkraine === v ? "selected" : ""}>${v}</option>`
+            ).join("")}
+          </select>
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function syncShafaExtras() {
+  const preset   = document.getElementById("shafaCategoryPreset");
+  const cat1     = document.getElementById("shafaCat1");
+  const cat2     = document.getElementById("shafaCat2");
+  const cat3     = document.getElementById("shafaCat3");
+  const brand    = document.getElementById("shafaBrand");
+  const cond     = document.getElementById("shafaCondition");
+  const season   = document.getElementById("shafaSeason");
+  const sleeve   = document.getElementById("shafaSleeveLength");
+  const ukraine  = document.getElementById("shafaMadeInUkraine");
+
+  if (preset) {
+    preset.addEventListener("change", () => {
+      const idx = Number(preset.value);
+      if (idx >= 0 && SHAFA_CATEGORY_PRESETS[idx]) {
+        const path = SHAFA_CATEGORY_PRESETS[idx].path;
+        if (cat1) cat1.value = path[0] || "";
+        if (cat2) cat2.value = path[1] || "";
+        if (cat3) cat3.value = path[2] || "";
+        shafaExtras.categoryPath = [...path];
+      }
+    });
+  }
+
+  [cat1, cat2, cat3].forEach((el, i) => {
+    el?.addEventListener("input", () => {
+      shafaExtras.categoryPath[i] = el.value;
+    });
+  });
+
+  brand?.addEventListener("input",  () => { shafaExtras.brand          = brand.value; });
+  cond?.addEventListener("change",  () => { shafaExtras.condition      = cond.value; });
+  season?.addEventListener("change",() => { shafaExtras.season         = season.value; });
+  sleeve?.addEventListener("change",() => { shafaExtras.sleeveLength   = sleeve.value; });
+  ukraine?.addEventListener("change",()=> { shafaExtras.madeInUkraine  = ukraine.value; });
+}
 
 let currentProduct = null;
 let currentImages = [];
@@ -272,6 +410,8 @@ function renderPlatformEditor() {
         : escapeHtml(post.text).replace(/\n/g, "<br>")}
     </div>
 
+    ${post.platform === "shafa" ? renderShafaExtras() : ""}
+
     <div class="schedule-row">
       <label>
         Дата і час
@@ -285,6 +425,9 @@ function renderPlatformEditor() {
       <button type="button" class="btn primary schedule-platform">Запланувати</button>
     </div>
   `;
+
+  // Підключаємо listeners для Shafa-полів після рендеру
+  if (post.platform === "shafa") syncShafaExtras();
 }
 
 function renderPreview() {
@@ -390,7 +533,10 @@ async function publishPost(post) {
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ text: post.text }),
+    body: JSON.stringify({
+      text: post.text,
+      ...(post.platform === "shafa" ? { extras: shafaExtras } : {}),
+    }),
   });
   const data = await response.json();
 

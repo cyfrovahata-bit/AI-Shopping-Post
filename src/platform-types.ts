@@ -58,6 +58,7 @@ export interface PublishingPlatform {
     imageUrls: string[];
     videoPath?: string;
     videoUrl?: string;
+    extras?: Record<string, unknown>;
   }): Promise<{
     externalPostId?: string;
     externalChatId?: string;

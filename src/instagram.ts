@@ -1,5 +1,7 @@
 import fetch from "node-fetch";
 
+const GRAPH_API = "https://graph.facebook.com/v25.0";
+
 export function cleanInstagramCaption(text: string) {
   return text
     .replace(/<br\s*\/?>/gi, "\n")
@@ -58,7 +60,7 @@ async function createInstagramMediaContainer(params: URLSearchParams) {
   const userId = process.env.INSTAGRAM_USER_ID;
 
   const createRes = await fetch(
-    `https://graph.facebook.com/v25.0/${userId}/media`,
+    `${GRAPH_API}/${userId}/media`,
     {
       method: "POST",
       body: params,
@@ -80,7 +82,7 @@ async function publishInstagramContainer(creationId: string) {
   const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
 
   const publishRes = await fetch(
-    `https://graph.facebook.com/v25.0/${userId}/media_publish`,
+    `${GRAPH_API}/${userId}/media_publish`,
     {
       method: "POST",
       body: new URLSearchParams({
