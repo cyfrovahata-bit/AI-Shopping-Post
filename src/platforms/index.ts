@@ -3,6 +3,8 @@ import { sendTelegramPost } from "../telegram";
 import { publishFacebookPost } from "../facebook";
 import { publishToShafa, mapProductToShafa } from "../shafa";
 import { publishPromPost } from "../prom";
+import { publishOlxPost } from "../olx";
+import { publishRozetkaPost } from "../rozetka";
 import { SHAFA_COLORS } from "../shafa/shafa.types";
 import { PlatformId, ProductInput, PublishingPlatform } from "../platform-types";
 
@@ -327,26 +329,98 @@ const promPlatform: PublishingPlatform = {
     return `
 ${commonRules(product)}
 
-Ти публікуєш товар на маркетплейсі Prom.ua. Покупці шукають товари через пошук — заголовок і ключові слова критично важливі для видимості.
+Ти публікуєш товар на маркетплейсі Prom.ua. Покупці шукають товари через пошук — заголовок, ключові слова та атрибути критично важливі для видимості.
 
 Правила для Prom.ua:
 - Назва товару: до 120 символів, точна і пошуко-орієнтована. Включи: тип товару, колір, матеріал, стиль.
 - Опис: детальний, 150-400 слів. Можна використовувати HTML (абзаци <p>, списки <ul><li>). Опиши переваги, склад, розміри, догляд.
 - Ключові слова: 15-25 слів через кому. Включи синоніми, суміжні запити, розміри.
-- Категорія: вибери найточнішу назву категорії Prom.ua для цього товару.
+- Кольори: список кольорів товару з фото (українською).
+- Розміри: список розмірів в наявності (XS/S/M/L/XL або 42/44/46...).
+- Матеріали: список матеріалів/тканин.
+- Сезони: список із [Весна, Літо, Осінь, Зима] — підходящі для цього товару.
+- Стиль: список із [Повсякденний, Діловий, Святковий, Вечірній, Романтичний, Бохо, Вінтажний, Класичний, Спортивний].
 
-Поверни тільки JSON:
+Поверни тільки JSON (без markdown):
 {
   "title": "назва до 120 символів",
   "description": "<p>HTML-опис...</p>",
   "keywords": "ключове1, ключове2, ...",
   "categoryName": "Жіночі сукні",
-  "categoryId": null
+  "colors": ["чорний", "молочний"],
+  "sizes": ["S", "M", "L", "XL"],
+  "materials": ["льон", "бавовна"],
+  "seasons": ["Весна", "Літо"],
+  "style": ["Повсякденний", "Романтичний"]
 }
 `.trim();
   },
   async publish({ product, text, photoPaths, imageUrls, extras }) {
     return publishPromPost({ product, text, photoPaths, imageUrls, extras });
+  },
+};
+
+const olxPlatform: PublishingPlatform = {
+  id: "olx",
+  name: "OLX",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    return `
+${commonRules(product)}
+
+Ти публікуєш оголошення на OLX.ua. Це дошка оголошень — покупці шукають через пошук і фільтри.
+
+Правила для OLX:
+- Назва: до 70 символів, конкретна і пошукова. Тип товару + колір + матеріал + розмір.
+- Опис: 100-300 слів, неформальний і живий. Без зайвих заголовків. Стан товару — новий.
+- Ключові слова: 10-15 слів через кому.
+- Кольори, розміри, матеріали — списками.
+
+Поверни тільки JSON (без markdown):
+{
+  "title": "назва до 70 символів",
+  "description": "опис оголошення...",
+  "keywords": "ключове1, ключове2, ...",
+  "colors": ["чорний"],
+  "sizes": ["S", "M", "L"],
+  "materials": ["льон"]
+}
+`.trim();
+  },
+  async publish({ product, text, photoPaths, imageUrls, extras }) {
+    return publishOlxPost({ product, text, photoPaths, imageUrls, extras });
+  },
+};
+
+const rozеtkaPlatform: PublishingPlatform = {
+  id: "rozetka",
+  name: "Rozetka",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    return `
+${commonRules(product)}
+
+Ти публікуєш товар на Rozetka.ua — найбільший маркетплейс України. Покупці шукають через пошук і порівнюють характеристики.
+
+Правила для Rozetka:
+- Назва: до 255 символів, точна. Бренд/тип + матеріал + колір + розмір.
+- Опис: детальний, 200-500 слів, HTML. Абзаци <p>, списки <ul><li>. Склад тканини, догляд, розміри.
+- Ключові слова: 15-20 слів через кому.
+- Кольори, розміри, матеріали — списками.
+
+Поверни тільки JSON (без markdown):
+{
+  "title": "назва до 255 символів",
+  "description": "<p>HTML-опис...</p>",
+  "keywords": "ключове1, ключове2, ...",
+  "colors": ["чорний", "молочний"],
+  "sizes": ["S", "M", "L", "XL"],
+  "materials": ["льон", "бавовна"]
+}
+`.trim();
+  },
+  async publish({ product, text, photoPaths, imageUrls, extras }) {
+    return publishRozetkaPost({ product, text, photoPaths, imageUrls, extras });
   },
 };
 
@@ -356,12 +430,12 @@ export const platforms: Record<PlatformId, PublishingPlatform> = {
   facebook: facebookPlatform,
   shafa: shafaPlatform,
   prom: promPlatform,
+  olx: olxPlatform,
+  rozetka: rozеtkaPlatform,
   viber: createFuturePlatform("viber", "Viber"),
-  rozetka: createFuturePlatform("rozetka", "Rozetka"),
-  olx: createFuturePlatform("olx", "OLX"),
 };
 
-export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "shafa", "prom"];
+export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "shafa", "prom", "olx", "rozetka"];
 
 export function getPlatform(id: PlatformId) {
   const platform = platforms[id];

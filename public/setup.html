@@ -171,6 +171,16 @@
           <span>Prom.ua</span>
           <span class="conn-dot" id="dot-prom"></span>
         </button>
+        <button class="tab-btn" onclick="switchTab('olx')" id="tab-olx">
+          <span class="tab-icon">🟢</span>
+          <span>OLX</span>
+          <span class="conn-dot" id="dot-olx"></span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('rozetka')" id="tab-rozetka">
+          <span class="tab-icon">🌹</span>
+          <span>Rozetka</span>
+          <span class="conn-dot" id="dot-rozetka"></span>
+        </button>
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -618,13 +628,160 @@
             <div class="step">
               <div class="step-left">
                 <div class="step-num" id="prom-s3">3</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">📂 Вибери категорію за замовчуванням (рекомендовано)</div>
+                <div class="step-desc">Якщо у тебе магазин одного типу товарів — задай категорію один раз. AI також намагається підібрати категорію сам на основі фото.</div>
+                <div class="field">
+                  <label>Пошук категорії</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="prom-cat-search" placeholder="Жіночі сукні..." oninput="promCatSearch()" autocomplete="off" />
+                    <button class="btn ghost" onclick="promCatSearch()">Знайти</button>
+                  </div>
+                </div>
+                <div id="prom-cat-results" style="display:none;max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid var(--border);border-radius:8px"></div>
+                <div id="prom-cat-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:13px"></div>
+                <div class="hint">Не обов'язково — якщо не задати, товари потраплять у категорію яку підбере AI.</div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="prom-s4">4</div>
               </div>
               <div class="step-body">
                 <div class="step-title">✅ Готово — товари публікуватимуться на Prom.ua!</div>
                 <div class="step-desc">
-                  Після збереження токена — вибери «Prom.ua» у формі публікації на головній сторінці.
-                  AI згенерує назву, опис і ключові слова оптимізовані для пошуку на Prom.<br><br>
-                  <span style="color:var(--text2)">Фото завантажуються автоматично з твого комп'ютера. Якщо завантаження не вийде — потрібна публічна адреса сайту (SITE_URL у вкладці Instagram).</span>
+                  Вибери «Prom.ua» у формі публікації. AI заповнить: назву, опис, ключові слова, кольори, розміри, матеріали, сезонність, стиль.<br><br>
+                  <span style="color:var(--text2)">Фото завантажуються автоматично з комп'ютера. Якщо не вийде — потрібна публічна SITE_URL (вкладка Instagram).</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: OLX                                                               -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-olx">
+        <div class="card">
+          <div id="olx-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left"><div class="step-num active" id="olx-s1">1</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🏗 Зареєструй додаток на OLX Developer Portal</div>
+                <div class="step-desc">OLX використовує OAuth 2.0 — потрібен застосунок для отримання API-ключів.</div>
+                <div class="info-box">
+                  <b>Як зареєструвати:</b>
+                  <ol>
+                    <li>Відкрий <a href="https://developer.olx.ua" target="_blank" style="color:var(--accent)">developer.olx.ua</a></li>
+                    <li>Увійди у свій акаунт OLX</li>
+                    <li>Створи новий Application</li>
+                    <li>У Redirect URI додай: <code id="olx-redirect-uri" style="user-select:all">http://localhost:3000/auth/olx/callback</code></li>
+                    <li>Скопіюй <b>Client ID</b> і <b>Client Secret</b></li>
+                  </ol>
+                </div>
+                <a href="https://developer.olx.ua" target="_blank" class="btn primary">Відкрити OLX Developer →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="olx-s2">2</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🔑 Введи Client ID і Client Secret</div>
+                <div class="field">
+                  <label>Client ID</label>
+                  <input type="text" id="olx-client-id" placeholder="Client ID з Developer Portal" autocomplete="off" oninput="olxCredChanged()" />
+                </div>
+                <div class="field">
+                  <label>Client Secret</label>
+                  <input type="password" id="olx-client-secret" placeholder="Client Secret" autocomplete="off" oninput="olxCredChanged()" />
+                </div>
+                <div id="olx-cred-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="olx-cred-err-text"></span></div>
+                <button class="btn secondary" id="olx-cred-save-btn" onclick="olxSaveCredentials()" disabled>Зберегти і підключити OLX →</button>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="olx-s3">3</div></div>
+              <div class="step-body">
+                <div class="step-title">✅ Готово — оголошення публікуватимуться на OLX!</div>
+                <div class="step-desc">
+                  AI заповнить назву, опис і ключові слова під стиль OLX-оголошень.
+                  Фото завантажуються автоматично.
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: ROZETKA                                                           -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-rozetka">
+        <div class="card">
+          <div id="rozetka-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left"><div class="step-num active" id="rozetka-s1">1</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🤝 Підключись як продавець Rozetka</div>
+                <div class="step-desc">Rozetka — закритий маркетплейс. Для отримання API потрібно підписати партнерський договір з Rozetka.</div>
+                <div class="info-box">
+                  <b>Як підключитись:</b>
+                  <ol>
+                    <li>Відкрий <a href="https://seller.rozetka.com.ua" target="_blank" style="color:var(--accent)">seller.rozetka.com.ua</a> і подай заявку</li>
+                    <li>Після затвердження — отримаєш логін і пароль продавця</li>
+                    <li>Введи їх нижче — API-токен буде отримано автоматично</li>
+                  </ol>
+                </div>
+                <a href="https://seller.rozetka.com.ua" target="_blank" class="btn primary">Стати продавцем Rozetka →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="rozetka-s2">2</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🔑 Введи логін і пароль продавця</div>
+                <div class="field">
+                  <label>Логін (email)</label>
+                  <input type="email" id="rozetka-login" placeholder="seller@email.com" autocomplete="off" oninput="rozetkaCredChanged()" />
+                </div>
+                <div class="field">
+                  <label>Пароль</label>
+                  <input type="password" id="rozetka-password" placeholder="Пароль від seller.rozetka.com.ua" autocomplete="off" oninput="rozetkaCredChanged()" />
+                </div>
+                <div id="rozetka-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="rozetka-err-text"></span></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="btn secondary" id="rozetka-save-btn" onclick="rozеtkaSave()" disabled>Зберегти</button>
+                  <button class="btn ghost" id="rozetka-verify-btn" onclick="rozetkaVerify()" style="display:none">Перевірити</button>
+                </div>
+                <div id="rozetka-verify-res" style="display:none;margin-top:8px"></div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="rozetka-s3">3</div></div>
+              <div class="step-body">
+                <div class="step-title">✅ Готово — товари публікуватимуться на Rozetka!</div>
+                <div class="step-desc">
+                  AI заповнить детальну назву, HTML-опис, ключові слова, кольори, розміри і матеріали — все що потрібно для каталогу Rozetka.
                 </div>
               </div>
             </div>
@@ -1102,6 +1259,54 @@ async function promSave() {
   }
 }
 
+let promCatSearchTimer = null;
+function promCatSearch() {
+  clearTimeout(promCatSearchTimer);
+  promCatSearchTimer = setTimeout(async () => {
+    const q = document.getElementById("prom-cat-search").value.trim();
+    const box = document.getElementById("prom-cat-results");
+    if (q.length < 2) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Шукаємо...</div>";
+    const d = await fetch(`/api/prom/categories?q=${encodeURIComponent(q)}`).then(r => r.json());
+    if (!d.categories?.length) {
+      box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Нічого не знайдено</div>";
+      return;
+    }
+    box.innerHTML = d.categories.map(c =>
+      `<div onclick="promSelectCategory(${c.id}, '${c.fullName.replace(/'/g,"\\'")}', '${c.name.replace(/'/g,"\\'")}')
+           style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px"
+           onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <b>${c.name}</b><br><span style="color:var(--text2);font-size:11px">${c.fullName}</span>
+      </div>`
+    ).join("");
+  }, 350);
+}
+
+async function promSelectCategory(id, fullName, name) {
+  document.getElementById("prom-cat-results").style.display = "none";
+  document.getElementById("prom-cat-search").value = "";
+  const selectedDiv = document.getElementById("prom-cat-selected");
+  selectedDiv.style.display = "block";
+  selectedDiv.innerHTML = `<b>Категорія:</b> ${fullName} <button class="btn ghost" style="padding:2px 8px;margin-left:8px;font-size:11px" onclick="promClearCategory()">✕</button>`;
+  const r = await fetch("/api/prom/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ categoryId: id, categoryName: fullName }),
+  }).then(r => r.json());
+  if (r.success) {
+    selectedDiv.innerHTML += " <span style='color:#3fb950;font-size:12px'>✓ збережено</span>";
+    markDone("prom-s3");
+  }
+}
+
+function promClearCategory() {
+  fetch("/api/prom/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ categoryId: 0, categoryName: "" }),
+  });
+  document.getElementById("prom-cat-selected").style.display = "none";
+}
+
 async function promVerify() {
   const res = document.getElementById("prom-verify-res");
   const panel = document.getElementById("prom-verify-panel");
@@ -1119,6 +1324,153 @@ async function promVerify() {
   }
 }
 
+// ── OLX ──────────────────────────────────────────────────────────────────
+
+async function loadOlxStatus() {
+  const s = await fetch("/api/olx/status").then(r => r.json());
+  const box = document.getElementById("olx-status");
+  // Show correct redirect URI
+  const redirectUri = `${location.origin}/auth/olx/callback`;
+  const uriEl = document.getElementById("olx-redirect-uri");
+  if (uriEl) uriEl.textContent = redirectUri;
+
+  if (s.connected) {
+    setDot("olx", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body"><strong>OLX підключено</strong>
+        ${s.name ? `<div class="detail" style="color:var(--text2)">Акаунт: ${s.name}</div>` : ""}
+        <div class="status-actions"><button class="btn ghost" onclick="olxReconnect()">Переп'єднати</button></div>
+      </div>`;
+    ["olx-s1","olx-s2","olx-s3"].forEach(markDone);
+  } else if (s.hasCredentials) {
+    setDot("olx", "yellow");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body"><strong>Є дані але не підключено</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || "Потрібна авторизація"}</div>
+        <div class="status-actions"><button class="btn secondary" onclick="olxReconnect()">Підключити OLX →</button></div>
+      </div>`;
+    markDone("olx-s1"); markDone("olx-s2");
+  } else {
+    setDot("olx", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>OLX не підключено</strong>
+        <div class="detail" style="color:var(--text2)">Виконай кроки нижче.</div></div>`;
+  }
+}
+
+function olxCredChanged() {
+  const id = document.getElementById("olx-client-id").value.trim();
+  const secret = document.getElementById("olx-client-secret").value.trim();
+  document.getElementById("olx-cred-save-btn").disabled = !(id && secret);
+}
+
+async function olxSaveCredentials() {
+  const clientId = document.getElementById("olx-client-id").value.trim();
+  const clientSecret = document.getElementById("olx-client-secret").value.trim();
+  const btn = document.getElementById("olx-cred-save-btn");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/olx/save-credentials", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, clientSecret }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти і підключити OLX →";
+  if (r.success) {
+    window.location.href = "/auth/olx";
+  } else {
+    const err = document.getElementById("olx-cred-err");
+    err.style.display = "flex";
+    document.getElementById("olx-cred-err-text").textContent = r.message;
+  }
+}
+
+function olxReconnect() { window.location.href = "/auth/olx"; }
+
+// ── ROZETKA ───────────────────────────────────────────────────────────────
+
+async function loadRozetkaStatus() {
+  const s = await fetch("/api/rozetka/status").then(r => r.json());
+  const box = document.getElementById("rozetka-status");
+  if (s.connected) {
+    setDot("rozetka", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body"><strong>Rozetka підключено</strong>
+        ${s.shopName ? `<div class="detail" style="color:var(--text2)">Магазин: ${s.shopName}</div>` : ""}
+        <div class="status-actions"><button class="btn ghost" onclick="rozetkaVerify()">Перевірити</button></div>
+        <div id="rozetka-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
+      </div>`;
+    ["rozetka-s1","rozetka-s2","rozetka-s3"].forEach(markDone);
+    document.getElementById("rozetka-verify-btn").style.display = "";
+  } else if (s.hasCredentials) {
+    setDot("rozetka", "yellow");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body"><strong>Дані збережено, але не авторизовано</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || ""}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="rozetkaVerify()">Спробувати підключитись</button></div>
+      </div>`;
+    markDone("rozetka-s1"); markDone("rozetka-s2");
+  } else {
+    setDot("rozetka", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Rozetka не підключено</strong>
+        <div class="detail" style="color:var(--text2)">Введи логін і пароль на кроці 2.</div></div>`;
+  }
+}
+
+function rozetkaCredChanged() {
+  const login = document.getElementById("rozetka-login").value.trim();
+  const pwd = document.getElementById("rozetka-password").value.trim();
+  document.getElementById("rozetka-save-btn").disabled = !(login && pwd);
+  document.getElementById("rozetka-verify-btn").style.display = (login && pwd) ? "" : "none";
+}
+
+async function rozеtkaSave() {
+  const login = document.getElementById("rozetka-login").value.trim();
+  const password = document.getElementById("rozetka-password").value.trim();
+  const btn = document.getElementById("rozetka-save-btn");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/rozetka/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ login, password }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти";
+  if (r.success) {
+    document.getElementById("rozetka-verify-btn").style.display = "";
+    await rozetkaVerify();
+  } else {
+    const err = document.getElementById("rozetka-err");
+    err.style.display = "flex";
+    document.getElementById("rozetka-err-text").textContent = r.message;
+  }
+}
+
+async function rozetkaVerify() {
+  const res = document.getElementById("rozetka-verify-res");
+  const panel = document.getElementById("rozetka-verify-panel");
+  const target = res || panel;
+  if (target) {
+    target.style.display = "block";
+    target.textContent = "Підключаємось до Rozetka...";
+  }
+  const d = await fetch("/api/rozetka/verify", { method: "POST" }).then(r => r.json());
+  if (target) {
+    if (d.ok) {
+      target.innerHTML = `<div class="verify-badge ok">✅ Підключено! ${d.shopName ? "Магазин: " + d.shopName : ""}</div>`;
+      markDone("rozetka-s2"); markDone("rozetka-s3");
+      setDot("rozetka", "green");
+    } else {
+      target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
+      setDot("rozetka", "red");
+    }
+  }
+  await loadRozetkaStatus();
+}
+
 // ── init ─────────────────────────────────────────────────────────────────
 
 // Handle redirect params from OAuth
@@ -1134,6 +1486,14 @@ function handleUrlParams() {
     showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${decodeURIComponent(p.get("fbError"))}`, "err");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
+  if (p.get("olxSuccess")) {
+    showGlobalAlert("✅ <b>OLX підключено!</b> Тепер можна публікувати оголошення.", "ok");
+    window.history.replaceState({}, "", "/setup.html?tab=olx");
+  }
+  if (p.get("olxError")) {
+    showGlobalAlert(`❌ <b>Помилка OLX:</b> ${decodeURIComponent(p.get("olxError"))}`, "err");
+    window.history.replaceState({}, "", "/setup.html?tab=olx");
+  }
   const tab = p.get("tab") || "fb";
   switchTab(tab);
   handleFbPageChoose();
@@ -1141,7 +1501,7 @@ function handleUrlParams() {
 
 (async () => {
   handleUrlParams();
-  await Promise.all([loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus(), loadPromStatus()]);
+  await Promise.all([loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus()]);
 })();
 </script>
 </body>

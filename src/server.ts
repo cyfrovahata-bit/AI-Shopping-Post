@@ -1071,6 +1071,96 @@ async function startServer() {
     res.json(result);
   });
 
+  app.get("/api/prom/categories", async (req: Request, res: Response) => {
+    const { promSearchCategories } = await import("./prom");
+    const q = String(req.query.q || "");
+    if (!q || q.length < 2) return res.json({ categories: [] });
+    const cats = await promSearchCategories(q);
+    res.json({ categories: cats });
+  });
+
+  app.post("/api/prom/set-default-category", (req: Request, res: Response) => {
+    const { categoryId, categoryName } = req.body as { categoryId: number; categoryName: string };
+    if (!categoryId) return res.status(400).json({ success: false, message: "categoryId required" });
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ PROM_DEFAULT_CATEGORY_ID: String(categoryId), PROM_DEFAULT_CATEGORY_NAME: categoryName || "" });
+    res.json({ success: true });
+  });
+
+  // ── OLX ─────────────────────────────────────────────────────────────────────
+
+  app.get("/api/olx/status", async (_req: Request, res: Response) => {
+    const { olxTestConnection } = await import("./olx");
+    const hasToken = !!process.env.OLX_ACCESS_TOKEN;
+    const hasCredentials = !!(process.env.OLX_CLIENT_ID && process.env.OLX_CLIENT_SECRET);
+    if (!hasToken) return res.json({ connected: false, hasToken: false, hasCredentials });
+    const result = await olxTestConnection();
+    res.json({ connected: result.ok, hasToken, hasCredentials, name: result.name, error: result.error });
+  });
+
+  app.post("/api/olx/save-credentials", (req: Request, res: Response) => {
+    const { clientId, clientSecret } = req.body as { clientId: string; clientSecret: string };
+    if (!clientId || !clientSecret) return res.status(400).json({ success: false, message: "Потрібні Client ID і Client Secret" });
+    const { writeEnvVars } = require("./facebook-auth");
+    const siteUrl = process.env.SITE_URL || "http://localhost:3000";
+    writeEnvVars({
+      OLX_CLIENT_ID: clientId,
+      OLX_CLIENT_SECRET: clientSecret,
+      OLX_REDIRECT_URI: `${siteUrl}/auth/olx/callback`,
+    });
+    res.json({ success: true });
+  });
+
+  app.get("/auth/olx", (_req: Request, res: Response) => {
+    const { getOlxAuthUrl } = require("./olx");
+    const url = getOlxAuthUrl();
+    res.redirect(url);
+  });
+
+  app.get("/auth/olx/callback", async (req: Request, res: Response) => {
+    const { code, error } = req.query as { code?: string; error?: string };
+    if (error || !code) {
+      return res.redirect(`/setup.html?tab=olx&olxError=${encodeURIComponent(error || "no code")}`);
+    }
+    try {
+      const { completeOlxOAuth } = await import("./olx");
+      await completeOlxOAuth(code);
+      res.redirect("/setup.html?tab=olx&olxSuccess=1");
+    } catch (e) {
+      res.redirect(`/setup.html?tab=olx&olxError=${encodeURIComponent((e as Error).message)}`);
+    }
+  });
+
+  // ── ROZETKA ───────────────────────────────────────────────────────────────────
+
+  app.get("/api/rozetka/status", async (_req: Request, res: Response) => {
+    const { rozetkaTestConnection } = await import("./rozetka");
+    const hasToken = !!process.env.ROZETKA_ACCESS_TOKEN;
+    const hasCredentials = !!(process.env.ROZETKA_LOGIN && process.env.ROZETKA_PASSWORD);
+    if (!hasToken && !hasCredentials) return res.json({ connected: false, hasToken: false, hasCredentials: false });
+    const result = await rozetkaTestConnection();
+    res.json({ connected: result.ok, hasToken, hasCredentials, shopName: result.shopName, error: result.error });
+  });
+
+  app.post("/api/rozetka/save", (req: Request, res: Response) => {
+    const { login, password } = req.body as { login: string; password: string };
+    if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін і пароль" });
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ ROZETKA_LOGIN: login, ROZETKA_PASSWORD: password });
+    res.json({ success: true });
+  });
+
+  app.post("/api/rozetka/verify", async (_req: Request, res: Response) => {
+    try {
+      const { rozetkaLogin, rozetkaTestConnection } = await import("./rozetka");
+      await rozetkaLogin();
+      const result = await rozetkaTestConnection();
+      res.json(result);
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+
   // ── End Facebook OAuth ──────────────────────────────────────────────────────
 
   app.listen(PORT, () => {

@@ -10,18 +10,9 @@ interface PromPhoto {
   base64_name?: string;
 }
 
-interface PromProductInput {
+interface PromAttribute {
   name: string;
-  description: string;
-  price: number;
-  currency: "UAH";
-  keywords: string;
-  categoryId?: number;
-  photos: PromPhoto[];
-  status: "on_display" | "draft";
-  presence: "available" | "not_available" | "order";
-  sku?: string;
-  quantity?: number;
+  value: string;
 }
 
 interface PromApiProduct {
@@ -36,6 +27,7 @@ interface PromApiProduct {
   presence: string;
   sku?: string;
   quantity?: number;
+  attributes?: PromAttribute[];
 }
 
 function getToken() {
@@ -64,7 +56,20 @@ export async function promTestConnection(): Promise<{ ok: boolean; shopName?: st
   }
 }
 
-// Convert local file path to base64 for Prom upload
+// Search categories by name keyword
+export async function promSearchCategories(query: string): Promise<{ id: number; name: string; fullName: string }[]> {
+  try {
+    const r = await fetch(`${API_BASE}/categories/list`, { headers: headers() as any });
+    const d = await r.json() as any;
+    if (!d.categories) return [];
+    const q = query.toLowerCase();
+    return (d.categories as any[])
+      .filter(c => (c.full_name || c.name || "").toLowerCase().includes(q))
+      .slice(0, 20)
+      .map(c => ({ id: c.id, name: c.name, fullName: c.full_name || c.name }));
+  } catch { return []; }
+}
+
 function fileToBase64(filePath: string): { base64_data: string; base64_name: string } | null {
   try {
     const data = fs.readFileSync(filePath);
@@ -78,15 +83,12 @@ function fileToBase64(filePath: string): { base64_data: string; base64_name: str
 
 function buildPhotos(photoPaths: string[], imageUrls: string[], siteUrl: string): PromPhoto[] {
   const photos: PromPhoto[] = [];
-
-  // Prefer local files (base64) if available, else use public URLs
   for (let i = 0; i < Math.min(photoPaths.length, 10); i++) {
     const localPath = photoPaths[i];
     if (localPath && fs.existsSync(localPath)) {
       const b64 = fileToBase64(localPath);
       if (b64) { photos.push(b64); continue; }
     }
-    // Fallback: construct public URL
     if (siteUrl && imageUrls[i]) {
       const url = imageUrls[i].startsWith("http")
         ? imageUrls[i]
@@ -94,70 +96,129 @@ function buildPhotos(photoPaths: string[], imageUrls: string[], siteUrl: string)
       photos.push({ url });
     }
   }
-
-  // If no local files, use URLs only
   if (!photos.length) {
     for (const url of imageUrls.slice(0, 10)) {
-      const full = siteUrl && !url.startsWith("http")
-        ? `${siteUrl.replace(/\/$/, "")}${url}`
-        : url;
+      const full = siteUrl && !url.startsWith("http") ? `${siteUrl.replace(/\/$/, "")}${url}` : url;
       if (full.startsWith("http")) photos.push({ url: full });
     }
   }
-
   return photos;
 }
 
-export async function publishToProm(input: PromProductInput): Promise<{ externalPostId: string }> {
+// Build attributes array from product data
+function buildAttributes(ai: Record<string, unknown>, product: import("./platform-types").ProductInput): PromAttribute[] {
+  const attrs: PromAttribute[] = [];
+
+  // Colors
+  const colors: string[] = Array.isArray(ai.colors)
+    ? (ai.colors as string[])
+    : product.colors ? product.colors.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
+  if (colors.length) attrs.push({ name: "Колір", value: colors.join(", ") });
+
+  // Sizes
+  const sizes: string[] = Array.isArray(ai.sizes)
+    ? (ai.sizes as string[])
+    : product.sizes ? product.sizes.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
+  if (sizes.length) attrs.push({ name: "Розмір", value: sizes.join(", ") });
+
+  // Material/fabric
+  const materials: string[] = Array.isArray(ai.materials)
+    ? (ai.materials as string[])
+    : product.fabric ? product.fabric.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
+  if (materials.length) attrs.push({ name: "Матеріал", value: materials.join(", ") });
+
+  // Season
+  const seasons: string[] = Array.isArray(ai.seasons) ? (ai.seasons as string[]) : [];
+  if (seasons.length) attrs.push({ name: "Сезон", value: seasons.join(", ") });
+
+  // Style
+  const styles: string[] = Array.isArray(ai.style) ? (ai.style as string[]) : [];
+  if (styles.length) attrs.push({ name: "Стиль", value: styles.join(", ") });
+
+  // Country
+  attrs.push({ name: "Країна виробник", value: "Україна" });
+
+  return attrs;
+}
+
+// Build rich HTML description
+function buildDescription(ai: Record<string, unknown>, product: import("./platform-types").ProductInput): string {
+  const base = typeof ai.description === "string" ? ai.description : product.description || product.title;
+
+  const sizes = Array.isArray(ai.sizes) ? (ai.sizes as string[]) : product.sizes?.split(/[,;]/).map(s => s.trim()) || [];
+  const materials = Array.isArray(ai.materials) ? (ai.materials as string[]) : product.fabric ? [product.fabric] : [];
+  const colors = Array.isArray(ai.colors) ? (ai.colors as string[]) : product.colors?.split(/[,;]/).map(s => s.trim()) || [];
+
+  let html = `<p>${base}</p>`;
+
+  if (materials.length || colors.length || sizes.length) {
+    html += `<br><p><strong>Характеристики:</strong></p><ul>`;
+    if (colors.length)    html += `<li>Колір: ${colors.join(", ")}</li>`;
+    if (materials.length) html += `<li>Матеріал: ${materials.join(", ")}</li>`;
+    if (sizes.length)     html += `<li>Розміри в наявності: ${sizes.join(", ")}</li>`;
+    html += `</ul>`;
+  }
+
+  if (product.description && base !== product.description) {
+    html += `<p>${product.description}</p>`;
+  }
+
+  html += `<p><strong>Виробництво:</strong> Україна</p>`;
+
+  return html;
+}
+
+export async function publishToProm(opts: {
+  name: string;
+  description: string;
+  price: number;
+  keywords: string;
+  categoryId?: number;
+  photos: PromPhoto[];
+  attributes: PromAttribute[];
+  sku?: string;
+  quantity: number;
+}): Promise<{ externalPostId: string }> {
   const token = getToken();
   if (!token) throw new Error("PROM_API_TOKEN не задано у .env");
 
   const product: PromApiProduct = {
-    name: input.name.slice(0, 120),
-    description: input.description,
-    price: input.price,
+    name: opts.name.slice(0, 120),
+    description: opts.description,
+    price: opts.price,
     currency: "UAH",
-    keywords: input.keywords,
-    photos: input.photos,
-    status: input.status,
-    presence: input.presence,
+    keywords: opts.keywords,
+    photos: opts.photos,
+    status: "on_display",
+    presence: "available",
+    quantity: opts.quantity,
+    attributes: opts.attributes,
   };
 
-  if (input.categoryId) product.category_id = input.categoryId;
-  if (input.sku) product.sku = input.sku;
-  if (input.quantity != null) product.quantity = input.quantity;
-
-  const body = JSON.stringify({ products: [product] });
+  if (opts.categoryId) product.category_id = opts.categoryId;
+  if (opts.sku) product.sku = opts.sku;
 
   const r = await fetch(`${API_BASE}/products/edit_list`, {
     method: "POST",
     headers: headers() as any,
-    body,
+    body: JSON.stringify({ products: [product] }),
   });
 
   const data = await r.json() as any;
 
   if (!r.ok || data.errors?.length) {
     const errMsg = data.errors?.[0] || data.error_message || data.message || `HTTP ${r.status}`;
-    throw new Error(`Prom API помилка: ${errMsg}`);
+    throw new Error(`Prom API помилка: ${JSON.stringify(errMsg)}`);
   }
 
-  const created = data.processed_ids?.[0] ?? data.ids?.[0];
-  const productId = String(created || "created");
-  const url = created ? `https://prom.ua/p${productId}` : "https://my.prom.ua/cms/product/list";
+  const createdId = data.processed_ids?.[0] ?? data.ids?.[0];
+  const url = createdId
+    ? `https://my.prom.ua/cms/product/list`
+    : "https://my.prom.ua/cms/product/list";
 
   return { externalPostId: url };
 }
 
-// Fetch top-level categories for clothing section (for UI display)
-export async function promGetCategories(): Promise<{ id: number; name: string }[]> {
-  const r = await fetch(`${API_BASE}/categories/list`, { headers: headers() as any });
-  const d = await r.json() as any;
-  if (!d.categories) return [];
-  return (d.categories as any[]).map(c => ({ id: c.id, name: c.full_name || c.name }));
-}
-
-// Main entry: map ProductInput → publish
 export async function publishPromPost(opts: {
   product: import("./platform-types").ProductInput;
   text: string;
@@ -168,7 +229,7 @@ export async function publishPromPost(opts: {
   const { product, text, photoPaths, imageUrls, extras } = opts;
   const siteUrl = process.env.SITE_URL || "";
 
-  // Parse AI JSON
+  // Parse AI JSON (handle markdown code blocks and prefix text)
   let ai: Record<string, unknown> = {};
   try {
     const m = text.match(/```(?:json)?\s*([\s\S]+?)```/i);
@@ -179,17 +240,23 @@ export async function publishPromPost(opts: {
   }
 
   const title = typeof ai.title === "string" ? ai.title : product.title;
-  const description = typeof ai.description === "string" ? ai.description : text;
+  const description = buildDescription(ai, product);
   const keywords = Array.isArray(ai.keywords)
     ? (ai.keywords as string[]).join(", ")
-    : (product.title + (product.colors ? ", " + product.colors : ""));
+    : [product.title, product.colors, product.fabric].filter(Boolean).join(", ");
 
   const price = parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0;
   const photos = buildPhotos(photoPaths, imageUrls, siteUrl);
+  const attributes = buildAttributes(ai, product);
 
+  // Category: from extras (user pick) → from AI → from env default
   const categoryId = extras?.categoryId
     ? Number(extras.categoryId)
-    : (typeof ai.categoryId === "number" ? ai.categoryId : undefined);
+    : typeof ai.categoryId === "number"
+      ? ai.categoryId
+      : process.env.PROM_DEFAULT_CATEGORY_ID
+        ? Number(process.env.PROM_DEFAULT_CATEGORY_ID)
+        : undefined;
 
   const sku = typeof product.model === "string" && product.model ? product.model : undefined;
 
@@ -197,12 +264,10 @@ export async function publishPromPost(opts: {
     name: title,
     description,
     price,
-    currency: "UAH",
     keywords,
     categoryId,
     photos,
-    status: "on_display",
-    presence: "available",
+    attributes,
     sku,
     quantity: 10,
   });
