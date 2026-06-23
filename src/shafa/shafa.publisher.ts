@@ -506,9 +506,8 @@ async function fillShafaForm(page: Page, product: ShafaProduct) {
   await page.goto("https://shafa.ua/uk/new", { waitUntil: "domcontentloaded", timeout: 90000 });
   await humanPause(3000);
   console.log(`[Shafa] After goto /uk/new — url: ${page.url()}`);
-  await page.screenshot({ path: "/data/shafa-debug-new-page.png", fullPage: false }).catch(() =>
-    page.screenshot({ path: "shafa-debug-new-page.png", fullPage: false }).catch(() => {})
-  );
+  const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
+  await page.screenshot({ path: `${debugDir}/shafa-debug-new-page.png`, fullPage: false }).catch(() => {});
 
   await dismissModals(page);
   await uploadImages(page, product.imagePaths);
@@ -580,9 +579,8 @@ async function loginToShafa(
   await page.goto("https://shafa.ua/uk/login", { waitUntil: "domcontentloaded" });
   await humanPause(2000);
   console.log(`[Shafa] Login page url: ${page.url()}`);
-  await page.screenshot({ path: "/data/shafa-debug-login.png" }).catch(() =>
-    page.screenshot({ path: "shafa-debug-login.png" }).catch(() => {})
-  );
+  const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
+  await page.screenshot({ path: `${debugDir}/shafa-debug-login.png` }).catch(() => {});
 
   // Try multiple login field selectors
   const loginInput = page.locator('input[placeholder*="логін"], input[placeholder*="логин"], input[type="email"], input[name="login"], input[name="email"]').first();
@@ -597,9 +595,7 @@ async function loginToShafa(
   await page.getByRole("button", { name: /Увійти|Войти/i }).click();
   await page.waitForTimeout(6000);
   console.log(`[Shafa] After login url: ${page.url()}`);
-  await page.screenshot({ path: "/data/shafa-debug-after-login.png" }).catch(() =>
-    page.screenshot({ path: "shafa-debug-after-login.png" }).catch(() => {})
-  );
+  await page.screenshot({ path: `${debugDir}/shafa-debug-after-login.png` }).catch(() => {});
   await saveSession(context, sessionPath);
 }
 
@@ -640,10 +636,12 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     await page.evaluate("document.body.click()");
     await humanPause(500);
 
-    // Скріншот перед сабмітом для діагностики
-    await page.screenshot({ path: "shafa-before-submit.png", fullPage: true }).catch(() => {});
+    const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
 
-    // Натискаємо "Додати річ" — force:true щоб обійти sticky toolbar
+    // Скріншот перед сабмітом
+    await page.screenshot({ path: `${debugDir}/shafa-before-submit.png`, fullPage: true }).catch(() => {});
+
+    // Натискаємо "Додати річ"
     const btn = page.getByRole("button", { name: /Додати річ|Добавить вещь/i });
     const btnCount = await btn.count();
     console.log(`[Shafa] Submit btn count: ${btnCount}, url: ${page.url()}`);
@@ -663,15 +661,38 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
         return null;
       })()`);
       console.log("[Shafa] JS submit btn:", jsFound);
+      if (!jsFound) throw new Error("Кнопка 'Додати річ' не знайдена на сторінці");
     }
-    await page.waitForTimeout(8000);
 
-    // Save updated session (Shafa may refresh cookies during the session)
+    // Чекаємо переходу на сторінку опублікованого товару
+    // Shafa після успішної публікації редиректить на /uk/item/... або /uk/closet
+    let finalUrl = page.url();
+    try {
+      await page.waitForURL(
+        url => url.toString().includes("/item/") || url.toString().includes("/closet") || url.toString().includes("/profile"),
+        { timeout: 30000 }
+      );
+      finalUrl = page.url();
+      console.log(`[Shafa] Success! Redirected to: ${finalUrl}`);
+    } catch {
+      // URL не змінився — перевіримо помилки на сторінці
+      finalUrl = page.url();
+      console.log(`[Shafa] No redirect after 30s, current url: ${finalUrl}`);
+
+      const errorText = await page.locator('[class*="error"], [class*="Error"], .alert, [role="alert"]').first().textContent().catch(() => "");
+      await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
+
+      if (errorText) throw new Error(`Shafa показала помилку: ${errorText.trim()}`);
+      if (finalUrl.includes("/new") || finalUrl.includes("/edit")) {
+        throw new Error("Форма не відправилась — сторінка не змінилась після сабміту");
+      }
+    }
+
+    // Save updated session
     await saveSession(context, sessionPath).catch(() => {});
 
-    await page.screenshot({ path: "shafa-after-submit.png", fullPage: true }).catch(() => {});
-    const url = page.url();
-    return { externalPostId: url };
+    await page.screenshot({ path: `${debugDir}/shafa-after-submit.png`, fullPage: true }).catch(() => {});
+    return { externalPostId: finalUrl };
   } finally {
     await browser.close();
   }
