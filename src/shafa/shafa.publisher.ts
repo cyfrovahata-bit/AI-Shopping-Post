@@ -596,7 +596,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
   const password = process.env.SHAFA_PASSWORD;
   if (!email || !password) throw new Error("SHAFA_EMAIL або SHAFA_PASSWORD не задані в .env");
 
-  const sessionPath = process.env.SHAFA_SESSION_PATH || "./shafa-session.json";
+  const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
   const browser = await chromium.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
