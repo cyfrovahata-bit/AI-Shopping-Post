@@ -637,6 +637,16 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
 
   const page = await context.newPage();
 
+  // Block images, fonts, media — saves RAM and speeds up page loads
+  await page.route("**/*", (route) => {
+    const type = route.request().resourceType();
+    if (type === "image" || type === "font" || type === "media") {
+      route.abort();
+    } else {
+      route.continue();
+    }
+  });
+
   try {
     if (!(await isAuthorized(page))) {
       await loginToShafa(page, context, sessionPath, email, password);
