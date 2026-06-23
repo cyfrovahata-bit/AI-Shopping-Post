@@ -1028,10 +1028,21 @@ async function startServer() {
   app.post("/api/shafa/save", (req: Request, res: Response) => {
     const { email, password } = req.body as { email?: string; password?: string };
     if (!email || !password) return res.status(400).json({ success: false, message: "Потрібні email та пароль" });
-    if (!email.includes("@")) return res.status(400).json({ success: false, message: "Невірний формат email" });
     const { writeEnvVars } = require("./facebook-auth");
     writeEnvVars({ SHAFA_EMAIL: email, SHAFA_PASSWORD: password });
     res.json({ success: true });
+  });
+
+  app.get("/api/shafa/debug-screenshot", (req: Request, res: Response) => {
+    const name = String(req.query.name || "shafa-debug-new-page");
+    const candidates = [
+      `/data/${name}.png`,
+      `./${name}.png`,
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return res.sendFile(path.resolve(p));
+    }
+    res.status(404).json({ error: "Скріншот не знайдено", tried: candidates });
   });
 
   // ── Site URL ───────────────────────────────────────────────────────────────

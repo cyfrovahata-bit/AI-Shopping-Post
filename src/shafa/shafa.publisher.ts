@@ -503,8 +503,12 @@ async function fillPrice(page: Page, price: string) {
 // ─── Основний потік ───────────────────────────────────────────────────────
 
 async function fillShafaForm(page: Page, product: ShafaProduct) {
-  await page.goto("https://shafa.ua/uk/new", { waitUntil: "networkidle", timeout: 90000 });
-  await humanPause(2000);
+  await page.goto("https://shafa.ua/uk/new", { waitUntil: "domcontentloaded", timeout: 90000 });
+  await humanPause(3000);
+  console.log(`[Shafa] After goto /uk/new — url: ${page.url()}`);
+  await page.screenshot({ path: "/data/shafa-debug-new-page.png", fullPage: false }).catch(() =>
+    page.screenshot({ path: "shafa-debug-new-page.png", fullPage: false }).catch(() => {})
+  );
 
   await dismissModals(page);
   await uploadImages(page, product.imagePaths);
@@ -573,14 +577,29 @@ async function loginToShafa(
   page: Page, context: BrowserContext,
   sessionPath: string, email: string, password: string
 ) {
-  await page.goto("https://shafa.ua/uk/login", { waitUntil: "networkidle" });
-  await humanPause(800);
-  await page.locator('input[placeholder*="логін"], input[placeholder*="логин"]').fill(email);
+  await page.goto("https://shafa.ua/uk/login", { waitUntil: "domcontentloaded" });
+  await humanPause(2000);
+  console.log(`[Shafa] Login page url: ${page.url()}`);
+  await page.screenshot({ path: "/data/shafa-debug-login.png" }).catch(() =>
+    page.screenshot({ path: "shafa-debug-login.png" }).catch(() => {})
+  );
+
+  // Try multiple login field selectors
+  const loginInput = page.locator('input[placeholder*="логін"], input[placeholder*="логин"], input[type="email"], input[name="login"], input[name="email"]').first();
+  await loginInput.waitFor({ timeout: 15000 });
+  await loginInput.fill(email);
   await humanPause(500);
-  await page.locator('input[placeholder*="пароль"]').fill(password);
+
+  const passwordInput = page.locator('input[placeholder*="пароль"], input[type="password"]').first();
+  await passwordInput.fill(password);
   await humanPause(700);
+
   await page.getByRole("button", { name: /Увійти|Войти/i }).click();
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(6000);
+  console.log(`[Shafa] After login url: ${page.url()}`);
+  await page.screenshot({ path: "/data/shafa-debug-after-login.png" }).catch(() =>
+    page.screenshot({ path: "shafa-debug-after-login.png" }).catch(() => {})
+  );
   await saveSession(context, sessionPath);
 }
 
