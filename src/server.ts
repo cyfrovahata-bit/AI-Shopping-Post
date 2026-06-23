@@ -989,21 +989,48 @@ async function startServer() {
   // ── Telegram setup ─────────────────────────────────────────────────────────
 
   app.get("/api/telegram/status", async (_req: Request, res: Response) => {
-    const token = process.env.TELEGRAM_BOT_TOKEN;
-    if (!token) return res.json({ connected: false });
+    const token = process.env.BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token) return res.json({ connected: false, hasChatId: !!chatId });
     try {
       const r = await fetch(`https://api.telegram.org/bot${token}/getMe`);
       const d = await r.json() as any;
-      if (d.ok) res.json({ connected: true, username: d.result.username });
-      else res.json({ connected: false });
-    } catch { res.json({ connected: false }); }
+      if (d.ok) res.json({ connected: true, username: d.result.username, firstName: d.result.first_name, hasChatId: !!chatId, chatId });
+      else res.json({ connected: false, hasChatId: !!chatId, error: d.description });
+    } catch (e) { res.json({ connected: false, hasChatId: !!chatId }); }
   });
 
-  app.post("/api/telegram/save-token", (req: Request, res: Response) => {
-    const { token } = req.body as { token: string };
-    if (!token || !token.includes(":")) return res.status(400).json({ success: false, message: "Невірний формат токена" });
+  app.post("/api/telegram/save", (req: Request, res: Response) => {
+    const { token, chatId } = req.body as { token?: string; chatId?: string };
+    if (token && !token.includes(":")) return res.status(400).json({ success: false, message: "Невірний формат токена — має бути: 1234567890:ABCdef..." });
     const { writeEnvVars } = require("./facebook-auth");
-    writeEnvVars({ TELEGRAM_BOT_TOKEN: token });
+    const vars: Record<string,string> = {};
+    if (token) vars.BOT_TOKEN = token;
+    if (chatId) vars.TELEGRAM_CHAT_ID = chatId;
+    writeEnvVars(vars);
+    res.json({ success: true });
+  });
+
+  // ── Shafa setup ───────────────────────────────────────────────────────────
+
+  app.get("/api/shafa/status", (_req: Request, res: Response) => {
+    const email = process.env.SHAFA_EMAIL;
+    const password = process.env.SHAFA_PASSWORD;
+    const sessionPath = process.env.SHAFA_SESSION_PATH || "./shafa-session.json";
+    let sessionValid = false;
+    try {
+      const s = JSON.parse(fs.readFileSync(sessionPath, "utf8"));
+      sessionValid = Array.isArray(s) && s.length > 0;
+    } catch { /**/ }
+    res.json({ hasCredentials: !!(email && password), email: email || "", sessionValid });
+  });
+
+  app.post("/api/shafa/save", (req: Request, res: Response) => {
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) return res.status(400).json({ success: false, message: "Потрібні email та пароль" });
+    if (!email.includes("@")) return res.status(400).json({ success: false, message: "Невірний формат email" });
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ SHAFA_EMAIL: email, SHAFA_PASSWORD: password });
     res.json({ success: true });
   });
 

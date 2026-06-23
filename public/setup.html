@@ -6,84 +6,123 @@
   <title>Налаштування — AI Post</title>
   <link rel="stylesheet" href="/style.css" />
   <style>
-    /* ── layout ── */
-    .setup-wrap   { max-width: 660px; margin: 0 auto; padding: 0 16px 64px; }
-    .setup-section{ margin-bottom: 28px; }
+    /* ── page layout ── */
+    .setup-wrap { max-width: 680px; margin: 0 auto; padding: 0 16px 80px; }
+
+    /* ── tabs ── */
+    .tabs-bar {
+      display: flex; gap: 4px; margin-bottom: 24px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 6px;
+    }
+    .tab-btn {
+      flex: 1; padding: 9px 4px; border-radius: 8px; border: none;
+      background: transparent; color: var(--text2); cursor: pointer;
+      font-size: 13px; font-weight: 600; display: flex; flex-direction: column;
+      align-items: center; gap: 3px; transition: background .15s, color .15s;
+    }
+    .tab-btn .tab-icon { font-size: 20px; }
+    .tab-btn.active { background: var(--bg3); color: var(--text); }
+    .tab-btn .conn-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--border);
+    }
+    .tab-btn .conn-dot.green { background: #2ea043; }
+    .tab-btn .conn-dot.yellow { background: #e3b341; }
+    .tab-btn .conn-dot.red { background: #cf222e; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 
     /* ── steps ── */
-    .steps        { counter-reset: step; display: flex; flex-direction: column; gap: 0; }
-    .step         { display: flex; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border); position: relative; }
-    .step:last-child { border-bottom: none; }
-    .step-marker  { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-    .step-num     { width: 32px; height: 32px; border-radius: 50%; background: var(--bg3); border: 2px solid var(--border);
-                    color: var(--text2); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+    .steps { display: flex; flex-direction: column; }
+    .step  { display: flex; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+    .step:last-child { border-bottom: none; padding-bottom: 0; }
+    .step-left { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .step-num  {
+      width: 30px; height: 30px; border-radius: 50%; font-weight: 700; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      background: var(--bg3); border: 2px solid var(--border); color: var(--text2);
+    }
     .step-num.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .step-num.done   { background: #2ea043; border-color: #2ea043; color: #fff; }
-    .step-line    { width: 2px; flex: 1; min-height: 16px; background: var(--border); margin-top: 4px; }
+    .step-line { width: 2px; flex: 1; min-height: 12px; background: var(--border); margin-top: 4px; }
     .step:last-child .step-line { display: none; }
-    .step-body    { flex: 1; padding-top: 4px; }
-    .step-title   { font-size: 16px; font-weight: 600; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
-    .step-desc    { font-size: 13px; color: var(--text2); margin: 0 0 14px; line-height: 1.55; }
+    .step-body { flex: 1; padding-top: 3px; }
+    .step-title { font-size: 15px; font-weight: 700; margin: 0 0 5px; }
+    .step-desc  { font-size: 13px; color: var(--text2); margin: 0 0 12px; line-height: 1.6; }
 
     /* ── info boxes ── */
-    .info-box     { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
-                    font-size: 13px; color: var(--text2); margin-bottom: 14px; }
-    .info-box b   { color: var(--text); }
-    .info-box ul  { margin: 6px 0 0 16px; padding: 0; }
-    .info-box li  { margin-bottom: 4px; }
-    .copy-box     { display: flex; align-items: center; gap: 8px; background: var(--bg3); border-radius: 8px;
-                    padding: 10px 14px; font-family: monospace; font-size: 13px; margin-bottom: 12px; }
-    .copy-box span{ flex: 1; word-break: break-all; color: var(--accent); }
-    .copy-btn     { flex-shrink: 0; font-size: 12px; padding: 4px 10px; }
+    .info-box {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 13px 16px; font-size: 13px; color: var(--text2); margin-bottom: 12px;
+    }
+    .info-box b { color: var(--text); }
+    .info-box ol, .info-box ul { margin: 6px 0 0 18px; padding: 0; line-height: 1.65; }
+    .info-box li { margin-bottom: 3px; }
+    .info-box code {
+      background: var(--bg3); padding: 1px 5px; border-radius: 4px;
+      font-size: 12px; color: var(--accent);
+    }
 
-    /* ── status ── */
-    .status-panel { border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;
-                    border: 1px solid var(--border); background: var(--bg2); }
-    .status-panel.connected { border-color: #2ea043; background: rgba(46,160,67,.07); }
-    .status-panel.partial   { border-color: #e3b341; background: rgba(227,179,65,.07); }
-    .status-row   { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 14px; }
-    .status-row:last-child { margin-bottom: 0; }
-    .dot          { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .dot.green    { background: #2ea043; }
-    .dot.yellow   { background: #e3b341; }
-    .dot.red      { background: #cf222e; }
-    .dot.grey     { background: var(--border); }
+    /* ── status panel ── */
+    .status-panel {
+      border-radius: 12px; padding: 16px 18px; margin-bottom: 20px;
+      border: 1px solid var(--border); background: var(--bg2);
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .status-panel.ok     { border-color: #2ea043; background: rgba(46,160,67,.07); }
+    .status-panel.warn   { border-color: #e3b341; background: rgba(227,179,65,.07); }
+    .status-panel.error  { border-color: #cf222e; background: rgba(207,34,46,.07); }
+    .status-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+    .status-body { flex: 1; font-size: 13px; }
+    .status-body strong  { display: block; font-size: 14px; margin-bottom: 4px; }
+    .status-body .detail { color: var(--text2); margin-bottom: 2px; }
+    .status-body .detail b { color: var(--text); }
+    .status-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+    /* ── copy row ── */
+    .copy-row {
+      display: flex; align-items: center; gap: 8px; background: var(--bg3);
+      border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+      margin-bottom: 12px;
+    }
+    .copy-row span { flex: 1; font-family: monospace; font-size: 12px; color: var(--accent); word-break: break-all; }
+    .copy-row button { flex-shrink: 0; font-size: 11px; padding: 4px 10px; }
+
+    /* ── form fields ── */
+    .field   { margin-bottom: 12px; }
+    .field label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .06em; color: var(--text2); margin-bottom: 5px; }
+    .field input { width: 100%; box-sizing: border-box; }
+    .field .hint { font-size: 11px; color: var(--text2); margin-top: 4px; }
+    .field-row { display: flex; gap: 8px; }
+    .field-row .field { flex: 1; margin-bottom: 0; }
+    .grid-2  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
     /* ── alerts ── */
-    .alert        { border-radius: 10px; padding: 14px 16px; font-size: 14px; margin-bottom: 16px; display: flex; gap: 10px; }
-    .alert-ok     { background: rgba(46,160,67,.12); border: 1px solid #2ea043; color: #3fb950; }
-    .alert-err    { background: rgba(207,34,46,.1); border: 1px solid #cf222e; color: #f85149; }
-    .alert-warn   { background: rgba(227,179,65,.1); border: 1px solid #e3b341; color: #d29922; }
-    .alert-icon   { font-size: 18px; flex-shrink: 0; }
-    .alert-text   b { display: block; margin-bottom: 2px; }
-
-    /* ── form ── */
-    .field-group  { margin-bottom: 14px; }
-    .field-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .05em; }
-    .field-group input { width: 100%; box-sizing: border-box; }
-    .field-hint   { font-size: 11px; color: var(--text2); margin-top: 4px; }
-    .row-2        { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
-    /* ── pages chooser ── */
-    .pages-grid   { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-    .page-card    { background: var(--bg3); border: 1.5px solid var(--border); border-radius: 10px;
-                    padding: 14px 16px; cursor: pointer; text-align: left; color: var(--text); }
-    .page-card:hover { border-color: var(--accent); }
-    .page-card strong { display: block; font-size: 15px; margin-bottom: 2px; }
-    .page-card small  { color: var(--text2); font-size: 12px; }
+    .alert {
+      border-radius: 10px; padding: 12px 14px; font-size: 13px;
+      margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;
+    }
+    .alert-ok   { background: rgba(46,160,67,.1); border: 1px solid #2ea043; color: #3fb950; }
+    .alert-err  { background: rgba(207,34,46,.08); border: 1px solid #cf222e; color: #f85149; }
+    .alert-warn { background: rgba(227,179,65,.08); border: 1px solid #e3b341; color: #d29922; }
+    .alert .aico { font-size: 16px; flex-shrink: 0; }
+    .alert b { display: block; margin-bottom: 2px; }
 
     /* ── verify badge ── */
-    .verify-result { display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
-                     padding: 6px 12px; border-radius: 20px; margin-top: 10px; }
-    .verify-result.ok  { background: rgba(46,160,67,.15); color: #3fb950; }
-    .verify-result.err { background: rgba(207,34,46,.1); color: #f85149; }
+    .verify-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 20px; font-size: 13px; margin-top: 8px;
+    }
+    .verify-badge.ok  { background: rgba(46,160,67,.12); color: #3fb950; }
+    .verify-badge.err { background: rgba(207,34,46,.08); color: #f85149; }
 
-    /* ── divider ── */
-    .section-hdr  { display: flex; align-items: center; gap: 10px; margin: 32px 0 16px; }
-    .section-hdr hr { flex: 1; border: none; border-top: 1px solid var(--border); }
-    .section-hdr span { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; white-space: nowrap; }
-
-    @media (max-width: 520px) { .row-2 { grid-template-columns: 1fr; } }
+    @media (max-width: 500px) {
+      .tab-btn { font-size: 11px; }
+      .tab-btn .tab-icon { font-size: 17px; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -103,216 +142,403 @@
   <div class="page-body">
     <div class="setup-wrap">
 
-      <!-- Global alert -->
-      <div id="globalAlert" class="hidden"></div>
+      <div id="globalAlert" style="display:none" class="alert"></div>
 
-      <!-- ════════════════════════ FACEBOOK & INSTAGRAM ════════════════════════ -->
-      <div class="section-hdr"><hr><span>📘 Facebook та Instagram</span><hr></div>
-
-      <!-- Status panel -->
-      <div id="fbStatusPanel" class="status-panel">
-        <div style="color:var(--text2);font-size:13px">Перевіряємо з'єднання...</div>
+      <!-- Tab bar -->
+      <div class="tabs-bar">
+        <button class="tab-btn active" onclick="switchTab('fb')" id="tab-fb">
+          <span class="tab-icon">📘</span>
+          <span>Facebook</span>
+          <span class="conn-dot" id="dot-fb"></span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('tg')" id="tab-tg">
+          <span class="tab-icon">✈️</span>
+          <span>Telegram</span>
+          <span class="conn-dot" id="dot-tg"></span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('ig')" id="tab-ig">
+          <span class="tab-icon">📸</span>
+          <span>Instagram</span>
+          <span class="conn-dot" id="dot-ig"></span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('shafa')" id="tab-shafa">
+          <span class="tab-icon">🛍️</span>
+          <span>Shafa.ua</span>
+          <span class="conn-dot" id="dot-shafa"></span>
+        </button>
       </div>
 
-      <!-- Steps -->
-      <div class="card setup-section">
-        <div class="steps">
-
-          <!-- ── Step 1 ── -->
-          <div class="step">
-            <div class="step-marker">
-              <div class="step-num active" id="s1">1</div>
-              <div class="step-line"></div>
-            </div>
-            <div class="step-body">
-              <div class="step-title">🏗 Створи додаток на Facebook</div>
-              <div class="step-desc">
-                Facebook вимагає зареєструвати «додаток» щоб отримати доступ до публікації.
-                Це безкоштовно і займає ~5 хвилин. Робиш це лише один раз назавжди.
-              </div>
-
-              <div class="info-box">
-                <b>Що робити крок за кроком:</b>
-                <ul>
-                  <li>Відкрий <a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a></li>
-                  <li>Натисни зелену кнопку <b>«Create App»</b> (Створити додаток)</li>
-                  <li>Вибери тип <b>«Other»</b> → далі <b>«Consumer»</b></li>
-                  <li>Введи будь-яку назву (наприклад <i>«My Shop Bot»</i>) і натисни <b>«Create App»</b></li>
-                  <li>Після створення відкриється панель. Зліва натисни <b>«Settings»</b> → <b>«Basic»</b></li>
-                  <li>Скопіюй <b>App ID</b> і <b>App Secret</b> — вони знадобляться на кроці 3</li>
-                </ul>
-              </div>
-
-              <a href="https://developers.facebook.com/apps/create/" target="_blank" class="btn primary">
-                Відкрити Meta Developer Portal →
-              </a>
-            </div>
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: FACEBOOK                                                         -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel active" id="panel-fb">
+        <div class="card">
+          <div id="fb-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
 
-          <!-- ── Step 2 ── -->
-          <div class="step">
-            <div class="step-marker">
-              <div class="step-num" id="s2">2</div>
-              <div class="step-line"></div>
-            </div>
-            <div class="step-body">
-              <div class="step-title">🔗 Додай адресу повернення</div>
-              <div class="step-desc">
-                Facebook має знати, куди повертати тебе після авторизації.
-                Скопіюй цю адресу і встав у налаштуваннях свого додатку.
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num active" id="fb-s1">1</div>
+                <div class="step-line"></div>
               </div>
-
-              <div class="info-box">
-                <b>Де вставити:</b>
-                <ul>
-                  <li>У своєму додатку на developers.facebook.com зліва знайди <b>«Facebook Login»</b> → <b>«Settings»</b></li>
-                  <li>Якщо «Facebook Login» ще немає — натисни <b>«Add Product»</b> і додай його</li>
-                  <li>У полі <b>«Valid OAuth Redirect URIs»</b> встав адресу нижче</li>
-                  <li>Натисни <b>«Save Changes»</b></li>
-                </ul>
-              </div>
-
-              <div class="copy-box">
-                <span id="redirectUri">http://localhost:3000/auth/facebook/callback</span>
-                <button class="btn ghost copy-btn" onclick="copyRedirect()">Скопіювати</button>
-              </div>
-
-              <div id="copyHint" class="field-hint hidden" style="color:#3fb950">✓ Скопійовано!</div>
-            </div>
-          </div>
-
-          <!-- ── Step 3 ── -->
-          <div class="step">
-            <div class="step-marker">
-              <div class="step-num" id="s3">3</div>
-              <div class="step-line"></div>
-            </div>
-            <div class="step-body">
-              <div class="step-title">🔑 Введи коди з Facebook</div>
-              <div class="step-desc">
-                Введи App ID та App Secret, які ти скопіював на кроці 1.
-                Вони зберігаються тільки на твоєму комп'ютері — нікуди не передаються.
-              </div>
-
-              <div class="row-2">
-                <div class="field-group">
-                  <label>App ID</label>
-                  <input type="text" id="appId" placeholder="1234567890" inputmode="numeric" autocomplete="off" oninput="onCredsChange()" />
-                  <div class="field-hint">Тільки цифри. Приклад: 1234567890123456</div>
+              <div class="step-body">
+                <div class="step-title">🏗 Створи Facebook-додаток</div>
+                <div class="step-desc">Це потрібно зробити один раз. Facebook не дає публікувати через сторонні програми без спеціального «додатку». Це безкоштовно і займає ~5 хвилин.</div>
+                <div class="info-box">
+                  <b>Покрокова інструкція:</b>
+                  <ol>
+                    <li>Відкрий <a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a></li>
+                    <li>Натисни <b>«Create App»</b></li>
+                    <li>Вибери тип: <b>«Other»</b> → далі <b>«Consumer»</b></li>
+                    <li>Введи довільну назву, наприклад <code>My Shop Bot</code></li>
+                    <li>Натисни <b>«Create App»</b> і підтверди пароль</li>
+                    <li>Зліва: <b>Settings → Basic</b> — тут твої коди</li>
+                  </ol>
                 </div>
-                <div class="field-group">
-                  <label>App Secret</label>
-                  <input type="password" id="appSecret" placeholder="abc123..." autocomplete="off" oninput="onCredsChange()" />
-                  <div class="field-hint">32 символи. Settings → Basic → «App Secret» → Show</div>
+                <a href="https://developers.facebook.com/apps/create/" target="_blank" class="btn primary">Відкрити Meta Developer Portal →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="fb-s2">2</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🔗 Додай адресу повернення</div>
+                <div class="step-desc">Щоб Facebook знав куди тебе повернути після входу — скопіюй цю адресу і встав у налаштуваннях свого додатку.</div>
+                <div class="info-box">
+                  <b>Де вставити:</b>
+                  <ol>
+                    <li>У своєму додатку зліва знайди <b>«Facebook Login for Business»</b> або <b>«Facebook Login»</b></li>
+                    <li>Якщо немає — натисни <b>«Add Product»</b> і додай «Facebook Login»</li>
+                    <li>Відкрий <b>Settings</b> цього продукту</li>
+                    <li>У полі <b>«Valid OAuth Redirect URIs»</b> встав адресу нижче і натисни <b>«Save Changes»</b></li>
+                  </ol>
+                </div>
+                <div class="copy-row">
+                  <span id="fb-redirect-uri">http://localhost:3000/auth/facebook/callback</span>
+                  <button class="btn ghost" onclick="copy('fb-redirect-uri', this)">Скопіювати</button>
                 </div>
               </div>
-
-              <div id="credsMsg" class="hidden" style="font-size:13px;margin-bottom:10px"></div>
-
-              <button class="btn secondary" id="saveCreds" onclick="saveCredentials()" disabled>
-                Зберегти коди
-              </button>
-              <div id="savedHint" class="field-hint hidden" style="margin-top:6px"></div>
             </div>
-          </div>
 
-          <!-- ── Step 4 ── -->
-          <div class="step">
-            <div class="step-marker">
-              <div class="step-num" id="s4">4</div>
-              <div class="step-line"></div>
-            </div>
-            <div class="step-body">
-              <div class="step-title">🔐 Підключи Facebook акаунт</div>
-              <div class="step-desc">
-                Натисни кнопку — відкриється вікно Facebook з проханням дати дозвіл на публікацію.
-                Підтверди і ти автоматично повернешся сюди.
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="fb-s3">3</div>
+                <div class="step-line"></div>
               </div>
-
-              <div class="info-box">
-                <b>Що Facebook запитає дозвіл:</b>
-                <ul>
-                  <li>Публікувати на твою Facebook Сторінку</li>
-                  <li>Публікувати в Instagram (якщо прив'язаний до Сторінки)</li>
-                  <li>Читати статистику публікацій</li>
-                </ul>
-              </div>
-
-              <button class="btn primary" id="connectBtn" onclick="startConnect()" style="font-size:15px;padding:12px 24px">
-                📘 Підключити Facebook →
-              </button>
-
-              <!-- Page chooser (shows if multiple pages) -->
-              <div id="pageChooser" class="hidden" style="margin-top:16px">
-                <div class="info-box" style="margin-bottom:10px">
-                  <b>У тебе кілька Facebook Сторінок.</b> Вибери ту, від якої публікуватимемо товари:
+              <div class="step-body">
+                <div class="step-title">🔑 Введи App ID та App Secret</div>
+                <div class="step-desc">Ці коди — як логін і пароль для твого Facebook-додатку. Знайдеш їх у <b>Settings → Basic</b> на сторінці додатку.</div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label>App ID</label>
+                    <input type="text" id="fb-app-id" placeholder="1234567890123456" inputmode="numeric" oninput="fbCredsChanged()" />
+                    <div class="hint">Тільки цифри</div>
+                  </div>
+                  <div class="field">
+                    <label>App Secret <span style="font-weight:400;text-transform:none;letter-spacing:0">(натисни «Show» поруч з ним)</span></label>
+                    <input type="password" id="fb-app-secret" placeholder="abc1234def5678..." oninput="fbCredsChanged()" />
+                    <div class="hint">32 символи, Settings → Basic → App Secret</div>
+                  </div>
                 </div>
-                <div id="pagesList" class="pages-grid"></div>
+                <div id="fb-creds-err" style="display:none" class="alert alert-err" style="margin-top:8px"><span class="aico">❌</span><span id="fb-creds-err-text"></span></div>
+                <button class="btn secondary" id="fb-save-btn" onclick="fbSaveCreds()" disabled>Зберегти коди</button>
+                <div id="fb-saved-hint" style="display:none;font-size:12px;color:#3fb950;margin-top:6px"></div>
               </div>
             </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="fb-s4">4</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🔐 Увійди у Facebook</div>
+                <div class="step-desc">Натисни кнопку — відкриється вікно Facebook де він запитає дозвіл на публікацію від імені твоєї Сторінки. Просто натисни «Дозволити».</div>
+                <div class="info-box">
+                  <b>Що Facebook запитає дозвіл:</b>
+                  <ul>
+                    <li>Публікувати пости на твою Facebook Сторінку</li>
+                    <li>Читати статистику публікацій</li>
+                    <li>Публікувати в Instagram (якщо прив'язаний до Сторінки)</li>
+                  </ul>
+                </div>
+                <button class="btn primary" id="fb-connect-btn" onclick="fbConnect()" style="font-size:14px;padding:11px 20px">📘 Підключити Facebook →</button>
+
+                <div id="fb-page-chooser" style="display:none;margin-top:16px">
+                  <div class="info-box"><b>У тебе кілька Facebook Сторінок.</b> Вибери ту, від якої публікуватимемо:</div>
+                  <div id="fb-pages-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+                </div>
+
+                <div id="fb-verify-result" style="display:none"></div>
+              </div>
+            </div>
+
+          </div><!-- /steps -->
+        </div><!-- /card -->
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: TELEGRAM                                                         -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-tg">
+        <div class="card">
+          <div id="tg-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
 
-          <!-- ── Step 5 (result) ── -->
-          <div class="step" id="step5" style="display:none">
-            <div class="step-marker">
-              <div class="step-num done" id="s5">✓</div>
-            </div>
-            <div class="step-body">
-              <div class="step-title">🎉 Готово!</div>
-              <div id="successDetails" class="step-desc"></div>
+          <div class="steps">
 
-              <button class="btn ghost" id="verifyBtn" onclick="verifyConnection()" style="margin-top:4px">
-                Перевірити з'єднання
-              </button>
-              <div id="verifyResult" class="hidden"></div>
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num active" id="tg-s1">1</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🤖 Створи Telegram-бота</div>
+                <div class="step-desc">Telegram-бот — це програма-помічник, від імені якої будуть надходити пости у твій канал. Створити безкоштовно, займає 2 хвилини.</div>
+                <div class="info-box">
+                  <b>Як створити бота:</b>
+                  <ol>
+                    <li>Відкрий Telegram і знайди <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent)">@BotFather</a></li>
+                    <li>Відправ йому команду: <code>/newbot</code></li>
+                    <li>Придумай назву бота (наприклад <code>My Shop Bot</code>)</li>
+                    <li>Придумай username для бота — він повинен закінчуватись на <code>bot</code> (наприклад <code>myshop_bot</code>)</li>
+                    <li>BotFather надішле тобі <b>токен</b> — довгий рядок з цифрами і літерами. Скопіюй його нижче.</li>
+                  </ol>
+                </div>
+                <a href="https://t.me/BotFather" target="_blank" class="btn primary">Відкрити @BotFather →</a>
+              </div>
             </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="tg-s2">2</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🔑 Введи токен бота</div>
+                <div class="step-desc">Токен виглядає приблизно так: <code style="color:var(--accent);font-size:12px">1234567890:ABCdefGhijklmNOpqrsTUvwxyz</code></div>
+                <div class="field">
+                  <label>Bot Token</label>
+                  <input type="password" id="tg-token" placeholder="1234567890:ABCdef..." autocomplete="off" oninput="tgChanged()" />
+                  <div class="hint">Отримаєш від @BotFather після /newbot</div>
+                </div>
+                <div id="tg-token-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="tg-token-err-text"></span></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="btn secondary" id="tg-save-btn" onclick="tgSave()" disabled>Зберегти токен</button>
+                  <button class="btn ghost" onclick="tgVerify()" id="tg-verify-btn" style="display:none">Перевірити</button>
+                </div>
+                <div id="tg-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+                <div id="tg-verify-res" style="display:none"></div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="tg-s3">3</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">📢 Додай бота у канал і вкажи Chat ID</div>
+                <div class="step-desc">Бот публікує пости у твій Telegram-канал або групу. Треба додати бота як адміністратора і вказати ID каналу.</div>
+                <div class="info-box">
+                  <b>Як додати бота у канал:</b>
+                  <ol>
+                    <li>Відкрий свій Telegram-канал (або групу)</li>
+                    <li>Зайди в налаштування каналу → <b>Адміністратори</b></li>
+                    <li>Натисни «Додати адміністратора» і знайди свого бота за username</li>
+                    <li>Дай боту права: <b>«Публікація повідомлень»</b> (мінімум)</li>
+                    <li>Збережи</li>
+                  </ol>
+                  <b style="margin-top:8px;display:block">Як дізнатись Chat ID каналу:</b>
+                  <ul>
+                    <li>Якщо у каналу є публічний username — просто вкажи його з <code>@</code>, наприклад <code>@mychannel</code></li>
+                    <li>Для приватного каналу: перешли будь-яке повідомлення з нього боту <a href="https://t.me/userinfobot" target="_blank" style="color:var(--accent)">@userinfobot</a> — він покаже ID (буде від'ємне число типу <code>-1001234567890</code>)</li>
+                  </ul>
+                </div>
+                <div class="field">
+                  <label>Chat ID або @username каналу</label>
+                  <input type="text" id="tg-chat-id" placeholder="@mychannel або -1001234567890" oninput="tgChanged()" />
+                  <div class="hint">Канал де з'являтимуться пости</div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn secondary" id="tg-chat-save-btn" onclick="tgSaveChat()" disabled>Зберегти</button>
+                </div>
+                <div id="tg-chat-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+              </div>
+            </div>
+
           </div>
-
         </div>
       </div>
 
-      <!-- ════════════════════════ ІНШІ ПЛАТФОРМИ ════════════════════════ -->
-      <div class="section-hdr"><hr><span>📱 Інші платформи</span><hr></div>
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: INSTAGRAM                                                        -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-ig">
+        <div class="card">
+          <div id="ig-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
 
-      <div class="card setup-section">
-        <div style="padding: 4px 0 8px">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">✈ Telegram</div>
-          <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
-            Статус: <span id="tgStatus">перевіряємо...</span>
-          </div>
-          <div class="info-box" id="tgGuide" style="display:none">
-            <b>Як отримати Telegram Bot Token:</b>
-            <ul>
-              <li>Відкрий Telegram і знайди <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent)">@BotFather</a></li>
-              <li>Відправ команду <code>/newbot</code></li>
-              <li>Придумай назву і username для бота</li>
-              <li>Скопіюй отриманий токен і встав нижче</li>
-            </ul>
-          </div>
-          <div class="field-group" id="tgField" style="display:none">
-            <label>Bot Token</label>
-            <div style="display:flex;gap:8px">
-              <input type="password" id="tgToken" placeholder="1234567890:ABC..." style="flex:1" />
-              <button class="btn secondary" onclick="saveTelegram()">Зберегти</button>
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num active" id="ig-s1">1</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">📲 Переконайся, що Instagram прив'язаний до Facebook Сторінки</div>
+                <div class="step-desc">Instagram для бізнесу публікує пости через Facebook. Для цього твій Instagram-акаунт повинен бути <b>Professional</b> (Business або Creator) і прив'язаний до Facebook Сторінки.</div>
+                <div class="info-box">
+                  <b>Як перевірити і прив'язати:</b>
+                  <ol>
+                    <li>Відкрий <b>Instagram</b> → <b>Профіль</b> → <b>Редагувати профіль</b></li>
+                    <li>Переконайся, що тип акаунту: <b>Professional</b> (Business або Автор)</li>
+                    <li>Якщо ні — <b>Налаштування → Акаунт → Переключитися на Professional</b></li>
+                    <li>Потім: <b>Налаштування → Акаунт → Прив'язані акаунти → Facebook</b></li>
+                    <li>Увійди у Facebook і вибери свою Сторінку</li>
+                  </ol>
+                  <b style="display:block;margin-top:8px">Або через Facebook:</b>
+                  <ul>
+                    <li>Відкрий <a href="https://business.facebook.com" target="_blank" style="color:var(--accent)">Meta Business Suite</a></li>
+                    <li>Налаштування → Instagram-акаунти → Підключити акаунт</li>
+                  </ul>
+                </div>
+              </div>
             </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="ig-s2">2</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">📘 Підключи Facebook (якщо ще не зробив)</div>
+                <div class="step-desc">Instagram публікує пости через Facebook API. Якщо Facebook вже підключений — Instagram підхопиться автоматично.</div>
+                <div id="ig-fb-status-inline"></div>
+                <button class="btn secondary" onclick="switchTab('fb')">Перейти до налаштувань Facebook →</button>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="ig-s3">3</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🌐 Вкажи публічну адресу сайту</div>
+                <div class="step-desc">Instagram завантажує фото з інтернету — йому потрібна публічна HTTPS-адреса. Якщо сайт запущено локально, потрібен тунель (ngrok) або хостинг.</div>
+                <div class="info-box">
+                  <b>Якщо запускаєш локально — використай ngrok:</b>
+                  <ol>
+                    <li>Встанови: <a href="https://ngrok.com/download" target="_blank" style="color:var(--accent)">ngrok.com/download</a></li>
+                    <li>Запусти: <code>ngrok http 3000</code></li>
+                    <li>Скопіюй адресу типу <code>https://abc123.ngrok.io</code></li>
+                    <li>Встав нижче і збережи</li>
+                  </ol>
+                  <b style="display:block;margin-top:8px">Якщо сайт вже на хостингу:</b>
+                  <ul><li>Просто вкажи його домен, наприклад <code>https://myshop.com</code></li></ul>
+                </div>
+                <div class="field">
+                  <label>Публічна адреса сайту (SITE_URL)</label>
+                  <div class="field-row">
+                    <input type="url" id="ig-site-url" placeholder="https://abc123.ngrok.io" />
+                    <button class="btn secondary" onclick="igSaveSiteUrl()" style="flex-shrink:0">Зберегти</button>
+                  </div>
+                  <div class="hint" id="ig-url-hint">Поточна адреса: <b id="ig-current-url">не задано</b></div>
+                </div>
+                <div id="ig-url-result" style="display:none"></div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
 
-      <!-- ════════════════════════ SITE URL ════════════════════════ -->
-      <div class="section-hdr"><hr><span>🌐 Адреса сайту (для Instagram)</span><hr></div>
-
-      <div class="card setup-section">
-        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">
-          Instagram вимагає публічну HTTPS-адресу для завантаження фото. Якщо публікуєш тільки локально — потрібен ngrok або деплой на хостинг.
-        </div>
-        <div class="field-group">
-          <label>SITE_URL</label>
-          <div style="display:flex;gap:8px">
-            <input type="url" id="siteUrl" placeholder="https://your-domain.com" style="flex:1" />
-            <button class="btn secondary" onclick="saveSiteUrl()">Зберегти</button>
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: SHAFA                                                            -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-shafa">
+        <div class="card">
+          <div id="shafa-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
-          <div class="field-hint" id="siteUrlHint">Поточне значення: <span id="currentSiteUrl">не задано</span></div>
+
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num active" id="shafa-s1">1</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">👤 Зареєструйся на Shafa.ua</div>
+                <div class="step-desc">Для публікації товарів потрібен акаунт продавця на Shafa.ua. Реєстрація безкоштовна.</div>
+                <div class="info-box">
+                  <b>Якщо ще немає акаунту:</b>
+                  <ol>
+                    <li>Відкрий <a href="https://shafa.ua/uk/registration" target="_blank" style="color:var(--accent)">shafa.ua/uk/registration</a></li>
+                    <li>Зареєструйся як продавець</li>
+                    <li>Підтверди email</li>
+                  </ol>
+                  <b style="display:block;margin-top:8px">Якщо акаунт вже є:</b>
+                  <ul><li>Просто введи email і пароль нижче</li></ul>
+                </div>
+                <a href="https://shafa.ua" target="_blank" class="btn primary">Відкрити Shafa.ua →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="shafa-s2">2</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🔑 Введи email та пароль від Shafa.ua</div>
+                <div class="step-desc">Програма заходить на Shafa.ua від твого імені і заповнює форму публікації. Дані зберігаються тільки на твоєму комп'ютері.</div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label>Email від Shafa.ua</label>
+                    <input type="email" id="shafa-email" placeholder="myemail@gmail.com" oninput="shafaChanged()" />
+                  </div>
+                  <div class="field">
+                    <label>Пароль від Shafa.ua</label>
+                    <input type="password" id="shafa-password" placeholder="••••••••" oninput="shafaChanged()" />
+                  </div>
+                </div>
+                <div id="shafa-creds-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="shafa-err-text"></span></div>
+                <button class="btn secondary" id="shafa-save-btn" onclick="shafaSave()" disabled>Зберегти</button>
+                <div id="shafa-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="shafa-s3">3</div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">✅ Готово — публікуй товари!</div>
+                <div class="step-desc">
+                  При першій публікації програма автоматично увійде на Shafa.ua і збереже сесію. Подальші публікації будуть швидшими — повторного входу не потрібно.<br><br>
+                  <span style="color:var(--text2)">Сесія зберігається у файлі <code>shafa-session.json</code>. Якщо вона протухла — програма увійде знову автоматично.</span>
+                </div>
+                <div id="shafa-session-info" style="display:none"></div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
 
@@ -321,343 +547,418 @@
 </div>
 
 <script>
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ── utils ─────────────────────────────────────────────────────────────────
 
-function showAlert(msg, type, icon) {
-  const b = document.getElementById("globalAlert");
-  b.className = `alert alert-${type}`;
-  b.innerHTML = `<span class="alert-icon">${icon || (type==="ok"?"✅":type==="err"?"❌":"⚠️")}</span>
-    <div class="alert-text">${msg}</div>`;
-  b.scrollIntoView({ behavior: "smooth", block: "nearest" });
+function showGlobalAlert(html, type) {
+  const a = document.getElementById("globalAlert");
+  a.className = `alert alert-${type}`;
+  a.innerHTML = `<span class="aico">${type==="ok"?"✅":type==="err"?"❌":"⚠️"}</span><div>${html}</div>`;
+  a.style.display = "flex";
+  a.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  setTimeout(() => { a.style.display = "none"; }, 6000);
 }
-function hideAlert() { document.getElementById("globalAlert").className = "hidden"; }
 
-function copyRedirect() {
-  const uri = document.getElementById("redirectUri").textContent;
-  navigator.clipboard.writeText(uri).then(() => {
-    const h = document.getElementById("copyHint");
-    h.classList.remove("hidden");
-    setTimeout(() => h.classList.add("hidden"), 2500);
+function copy(elemId, btn) {
+  const text = document.getElementById(elemId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = "Скопійовано ✓";
+    setTimeout(() => { btn.textContent = orig; }, 2000);
   });
 }
 
-// ─── status panel ───────────────────────────────────────────────────────────
+function setDot(id, color) {
+  document.getElementById("dot-" + id).className = "conn-dot " + color;
+}
+
+function markDone(id) {
+  const el = document.getElementById(id);
+  if (el) { el.className = "step-num done"; el.textContent = "✓"; }
+}
+
+// ── tabs ──────────────────────────────────────────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById("panel-" + name).classList.add("active");
+  document.getElementById("tab-" + name).classList.add("active");
+}
+
+// ── FACEBOOK ──────────────────────────────────────────────────────────────
 
 async function loadFbStatus() {
   const s = await fetch("/api/facebook/status").then(r => r.json());
-  renderFbStatus(s);
+  const box = document.getElementById("fb-status");
+
+  if (s.connected) {
+    setDot("fb", "green");
+    const dWarn = s.userTokenDaysLeft !== null && s.userTokenDaysLeft < 10;
+    box.className = "status-panel " + (dWarn ? "warn" : "ok");
+    box.innerHTML = `
+      <div class="status-icon">${dWarn ? "⚠️" : "✅"}</div>
+      <div class="status-body">
+        <strong>${dWarn ? "Токен незабаром закінчиться" : "Facebook підключено"}</strong>
+        <div class="detail">Сторінка: <b>${s.pageName || s.pageId}</b></div>
+        <div class="detail">${s.instagramId
+          ? `Instagram: <b>@${s.instagramUsername || s.instagramId}</b>`
+          : `<span style="color:#d29922">Instagram не знайдено — прив'яжи Business акаунт до Сторінки</span>`
+        }</div>
+        ${s.userTokenDaysLeft !== null ? `<div class="detail">Токен дійсний ще: <b>${s.userTokenDaysLeft} днів</b></div>` : ""}
+        <div class="status-actions">
+          <button class="btn ghost" onclick="fbVerify()">Перевірити</button>
+          <button class="btn ghost" onclick="fbReconnect()">Переп'єднати</button>
+        </div>
+        <div id="fb-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
+      </div>`;
+    ["fb-s1","fb-s2","fb-s3","fb-s4"].forEach(markDone);
+  } else {
+    setDot("fb", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Facebook не підключено</strong>
+      <div class="detail" style="color:var(--text2)">Виконай кроки нижче щоб підключити.</div></div>`;
+    document.getElementById("fb-s1").className = "step-num active";
+  }
+  updateIgStatus(s);
   return s;
 }
 
-function renderFbStatus(s) {
-  const panel = document.getElementById("fbStatusPanel");
+function updateIgStatus(fbStatus) {
+  const box = document.getElementById("ig-status");
+  const inlineBox = document.getElementById("ig-fb-status-inline");
 
-  if (s.connected) {
-    panel.className = "status-panel connected";
-    const daysLeft = s.userTokenDaysLeft;
-    const tokenWarn = daysLeft !== null && daysLeft < 10
-      ? `<div class="status-row"><span class="dot yellow"></span> Токен закінчується через <b>${daysLeft} днів</b> — потрібно переп'єднати</div>`
-      : daysLeft !== null
-        ? `<div class="status-row"><span class="dot grey"></span> Токен дійсний ще <b>${daysLeft} днів</b></div>`
-        : "";
-
-    panel.innerHTML = `
-      <div style="font-size:15px;font-weight:700;margin-bottom:10px">✅ Підключено</div>
-      <div class="status-row"><span class="dot green"></span> Facebook Сторінка: <b>${s.pageName || s.pageId}</b></div>
-      <div class="status-row"><span class="dot ${s.instagramId?"green":"red"}"></span>
-        ${s.instagramId
-          ? `Instagram: <b>@${s.instagramUsername || s.instagramId}</b>`
-          : `Instagram <b>не знайдено</b> — прив'яжи Business акаунт до Facebook Сторінки`}</div>
-      ${tokenWarn}
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <button class="btn ghost" onclick="verifyFromPanel()">Перевірити</button>
-        <button class="btn ghost" onclick="reconnect()">Переп'єднати</button>
-      </div>
-      <div id="panelVerify" class="hidden" style="margin-top:8px;font-size:13px"></div>`;
-
-    // Mark steps done
-    ["s1","s2","s3","s4"].forEach(id => {
-      const el = document.getElementById(id);
-      el.className = "step-num done";
-      el.textContent = "✓";
-    });
-    document.getElementById("step5").style.display = "flex";
-    document.getElementById("successDetails").innerHTML = buildSuccessMsg(s);
+  if (fbStatus.connected && fbStatus.instagramId) {
+    setDot("ig", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body">
+        <strong>Instagram підключено</strong>
+        <div class="detail">Акаунт: <b>@${fbStatus.instagramUsername || fbStatus.instagramId}</b></div>
+        <div class="detail">Токени через Facebook Сторінку <b>${fbStatus.pageName}</b></div>
+      </div>`;
+    ["ig-s1","ig-s2","ig-s3"].forEach(markDone);
+    if (inlineBox) inlineBox.innerHTML = `<div class="alert alert-ok" style="margin-bottom:12px"><span class="aico">✅</span><div>Facebook підключено. Instagram <b>@${fbStatus.instagramUsername || fbStatus.instagramId}</b> знайдено автоматично.</div></div>`;
+  } else if (fbStatus.connected && !fbStatus.instagramId) {
+    setDot("ig", "yellow");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body">
+        <strong>Facebook підключено, Instagram не знайдено</strong>
+        <div class="detail" style="color:var(--text2)">Прив'яжи Instagram Business акаунт до Facebook Сторінки «${fbStatus.pageName}» (крок 1 нижче), потім переп'єднай Facebook.</div>
+      </div>`;
+    if (inlineBox) inlineBox.innerHTML = `<div class="alert alert-warn" style="margin-bottom:12px"><span class="aico">⚠️</span><div>Facebook підключено (<b>${fbStatus.pageName}</b>), але Instagram не знайдено. Виконай крок 1 і переп'єднай Facebook.</div></div>`;
   } else {
-    panel.className = "status-panel";
-    panel.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
-      <span class="dot red"></span>
-      <span style="font-size:14px">Facebook та Instagram <b>не підключені</b>. Виконай кроки нижче.</span>
-    </div>`;
+    setDot("ig", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Спочатку підключи Facebook</strong>
+      <div class="detail" style="color:var(--text2)">Instagram публікує через Facebook — перейди на вкладку Facebook і виконай налаштування.</div></div>`;
+    if (inlineBox) inlineBox.innerHTML = `<div class="alert alert-err" style="margin-bottom:12px"><span class="aico">❌</span><div>Facebook ще не підключено.</div></div>`;
   }
 }
 
-function buildSuccessMsg(s) {
-  const ig = s.instagramId
-    ? `Публікація в Instagram через <b>@${s.instagramUsername || s.instagramId}</b> доступна.`
-    : `<span style="color:#d29922">⚠ Instagram не знайдено. Прив'яжи Instagram Business акаунт до Facebook Сторінки «${s.pageName}» у Мета Business Suite.</span>`;
-  return `Публікація у Facebook на сторінці <b>${s.pageName}</b> активна.<br>${ig}`;
-}
-
-// ─── credentials ────────────────────────────────────────────────────────────
-
-function onCredsChange() {
-  const appId = document.getElementById("appId").value.trim();
-  const appSecret = document.getElementById("appSecret").value.trim();
-  const btn = document.getElementById("saveCreds");
-  const msg = document.getElementById("credsMsg");
-
-  msg.className = "hidden";
+function fbCredsChanged() {
+  const appId = document.getElementById("fb-app-id").value.trim();
+  const appSecret = document.getElementById("fb-app-secret").value.trim();
+  const btn = document.getElementById("fb-save-btn");
+  const errBox = document.getElementById("fb-creds-err");
+  const errText = document.getElementById("fb-creds-err-text");
   btn.disabled = true;
-
-  if (!appId && !appSecret) return;
-
-  const errors = [];
-  if (appId && !/^\d+$/.test(appId)) errors.push("App ID повинен містити тільки цифри");
-  if (appId && appId.length < 10) errors.push("App ID занадто короткий (мінімум 10 цифр)");
-  if (appSecret && appSecret.length < 20) errors.push("App Secret занадто короткий");
-
-  if (errors.length) {
-    msg.className = "alert alert-err";
-    msg.innerHTML = errors.join("<br>");
-    return;
-  }
-
-  if (appId && appSecret) {
-    btn.disabled = false;
-    msg.className = "hidden";
-  }
+  errBox.style.display = "none";
+  const errs = [];
+  if (appId && !/^\d+$/.test(appId)) errs.push("App ID — тільки цифри");
+  if (appId && appId.length < 10) errs.push("App ID занадто короткий");
+  if (appSecret && appSecret.length < 20) errs.push("App Secret занадто короткий");
+  if (errs.length) { errBox.style.display = "flex"; errText.textContent = errs.join(". "); return; }
+  if (appId && appSecret) btn.disabled = false;
 }
 
-async function saveCredentials() {
-  const appId = document.getElementById("appId").value.trim();
-  const appSecret = document.getElementById("appSecret").value.trim();
-  const btn = document.getElementById("saveCreds");
-  const hint = document.getElementById("savedHint");
-
-  btn.disabled = true;
-  btn.textContent = "Зберігаємо...";
-
+async function fbSaveCreds() {
+  const appId = document.getElementById("fb-app-id").value.trim();
+  const appSecret = document.getElementById("fb-app-secret").value.trim();
+  const btn = document.getElementById("fb-save-btn");
+  const hint = document.getElementById("fb-saved-hint");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/facebook/save-app", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ appId, appSecret }),
-  });
-  const d = await r.json();
-
-  btn.disabled = false;
-  btn.textContent = "Зберегти коди";
-
-  if (d.success) {
-    hint.className = "field-hint";
-    hint.style.color = "#3fb950";
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти коди";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
     hint.textContent = "✓ Збережено! Тепер натисни «Підключити Facebook» на кроці 4.";
-    // mark step 3 done
-    const s3 = document.getElementById("s3");
-    s3.className = "step-num done";
-    s3.textContent = "✓";
+    markDone("fb-s3");
   } else {
-    hint.className = "field-hint";
-    hint.style.color = "#f85149";
-    hint.textContent = "Помилка: " + d.message;
+    hint.style.display = "block"; hint.style.color = "#f85149";
+    hint.textContent = "Помилка: " + r.message;
   }
 }
 
-// ─── OAuth ──────────────────────────────────────────────────────────────────
-
-function startConnect() {
-  const appId = document.getElementById("appId").value.trim() || "";
-  const appSecret = document.getElementById("appSecret").value.trim() || "";
-
+function fbConnect() {
+  const appId = document.getElementById("fb-app-id").value.trim();
+  const appSecret = document.getElementById("fb-app-secret").value.trim();
   if (!appId || !appSecret) {
-    showAlert("<b>Спочатку введи App ID та App Secret на кроці 3 і збережи їх.</b>", "warn", "⚠️");
-    document.getElementById("appId").focus();
-    return;
+    showGlobalAlert("Спочатку введи App ID та App Secret на кроці 3 і збережи їх.", "warn"); return;
   }
-
-  const url = `/auth/facebook?appId=${encodeURIComponent(appId)}&appSecret=${encodeURIComponent(appSecret)}`;
-  window.location.href = url;
+  window.location.href = `/auth/facebook?appId=${encodeURIComponent(appId)}&appSecret=${encodeURIComponent(appSecret)}`;
 }
 
-function reconnect() {
-  const appId = document.getElementById("appId").value.trim();
-  const appSecret = document.getElementById("appSecret").value.trim();
-  if (appId && appSecret) {
-    startConnect();
-  } else {
-    showAlert("Введи App ID та App Secret на кроці 3 і натисни «Підключити Facebook» на кроці 4.", "warn", "⚠️");
-  }
+function fbReconnect() {
+  const appId = document.getElementById("fb-app-id").value.trim();
+  const appSecret = document.getElementById("fb-app-secret").value.trim();
+  if (appId && appSecret) { fbConnect(); return; }
+  showGlobalAlert("Введи App ID та App Secret на кроці 3 і натисни «Підключити Facebook».","warn");
 }
 
-async function selectPage(pageId, pageName) {
-  document.getElementById("pageChooser").innerHTML = "<div style='color:var(--text2);font-size:13px'>Підключаємо сторінку...</div>";
-  const r = await fetch("/api/facebook/select-page", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pageId }),
-  });
-  const d = await r.json();
-  if (d.success) {
-    showAlert(`✅ <b>Сторінку «${pageName}» підключено!</b><br>${d.instagram ? "Instagram @" + (d.instagram.username||d.instagram.id) + " також підключено." : "Instagram не знайдено — прив'яжи Business акаунт до Сторінки."}`, "ok");
-    document.getElementById("pageChooser").classList.add("hidden");
-    await loadFbStatus();
-  } else {
-    showAlert("Помилка: " + d.message, "err");
-  }
-}
-
-// ─── verify ─────────────────────────────────────────────────────────────────
-
-async function verifyConnection() {
-  const btn = document.getElementById("verifyBtn");
-  const result = document.getElementById("verifyResult");
-  btn.textContent = "Перевіряємо...";
-  btn.disabled = true;
-
+async function fbVerify() {
+  const panel = document.getElementById("fb-verify-panel");
+  if (!panel) return;
+  panel.style.display = "block"; panel.textContent = "Перевіряємо...";
   const d = await fetch("/api/facebook/verify", { method: "POST" }).then(r => r.json());
-
-  btn.textContent = "Перевірити з'єднання";
-  btn.disabled = false;
-  result.classList.remove("hidden");
-
-  if (d.ok) {
-    result.innerHTML = `<div class="verify-result ok">✅ З'єднання працює! Сторінка «${d.pageName}», підписників: ${d.fans ?? "—"}</div>`;
-  } else {
-    result.innerHTML = `<div class="verify-result err">❌ Помилка: ${d.reason}</div>`;
-  }
+  if (d.ok) panel.innerHTML = `<span style="color:#3fb950">✅ З'єднання працює! Сторінка «${d.pageName}»${d.fans ? ", підписників: "+d.fans : ""}</span>`;
+  else panel.innerHTML = `<span style="color:#f85149">❌ ${d.reason === "not_connected" ? "Не підключено" : d.reason}</span>`;
 }
 
-async function verifyFromPanel() {
-  const res = document.getElementById("panelVerify");
-  res.className = "";
-  res.style.color = "var(--text2)";
-  res.textContent = "Перевіряємо...";
-
-  const d = await fetch("/api/facebook/verify", { method: "POST" }).then(r => r.json());
-
-  if (d.ok) {
-    res.style.color = "#3fb950";
-    res.textContent = `✅ Токен дійсний. Сторінка «${d.pageName}»${d.fans ? ", підписників: " + d.fans : ""}.`;
-  } else {
-    res.style.color = "#f85149";
-    res.textContent = `❌ ${d.reason === "not_connected" ? "Не підключено" : d.reason}`;
-  }
-}
-
-// ─── URL params after OAuth redirect ────────────────────────────────────────
-
-function handleUrlParams() {
+function handleFbPageChoose() {
   const p = new URLSearchParams(window.location.search);
-
-  if (p.get("fbSuccess")) {
-    const pageName = decodeURIComponent(p.get("pageName") || "");
-    const igName = decodeURIComponent(p.get("igName") || "");
-    const igMsg = igName
-      ? `Instagram <b>@${igName}</b> також підключено автоматично.`
-      : "Instagram не знайдено. Переконайся, що до Facebook Сторінки прив'язаний Instagram Business акаунт.";
-    showAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igMsg}`, "ok");
-    window.history.replaceState({}, "", "/setup.html");
-  }
-
-  if (p.get("fbError")) {
-    const err = decodeURIComponent(p.get("fbError"));
-    showAlert(`❌ <b>Помилка підключення Facebook.</b><br>${err}`, "err");
-    window.history.replaceState({}, "", "/setup.html");
-  }
-
-  if (p.get("choosePage")) {
-    try {
-      const pages = JSON.parse(decodeURIComponent(p.get("pages")));
-      const chooser = document.getElementById("pageChooser");
-      const list = document.getElementById("pagesList");
-      list.innerHTML = pages.map(pg =>
-        `<button class="page-card" onclick="selectPage('${pg.id}','${pg.name.replace(/'/g,"\\'")}')">
-           <strong>${pg.name}</strong><small>ID: ${pg.id}</small>
-         </button>`
-      ).join("");
-      chooser.classList.remove("hidden");
-      chooser.scrollIntoView({ behavior: "smooth" });
-    } catch { /**/ }
-    window.history.replaceState({}, "", "/setup.html");
-  }
+  if (!p.get("choosePage")) return;
+  try {
+    const pages = JSON.parse(decodeURIComponent(p.get("pages")));
+    const chooser = document.getElementById("fb-page-chooser");
+    const list = document.getElementById("fb-pages-list");
+    list.innerHTML = pages.map(pg =>
+      `<button onclick="fbSelectPage('${pg.id}','${pg.name.replace(/'/g,"\\'")}',this)"
+        style="background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text);width:100%;margin-bottom:0">
+        <strong style="display:block;font-size:14px">${pg.name}</strong>
+        <small style="color:var(--text2)">ID: ${pg.id}</small>
+      </button>`).join("");
+    chooser.style.display = "block";
+    switchTab("fb");
+  } catch {}
+  window.history.replaceState({}, "", "/setup.html?tab=fb");
 }
 
-// ─── Telegram ───────────────────────────────────────────────────────────────
+async function fbSelectPage(pageId, pageName, btn) {
+  btn.textContent = "Підключаємо..."; btn.disabled = true;
+  const d = await fetch("/api/facebook/select-page", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pageId }),
+  }).then(r => r.json());
+  if (d.success) {
+    showGlobalAlert(`✅ Сторінку «${pageName}» підключено! ${d.instagram ? "Instagram @"+(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram не знайдено — прив'яжи Business акаунт."}`, "ok");
+    document.getElementById("fb-page-chooser").style.display = "none";
+    await loadFbStatus();
+  } else { showGlobalAlert("Помилка: " + d.message, "err"); btn.disabled = false; btn.textContent = pageName; }
+}
 
-async function checkTelegram() {
-  const status = document.getElementById("tgStatus");
-  const guide = document.getElementById("tgGuide");
-  const field = document.getElementById("tgField");
+// ── TELEGRAM ──────────────────────────────────────────────────────────────
 
-  // call a status check via facebook/status-like endpoint
-  const r = await fetch("/api/telegram/status").catch(() => null);
-  if (!r || !r.ok) {
-    status.innerHTML = `<span style="color:#e3b341">Не налаштовано</span>`;
-    guide.style.display = "";
-    field.style.display = "";
+async function loadTgStatus() {
+  const s = await fetch("/api/telegram/status").then(r => r.json());
+  const box = document.getElementById("tg-status");
+  if (s.connected && s.hasChatId) {
+    setDot("tg", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body"><strong>Telegram підключено</strong>
+      <div class="detail">Бот: <b>@${s.username}</b></div>
+      <div class="detail">Канал: <b>${s.chatId}</b></div></div>`;
+    ["tg-s1","tg-s2","tg-s3"].forEach(markDone);
+  } else if (s.connected) {
+    setDot("tg", "yellow");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body"><strong>Бот підключено, але не вказано канал</strong>
+      <div class="detail">Бот: <b>@${s.username}</b></div>
+      <div class="detail" style="color:var(--text2)">Вкажи Chat ID каналу на кроці 3</div></div>`;
+    ["tg-s1","tg-s2"].forEach(markDone);
+    document.getElementById("tg-verify-btn").style.display = "";
+  } else {
+    setDot("tg", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Telegram не підключено</strong>
+      <div class="detail" style="color:var(--text2)">Виконай кроки нижче.</div></div>`;
+  }
+  if (s.chatId) document.getElementById("tg-chat-id").value = s.chatId;
+  return s;
+}
+
+function tgChanged() {
+  const token = document.getElementById("tg-token").value.trim();
+  const chatId = document.getElementById("tg-chat-id").value.trim();
+  const saveBtn = document.getElementById("tg-save-btn");
+  const chatBtn = document.getElementById("tg-chat-save-btn");
+  const errBox = document.getElementById("tg-token-err");
+  const errText = document.getElementById("tg-token-err-text");
+  saveBtn.disabled = true; errBox.style.display = "none";
+  if (token && !token.includes(":")) {
+    errBox.style.display = "flex";
+    errText.textContent = "Токен має виглядати як: 1234567890:ABCdef...";
     return;
   }
-  const d = await r.json();
-  if (d.connected) {
-    status.innerHTML = `<span style="color:#3fb950">✅ Підключено — @${d.username || "бот"}</span>`;
-  } else {
-    status.innerHTML = `<span style="color:#e3b341">Не налаштовано</span>`;
-    guide.style.display = "";
-    field.style.display = "";
-  }
+  if (token && token.includes(":")) { saveBtn.disabled = false; document.getElementById("tg-verify-btn").style.display = ""; }
+  chatBtn.disabled = !chatId;
 }
 
-async function saveTelegram() {
-  const token = document.getElementById("tgToken").value.trim();
-  if (!token || !token.includes(":")) {
-    showAlert("Токен має виглядати як «1234567890:ABC...»", "err"); return;
-  }
-  const r = await fetch("/api/telegram/save-token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+async function tgSave() {
+  const token = document.getElementById("tg-token").value.trim();
+  const btn = document.getElementById("tg-save-btn");
+  const hint = document.getElementById("tg-save-hint");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/telegram/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
-  });
-  const d = await r.json();
-  if (d.success) {
-    showAlert("✅ Telegram Bot Token збережено!", "ok");
-    checkTelegram();
-  } else {
-    showAlert("Помилка: " + d.message, "err");
-  }
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти токен";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Токен збережено! Тепер вкажи Chat ID на кроці 3.";
+    markDone("tg-s2"); await loadTgStatus();
+  } else { hint.style.display = "block"; hint.style.color = "#f85149"; hint.textContent = "Помилка: " + r.message; }
 }
 
-// ─── Site URL ────────────────────────────────────────────────────────────────
+async function tgVerify() {
+  const s = await fetch("/api/telegram/status").then(r => r.json());
+  const res = document.getElementById("tg-verify-res");
+  res.style.display = "block";
+  if (s.connected) res.innerHTML = `<div class="verify-badge ok">✅ Бот @${s.username} — ${s.firstName} — активний</div>`;
+  else res.innerHTML = `<div class="verify-badge err">❌ ${s.error || "Токен недійсний"}</div>`;
+}
+
+async function tgSaveChat() {
+  const chatId = document.getElementById("tg-chat-id").value.trim();
+  const btn = document.getElementById("tg-chat-save-btn");
+  const hint = document.getElementById("tg-chat-hint");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/telegram/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chatId }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Збережено! Тепер Telegram готовий до публікації.";
+    markDone("tg-s3"); await loadTgStatus();
+  } else { hint.style.display = "block"; hint.style.color = "#f85149"; hint.textContent = "Помилка: " + r.message; }
+}
+
+// ── INSTAGRAM (site url) ──────────────────────────────────────────────────
 
 async function loadSiteUrl() {
-  const r = await fetch("/api/site-url").catch(() => null);
-  if (!r || !r.ok) return;
-  const d = await r.json();
-  document.getElementById("siteUrl").value = d.url || "";
-  document.getElementById("currentSiteUrl").textContent = d.url || "не задано";
+  const r = await fetch("/api/site-url").then(r => r.json());
+  const url = r.url || "";
+  document.getElementById("ig-site-url").value = url;
+  document.getElementById("ig-current-url").textContent = url || "не задано";
+  if (url && url.startsWith("https://")) markDone("ig-s3");
 }
 
-async function saveSiteUrl() {
-  const url = document.getElementById("siteUrl").value.trim();
+async function igSaveSiteUrl() {
+  const url = document.getElementById("ig-site-url").value.trim();
+  if (url && !url.startsWith("https://")) {
+    document.getElementById("ig-url-result").style.display = "block";
+    document.getElementById("ig-url-result").innerHTML = `<div class="verify-badge err">❌ Адреса повинна починатись з https://</div>`;
+    return;
+  }
   const r = await fetch("/api/site-url", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
-  });
-  const d = await r.json();
-  if (d.success) {
-    document.getElementById("currentSiteUrl").textContent = url || "не задано";
-    showAlert("✅ Адресу сайту збережено!", "ok");
+  }).then(r => r.json());
+  const res = document.getElementById("ig-url-result");
+  res.style.display = "block";
+  if (r.success) {
+    document.getElementById("ig-current-url").textContent = url || "не задано";
+    res.innerHTML = `<div class="verify-badge ok">✅ Адресу збережено</div>`;
+    if (url) markDone("ig-s3");
+  } else { res.innerHTML = `<div class="verify-badge err">❌ Помилка</div>`; }
+}
+
+// ── SHAFA ─────────────────────────────────────────────────────────────────
+
+async function loadShafaStatus() {
+  const s = await fetch("/api/shafa/status").then(r => r.json());
+  const box = document.getElementById("shafa-status");
+  if (s.hasCredentials && s.sessionValid) {
+    setDot("shafa", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body"><strong>Shafa.ua підключено</strong>
+      <div class="detail">Акаунт: <b>${s.email}</b></div>
+      <div class="detail" style="color:var(--text2)">Сесія активна — вхід не потрібен</div></div>`;
+    ["shafa-s1","shafa-s2","shafa-s3"].forEach(markDone);
+    document.getElementById("shafa-session-info").style.display = "block";
+    document.getElementById("shafa-session-info").innerHTML = `<div class="verify-badge ok">✅ Сесія збережена — публікація працюватиме швидко</div>`;
+  } else if (s.hasCredentials) {
+    setDot("shafa", "yellow");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body"><strong>Дані введено, сесія відсутня</strong>
+      <div class="detail">Акаунт: <b>${s.email}</b></div>
+      <div class="detail" style="color:var(--text2)">При першій публікації програма увійде автоматично</div></div>`;
+    ["shafa-s1","shafa-s2"].forEach(markDone);
+    document.getElementById("shafa-email").value = s.email;
   } else {
-    showAlert("Помилка: " + d.message, "err");
+    setDot("shafa", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Shafa.ua не налаштовано</strong>
+      <div class="detail" style="color:var(--text2)">Введи email і пароль нижче.</div></div>`;
   }
 }
 
-// ─── init ────────────────────────────────────────────────────────────────────
+function shafaChanged() {
+  const email = document.getElementById("shafa-email").value.trim();
+  const pwd = document.getElementById("shafa-password").value.trim();
+  document.getElementById("shafa-save-btn").disabled = !(email && pwd && email.includes("@"));
+}
 
-handleUrlParams();
-loadFbStatus();
-checkTelegram();
-loadSiteUrl();
+async function shafaSave() {
+  const email = document.getElementById("shafa-email").value.trim();
+  const password = document.getElementById("shafa-password").value.trim();
+  const btn = document.getElementById("shafa-save-btn");
+  const hint = document.getElementById("shafa-save-hint");
+  const errBox = document.getElementById("shafa-creds-err");
+  errBox.style.display = "none"; btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/shafa/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Збережено! При першій публікації програма увійде автоматично.";
+    await loadShafaStatus();
+  } else {
+    errBox.style.display = "flex";
+    document.getElementById("shafa-err-text").textContent = r.message;
+  }
+}
+
+// ── init ─────────────────────────────────────────────────────────────────
+
+// Handle redirect params from OAuth
+function handleUrlParams() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.get("fbSuccess")) {
+    const pageName = decodeURIComponent(p.get("pageName")||"");
+    const igName = decodeURIComponent(p.get("igName")||"");
+    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igName ? "Instagram @"+igName+" теж підключено!" : "Instagram не знайдено — прив'яжи Business акаунт."}`, "ok");
+    window.history.replaceState({}, "", "/setup.html?tab=fb");
+  }
+  if (p.get("fbError")) {
+    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${decodeURIComponent(p.get("fbError"))}`, "err");
+    window.history.replaceState({}, "", "/setup.html?tab=fb");
+  }
+  const tab = p.get("tab") || "fb";
+  switchTab(tab);
+  handleFbPageChoose();
+}
+
+(async () => {
+  handleUrlParams();
+  await Promise.all([loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus()]);
+})();
 </script>
 </body>
 </html>
