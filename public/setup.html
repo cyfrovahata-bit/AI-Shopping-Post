@@ -166,6 +166,11 @@
           <span>Shafa.ua</span>
           <span class="conn-dot" id="dot-shafa"></span>
         </button>
+        <button class="tab-btn" onclick="switchTab('prom')" id="tab-prom">
+          <span class="tab-icon">🟠</span>
+          <span>Prom.ua</span>
+          <span class="conn-dot" id="dot-prom"></span>
+        </button>
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -535,6 +540,92 @@
                   <span style="color:var(--text2)">Сесія зберігається у файлі <code>shafa-session.json</code>. Якщо вона протухла — програма увійде знову автоматично.</span>
                 </div>
                 <div id="shafa-session-info" style="display:none"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: PROM.UA                                                          -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-prom">
+        <div class="card">
+          <div id="prom-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num active" id="prom-s1">1</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🏪 Зареєструйся і відкрий магазин на Prom.ua</div>
+                <div class="step-desc">Prom.ua — великий маркетплейс. Для публікації товарів потрібен акаунт продавця з відкритим магазином. Реєстрація безкоштовна.</div>
+                <div class="info-box">
+                  <b>Якщо ще немає акаунту:</b>
+                  <ol>
+                    <li>Відкрий <a href="https://prom.ua/register" target="_blank" style="color:var(--accent)">prom.ua/register</a></li>
+                    <li>Зареєструйся як продавець</li>
+                    <li>Заповни інформацію про магазин</li>
+                  </ol>
+                  <b style="display:block;margin-top:8px">Якщо акаунт вже є — переходь до кроку 2.</b>
+                </div>
+                <a href="https://prom.ua/register" target="_blank" class="btn primary">Відкрити Prom.ua →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="prom-s2">2</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">🔑 Отримай API-токен</div>
+                <div class="step-desc">API-токен — це секретний ключ, який дає програмі право публікувати товари у твій магазин. Видається в особистому кабінеті.</div>
+                <div class="info-box">
+                  <b>Як отримати токен:</b>
+                  <ol>
+                    <li>Увійди в <a href="https://my.prom.ua" target="_blank" style="color:var(--accent)">my.prom.ua</a></li>
+                    <li>Відкрий: <b>Налаштування → API</b> (або пряме посилання нижче)</li>
+                    <li>Натисни <b>«Згенерувати токен»</b></li>
+                    <li>Скопіюй токен і встав нижче — він показується тільки один раз!</li>
+                  </ol>
+                </div>
+                <a href="https://my.prom.ua/cabinet/account/api_keys" target="_blank" class="btn secondary" style="margin-bottom:14px">
+                  Відкрити налаштування API →
+                </a>
+                <div class="field">
+                  <label>API-токен Prom.ua</label>
+                  <input type="password" id="prom-token" placeholder="Встав токен сюди..." autocomplete="off" oninput="promChanged()" />
+                  <div class="hint">Довгий рядок символів з особистого кабінету Prom.ua</div>
+                </div>
+                <div id="prom-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="prom-err-text"></span></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="btn secondary" id="prom-save-btn" onclick="promSave()" disabled>Зберегти токен</button>
+                  <button class="btn ghost" id="prom-verify-btn" onclick="promVerify()" style="display:none">Перевірити</button>
+                </div>
+                <div id="prom-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+                <div id="prom-verify-res" style="display:none"></div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="prom-s3">3</div>
+              </div>
+              <div class="step-body">
+                <div class="step-title">✅ Готово — товари публікуватимуться на Prom.ua!</div>
+                <div class="step-desc">
+                  Після збереження токена — вибери «Prom.ua» у формі публікації на головній сторінці.
+                  AI згенерує назву, опис і ключові слова оптимізовані для пошуку на Prom.<br><br>
+                  <span style="color:var(--text2)">Фото завантажуються автоматично з твого комп'ютера. Якщо завантаження не вийде — потрібна публічна адреса сайту (SITE_URL у вкладці Instagram).</span>
+                </div>
               </div>
             </div>
 
@@ -935,6 +1026,99 @@ async function shafaSave() {
   }
 }
 
+// ── PROM ─────────────────────────────────────────────────────────────────
+
+async function loadPromStatus() {
+  const s = await fetch("/api/prom/status").then(r => r.json());
+  const box = document.getElementById("prom-status");
+  if (s.connected) {
+    setDot("prom", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body">
+        <strong>Prom.ua підключено</strong>
+        <div class="detail" style="color:var(--text2)">API-токен дійсний, публікація доступна</div>
+        <div class="status-actions">
+          <button class="btn ghost" onclick="promVerify()">Перевірити</button>
+        </div>
+        <div id="prom-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
+      </div>`;
+    ["prom-s1","prom-s2","prom-s3"].forEach(markDone);
+    document.getElementById("prom-verify-btn").style.display = "";
+  } else if (s.hasToken) {
+    setDot("prom", "yellow");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body">
+        <strong>Токен збережено, але не вдалось перевірити</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || "Можливо, токен невірний або немає інтернету"}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="promVerify()">Перевірити ще раз</button></div>
+      </div>`;
+    markDone("prom-s1"); markDone("prom-s2");
+    document.getElementById("prom-verify-btn").style.display = "";
+  } else {
+    setDot("prom", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Prom.ua не підключено</strong>
+      <div class="detail" style="color:var(--text2)">Введи API-токен на кроці 2.</div></div>`;
+  }
+}
+
+function promChanged() {
+  const token = document.getElementById("prom-token").value.trim();
+  const btn = document.getElementById("prom-save-btn");
+  const verBtn = document.getElementById("prom-verify-btn");
+  const errBox = document.getElementById("prom-err");
+  btn.disabled = true; errBox.style.display = "none";
+  if (!token) return;
+  if (token.length < 10) {
+    errBox.style.display = "flex";
+    document.getElementById("prom-err-text").textContent = "Токен занадто короткий";
+    return;
+  }
+  btn.disabled = false;
+  verBtn.style.display = "";
+}
+
+async function promSave() {
+  const token = document.getElementById("prom-token").value.trim();
+  const btn = document.getElementById("prom-save-btn");
+  const hint = document.getElementById("prom-save-hint");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/prom/save", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти токен";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Збережено! Перевіряємо з'єднання...";
+    await promVerify();
+    await loadPromStatus();
+  } else {
+    hint.style.display = "block"; hint.style.color = "#f85149";
+    hint.textContent = "Помилка: " + r.message;
+  }
+}
+
+async function promVerify() {
+  const res = document.getElementById("prom-verify-res");
+  const panel = document.getElementById("prom-verify-panel");
+  const target = res || panel;
+  if (!target) return;
+  target.style.display = "block";
+  target.textContent = "Перевіряємо з'єднання з Prom.ua...";
+  const d = await fetch("/api/prom/verify", { method: "POST" }).then(r => r.json());
+  if (d.ok) {
+    target.innerHTML = `<div class="verify-badge ok">✅ З'єднання працює! Prom.ua API активне.</div>`;
+    markDone("prom-s2"); markDone("prom-s3");
+    setDot("prom", "green");
+  } else {
+    target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
+  }
+}
+
 // ── init ─────────────────────────────────────────────────────────────────
 
 // Handle redirect params from OAuth
@@ -957,7 +1141,7 @@ function handleUrlParams() {
 
 (async () => {
   handleUrlParams();
-  await Promise.all([loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus()]);
+  await Promise.all([loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus(), loadPromStatus()]);
 })();
 </script>
 </body>

@@ -2,6 +2,7 @@ import { publishInstagramPost } from "../instagram";
 import { sendTelegramPost } from "../telegram";
 import { publishFacebookPost } from "../facebook";
 import { publishToShafa, mapProductToShafa } from "../shafa";
+import { publishPromPost } from "../prom";
 import { SHAFA_COLORS } from "../shafa/shafa.types";
 import { PlatformId, ProductInput, PublishingPlatform } from "../platform-types";
 
@@ -318,18 +319,49 @@ ${JSON.stringify([...SHAFA_COLORS])}
   },
 };
 
+const promPlatform: PublishingPlatform = {
+  id: "prom",
+  name: "Prom.ua",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    return `
+${commonRules(product)}
+
+Ти публікуєш товар на маркетплейсі Prom.ua. Покупці шукають товари через пошук — заголовок і ключові слова критично важливі для видимості.
+
+Правила для Prom.ua:
+- Назва товару: до 120 символів, точна і пошуко-орієнтована. Включи: тип товару, колір, матеріал, стиль.
+- Опис: детальний, 150-400 слів. Можна використовувати HTML (абзаци <p>, списки <ul><li>). Опиши переваги, склад, розміри, догляд.
+- Ключові слова: 15-25 слів через кому. Включи синоніми, суміжні запити, розміри.
+- Категорія: вибери найточнішу назву категорії Prom.ua для цього товару.
+
+Поверни тільки JSON:
+{
+  "title": "назва до 120 символів",
+  "description": "<p>HTML-опис...</p>",
+  "keywords": "ключове1, ключове2, ...",
+  "categoryName": "Жіночі сукні",
+  "categoryId": null
+}
+`.trim();
+  },
+  async publish({ product, text, photoPaths, imageUrls, extras }) {
+    return publishPromPost({ product, text, photoPaths, imageUrls, extras });
+  },
+};
+
 export const platforms: Record<PlatformId, PublishingPlatform> = {
   telegram: telegramPlatform,
   instagram: instagramPlatform,
   facebook: facebookPlatform,
   shafa: shafaPlatform,
+  prom: promPlatform,
   viber: createFuturePlatform("viber", "Viber"),
-  prom: createFuturePlatform("prom", "Prom"),
   rozetka: createFuturePlatform("rozetka", "Rozetka"),
   olx: createFuturePlatform("olx", "OLX"),
 };
 
-export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "shafa"];
+export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "shafa", "prom"];
 
 export function getPlatform(id: PlatformId) {
   const platform = platforms[id];

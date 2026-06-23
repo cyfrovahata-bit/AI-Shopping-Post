@@ -1047,6 +1047,30 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // ── Prom.ua setup ─────────────────────────────────────────────────────────
+
+  app.get("/api/prom/status", async (_req: Request, res: Response) => {
+    const { promTestConnection } = await import("./prom");
+    const hasToken = !!process.env.PROM_API_TOKEN;
+    if (!hasToken) return res.json({ connected: false, hasToken: false });
+    const result = await promTestConnection();
+    res.json({ connected: result.ok, hasToken, shopName: result.shopName, error: result.error });
+  });
+
+  app.post("/api/prom/save", (req: Request, res: Response) => {
+    const { token } = req.body as { token: string };
+    if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ PROM_API_TOKEN: token });
+    res.json({ success: true });
+  });
+
+  app.post("/api/prom/verify", async (_req: Request, res: Response) => {
+    const { promTestConnection } = await import("./prom");
+    const result = await promTestConnection();
+    res.json(result);
+  });
+
   // ── End Facebook OAuth ──────────────────────────────────────────────────────
 
   app.listen(PORT, () => {
