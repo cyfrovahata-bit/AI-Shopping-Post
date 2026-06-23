@@ -27,10 +27,18 @@ export function mapProductToShafa(
 ): ShafaProduct {
   let ai: Record<string, unknown> = {};
   try {
-    const clean = aiJson.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    // Handle markdown code block anywhere in the response (e.g. prefixed with "I'm unable...")
+    const codeMatch = aiJson.match(/```(?:json)?\s*([\s\S]+?)```/i);
+    const clean = codeMatch
+      ? codeMatch[1].trim()
+      : aiJson.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     ai = JSON.parse(clean);
   } catch {
-    // AI повернув не JSON — використаємо aiJson як опис (fallback)
+    // fallback: try to find raw JSON object in the text
+    try {
+      const objMatch = aiJson.match(/\{[\s\S]+\}/);
+      if (objMatch) ai = JSON.parse(objMatch[0]);
+    } catch { /* use empty ai */ }
   }
 
   const fallbackSizes = parseSizes(product.sizes || "");
@@ -77,7 +85,11 @@ export function mapProductToShafa(
       const p = Array.isArray(ai.print) ? (ai.print as string[]) : [];
       return p.filter(v => !/(однотон|без принт)/i.test(v));
     })(),
-    style: Array.isArray(ai.style) ? (ai.style as string[]) : [],
+    style: (() => {
+      const VALID_STYLES = ["Повсякденний","Діловий","Святковий","Вечірній","Романтичний","Бохо","Вінтажний","Готичний","Класичний","Спортивний"];
+      const raw = Array.isArray(ai.style) ? (ai.style as string[]) : [];
+      return raw.filter(v => VALID_STYLES.includes(v));
+    })(),
     decor: typeof ai.decor === "string" ? ai.decor : undefined,
     modelFeatures: Array.isArray(ai.modelFeatures) ? (ai.modelFeatures as string[]) : [],
     madeInUkraine: undefined,
