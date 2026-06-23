@@ -7,6 +7,7 @@
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
     "build": "npm rebuild sqlite3 --build-from-source && tsc --noEmit",
+    "postinstall": "npx playwright install --with-deps chromium",
     "test:shafa": "tsx scripts/test-shafa.ts",
     "inspect:shafa": "tsx scripts/inspect-shafa-form.ts"
   },
