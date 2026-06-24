@@ -26,6 +26,8 @@ import {
 } from "./facebook-auth";
 
 dotenv.config();
+// On Railway: load persisted tokens from Volume (survives container restarts)
+if (fs.existsSync("/data/.env")) dotenv.config({ path: "/data/.env", override: true });
 
 const app = express();
 const PORT = process.env.PORT || 3000;

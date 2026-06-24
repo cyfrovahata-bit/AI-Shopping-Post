@@ -21,19 +21,26 @@ export interface FacebookTokens {
 }
 
 function envPath() {
+  // On Railway: persist tokens to Volume so they survive container restarts
+  if (fs.existsSync("/data")) return "/data/.env";
   return path.resolve(process.cwd(), ".env");
 }
 
-// Read .env as key=value map
+// Read .env as key=value map (merges local + volume .env)
 function readEnv(): Record<string, string> {
   const map: Record<string, string> = {};
-  try {
-    const raw = fs.readFileSync(envPath(), "utf8");
-    for (const line of raw.split("\n")) {
-      const m = line.match(/^([^#=\s][^=]*)=(.*)$/);
-      if (m) map[m[1].trim()] = m[2].trim();
-    }
-  } catch { /* file may not exist */ }
+  const localPath = path.resolve(process.cwd(), ".env");
+  const volumePath = envPath();
+  const filesToRead = localPath === volumePath ? [localPath] : [localPath, volumePath];
+  for (const p of filesToRead) {
+    try {
+      const raw = fs.readFileSync(p, "utf8");
+      for (const line of raw.split("\n")) {
+        const m = line.match(/^([^#=\s][^=]*)=(.*)$/);
+        if (m) map[m[1].trim()] = m[2].trim();
+      }
+    } catch { /* file may not exist */ }
+  }
   return map;
 }
 
