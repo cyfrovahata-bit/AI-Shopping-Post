@@ -903,6 +903,12 @@ async function startServer() {
     res.json(getFacebookStatus());
   });
 
+  function getFbRedirectUri(req: Request): string {
+    const proto = (req.get("x-forwarded-proto") || req.protocol).split(",")[0].trim();
+    const host = req.get("x-forwarded-host") || req.get("host") || `localhost:${PORT}`;
+    return `${proto}://${host}/auth/facebook/callback`;
+  }
+
   // GET /auth/facebook — start OAuth (requires ?appId=&appSecret= or they're in .env)
   app.get("/auth/facebook", (req: Request, res: Response) => {
     const appId = (req.query.appId as string) || process.env.FACEBOOK_APP_ID || "";
@@ -910,11 +916,9 @@ async function startServer() {
     if (!appId || !appSecret) {
       return res.status(400).send("Потрібні App ID та App Secret. Введи їх на сторінці налаштувань.");
     }
-    const redirectUri = `http://localhost:${PORT}/auth/facebook/callback`;
-    const state = Buffer.from(JSON.stringify({ appId, appSecret })).toString("base64");
+    const redirectUri = getFbRedirectUri(req);
+    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri })).toString("base64");
     const url = buildAuthUrl({ appId, appSecret, redirectUri }, state);
-    // Save for callback
-    (req as any).session = { appId, appSecret };
     res.redirect(url);
   });
 
@@ -932,8 +936,8 @@ async function startServer() {
     }
 
     try {
-      const { appId, appSecret } = JSON.parse(Buffer.from(state, "base64").toString());
-      const redirectUri = `http://localhost:${PORT}/auth/facebook/callback`;
+      const { appId, appSecret, redirectUri: savedRedirectUri } = JSON.parse(Buffer.from(state, "base64").toString());
+      const redirectUri = savedRedirectUri || getFbRedirectUri(req);
       const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
 
       if (pages.length === 1) {

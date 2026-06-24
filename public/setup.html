@@ -288,7 +288,7 @@
                   </ol>
                 </div>
                 <div class="copy-row">
-                  <span id="fb-redirect-uri">http://localhost:3000/auth/facebook/callback</span>
+                  <span id="fb-redirect-uri"></span>
                   <button class="btn ghost" onclick="copy('fb-redirect-uri', this)">Скопіювати</button>
                 </div>
               </div>
@@ -1167,6 +1167,10 @@ async function loadSiteUrl() {
   document.getElementById("ig-site-url").value = url;
   document.getElementById("ig-current-url").textContent = url || "не задано";
   if (url && url.startsWith("https://")) markDone("ig-s3");
+  // Set Facebook redirect URI dynamically based on current host
+  const fbBase = url && url.startsWith("https://") ? url.replace(/\/$/, "") : window.location.origin;
+  const el = document.getElementById("fb-redirect-uri");
+  if (el) el.textContent = fbBase + "/auth/facebook/callback";
 }
 
 async function igSaveSiteUrl() {
