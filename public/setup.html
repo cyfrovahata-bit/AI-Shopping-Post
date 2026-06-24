@@ -1514,6 +1514,7 @@ async function loadTiktokStatus() {
   const box = document.getElementById("tiktok-status");
   const actionsCard = document.getElementById("tiktok-actions-card");
   const keysCard = document.getElementById("tiktok-keys-card");
+  const connectBtn = document.getElementById("tiktok-connect-btn");
   if (s.connected) {
     setDot("tiktok", "green");
     box.className = "status-panel ok";
@@ -1530,9 +1531,18 @@ async function loadTiktokStatus() {
     setDot("tiktok", s.hasKeys ? "yellow" : "grey");
     box.className = "status-panel";
     box.innerHTML = `<div class="status-icon">${s.hasKeys ? "🔑" : "❌"}</div>
-      <div class="status-body"><strong>${s.hasKeys ? "Ключі збережено — потрібна авторизація" : "TikTok не підключено"}</strong></div>`;
+      <div class="status-body"><strong>${s.hasKeys ? `Ключі збережено (${s.clientKeyHint}) — потрібна авторизація` : "TikTok не підключено"}</strong></div>`;
     actionsCard.style.display = "none";
     keysCard.style.display = "";
+    // Enable connect button only when keys are saved
+    if (connectBtn) {
+      connectBtn.disabled = !s.hasKeys;
+      connectBtn.title = s.hasKeys ? "" : "Спочатку збережи Client Key і Client Secret";
+    }
+    // Pre-fill hint if keys saved
+    if (s.hasKeys) {
+      document.getElementById("tiktok-step2-num").className = "step-num active";
+    }
   }
 }
 

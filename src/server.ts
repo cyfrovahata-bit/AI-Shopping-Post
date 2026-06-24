@@ -1315,12 +1315,22 @@ async function startServer() {
   app.get("/api/tiktok/status", (_req: Request, res: Response) => {
     const { getTikTokStatus } = require("./tiktok");
     const env = readEnv();
-    const hasKeys = !!(env.TIKTOK_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY);
-    res.json({ ...getTikTokStatus(), hasKeys });
+    const clientKey = env.TIKTOK_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY || "";
+    const hasKeys = !!clientKey;
+    res.json({ ...getTikTokStatus(), hasKeys, clientKeyHint: clientKey ? clientKey.slice(0, 6) + "…" : "" });
   });
 
   app.get("/auth/tiktok", (req: Request, res: Response) => {
     const { getTikTokAuthUrl } = require("./tiktok");
+    const key = readEnv().TIKTOK_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY || "";
+    if (!key) {
+      return res.send(`<html><body style="font-family:sans-serif;padding:40px;max-width:500px">
+        <h2>❌ Client Key не знайдено</h2>
+        <p>Спочатку введи <b>Client Key</b> і <b>Client Secret</b> в Налаштування → TikTok і натисни <b>«Зберегти ключі»</b>.</p>
+        <p>Потім знову натисни «Підключити TikTok».</p>
+        <button onclick="window.close()">Закрити</button>
+      </body></html>`);
+    }
     const redirectUri = getTikTokRedirectUri(req);
     res.redirect(getTikTokAuthUrl(redirectUri, "tiktok-setup"));
   });
