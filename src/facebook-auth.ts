@@ -158,9 +158,37 @@ export async function completeFacebookOAuth(
 
   const pages = await getPages(longToken);
 
-  if (!pages.length) throw new Error("Немає жодної Facebook Page. Спочатку створи Сторінку на Facebook.");
-
+  // Empty accounts is OK — user will enter page ID manually (New Page Experience issue)
   return { pages: pages.map(p => ({ id: p.id, name: p.name })) };
+}
+
+// Fetch a specific page directly by ID (fallback for New Page Experience when /me/accounts returns empty)
+export async function selectFacebookPageManual(pageId: string) {
+  const env = readEnv();
+  const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
+  if (!userToken) throw new Error("Немає user token. Спершу підключи Facebook.");
+
+  const res = await fetch(`${GRAPH}/${pageId}?fields=id,name,access_token&access_token=${userToken}`);
+  const page: any = await res.json();
+
+  if (page.error) throw new Error(`Помилка Facebook: ${page.error.message}`);
+  if (!page.access_token) throw new Error("Не вдалося отримати токен сторінки. Переконайся, що ти адміністратор цієї сторінки.");
+
+  const ig = await getInstagramAccount(page.id, page.access_token);
+
+  const vars: Record<string, string> = {
+    FACEBOOK_PAGE_ID: page.id,
+    FACEBOOK_PAGE_NAME: page.name,
+    FACEBOOK_ACCESS_TOKEN: page.access_token,
+  };
+  if (ig) {
+    vars.INSTAGRAM_USER_ID = ig.id;
+    if (ig.username) vars.INSTAGRAM_USERNAME = ig.username;
+    vars.INSTAGRAM_ACCESS_TOKEN = page.access_token;
+  }
+
+  writeEnvVars(vars);
+  return { page: { id: page.id, name: page.name }, instagram: ig };
 }
 
 // User selects a page → save page token + instagram info

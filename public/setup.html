@@ -1558,6 +1558,17 @@ function handleUrlParams() {
     showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igName ? "Instagram @"+igName+" теж підключено!" : "Instagram не знайдено — прив'яжи Business акаунт."}`, "ok");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
+  if (p.get("needsPageId")) {
+    // New Page Experience: token saved but /me/accounts returned empty — ask for manual page ID
+    if (window.opener && !window.opener.closed) {
+      try { window.opener.postMessage({ type: "fbNeedsPageId" }, "*"); } catch(e) {}
+      window.close();
+      return;
+    }
+    window.history.replaceState({}, "", "/setup.html?tab=fb");
+    showManualPageIdForm();
+    return;
+  }
   if (p.get("fbError")) {
     if (window.opener && !window.opener.closed) {
       try { window.opener.postMessage({ type: "fbError", msg: decodeURIComponent(p.get("fbError")) }, "*"); } catch(e) {}
@@ -1580,10 +1591,65 @@ function handleUrlParams() {
   handleFbPageChoose();
 }
 
+function showManualPageIdForm() {
+  switchTab("fb");
+  const fbSection = document.getElementById("fb-section") || document.querySelector(".fb-section");
+  const container = document.getElementById("fb-manual-page-form");
+  if (container) { container.style.display = ""; return; }
+  const div = document.createElement("div");
+  div.id = "fb-manual-page-form";
+  div.style.cssText = "background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:16px;margin:16px 0;";
+  div.innerHTML = `
+    <p><b>Facebook підключено!</b> Але список сторінок не вдалося отримати автоматично.</p>
+    <p>Введи ID своєї Facebook Page вручну. Знайди його:<br>
+    <b>Facebook → Сторінка → Про сторінку → ID сторінки</b><br>
+    або скопіюй з адресного рядка після /</p>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <input id="manual-page-id-input" type="text" placeholder="наприклад: 1185522017979527" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:14px;">
+      <button onclick="submitManualPageId()" style="padding:8px 16px;background:#1877f2;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">Зберегти</button>
+    </div>
+    <div id="manual-page-id-result" style="margin-top:8px;"></div>
+  `;
+  const statusBlock = document.getElementById("fb-status-block");
+  if (statusBlock) statusBlock.after(div);
+  else document.querySelector(".fb-tab")?.prepend(div);
+}
+
+async function submitManualPageId() {
+  const input = document.getElementById("manual-page-id-input");
+  const result = document.getElementById("manual-page-id-result");
+  const pageId = input?.value?.trim();
+  if (!pageId) { if (result) result.innerHTML = '<span style="color:red">Введи ID сторінки</span>'; return; }
+  if (result) result.innerHTML = 'Підключаємо...';
+  try {
+    const r = await fetch("/api/facebook/select-page-manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageId }),
+    });
+    const data = await r.json();
+    if (data.success) {
+      const form = document.getElementById("fb-manual-page-form");
+      if (form) form.remove();
+      await loadFbStatus();
+      const igMsg = data.instagram?.username ? ` Instagram @${data.instagram.username} теж підключено!` : "";
+      showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${data.page.name}».${igMsg}`, "ok");
+    } else {
+      if (result) result.innerHTML = `<span style="color:red">${data.message}</span>`;
+    }
+  } catch(e) {
+    if (result) result.innerHTML = `<span style="color:red">Помилка: ${e.message}</span>`;
+  }
+}
+
 window.addEventListener("message", (e) => {
   if (e.data?.type === "fbDone") {
     loadFbStatus();
     showGlobalAlert("✅ <b>Facebook підключено!</b>", "ok");
+  }
+  if (e.data?.type === "fbNeedsPageId") {
+    loadFbStatus();
+    showManualPageIdForm();
   }
   if (e.data?.type === "fbError") {
     showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${e.data.msg}`, "err");

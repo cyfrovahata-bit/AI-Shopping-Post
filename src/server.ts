@@ -22,6 +22,7 @@ import {
   buildAuthUrl,
   completeFacebookOAuth,
   selectFacebookPage,
+  selectFacebookPageManual,
   getFacebookStatus,
 } from "./facebook-auth";
 
@@ -940,6 +941,11 @@ async function startServer() {
       const redirectUri = savedRedirectUri || getFbRedirectUri(req);
       const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
 
+      if (pages.length === 0) {
+        // New Page Experience: /me/accounts returns empty but token is saved — ask for manual page ID
+        return res.redirect("/setup.html?needsPageId=1");
+      }
+
       if (pages.length === 1) {
         const result = await selectFacebookPage(pages[0].id);
         const igPart = result.instagram ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
@@ -954,11 +960,23 @@ async function startServer() {
     }
   });
 
-  // POST /api/facebook/select-page — user picks a page
+  // POST /api/facebook/select-page — user picks a page from dropdown
   app.post("/api/facebook/select-page", async (req: Request, res: Response) => {
     const { pageId } = req.body as { pageId: string };
     try {
       const result = await selectFacebookPage(pageId);
+      res.json({ success: true, ...result });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // POST /api/facebook/select-page-manual — fetch page directly by ID (New Page Experience fallback)
+  app.post("/api/facebook/select-page-manual", async (req: Request, res: Response) => {
+    const { pageId } = req.body as { pageId: string };
+    if (!pageId) return res.status(400).json({ success: false, message: "Потрібен Page ID" });
+    try {
+      const result = await selectFacebookPageManual(pageId.trim());
       res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ success: false, message: err instanceof Error ? err.message : String(err) });
