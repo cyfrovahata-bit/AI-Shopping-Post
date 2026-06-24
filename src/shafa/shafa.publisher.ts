@@ -722,69 +722,66 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     // Скріншот перед сабмітом
     await page.screenshot({ path: `${debugDir}/shafa-before-submit.png`, fullPage: true }).catch(() => {});
 
-    // Натискаємо "Додати річ" — без force, щоб React отримав подію нормально
-    const btn = page.getByRole("button", { name: /Додати річ|Добавить вещь/i });
-    const btnCount = await btn.count();
-    const btnDisabled = btnCount > 0 ? await btn.first().getAttribute("disabled") : null;
-    const btnAriaDisabled = btnCount > 0 ? await btn.first().getAttribute("aria-disabled") : null;
-    console.log(`[Shafa] Submit btn count: ${btnCount}, disabled=${btnDisabled}, aria-disabled=${btnAriaDisabled}, url: ${page.url()}`);
+    // Натискаємо "Додати річ" через координати миші (React-сумісний спосіб)
+    const submitCoords = await page.evaluate(`(function() {
+      var btns = Array.from(document.querySelectorAll('button'));
+      var b = btns.find(function(b) {
+        return /Додати річ|Добавить вещь|Зберегти/i.test((b.innerText||b.textContent||'').trim()) && b.offsetParent;
+      });
+      if (!b) return null;
+      b.scrollIntoView({ block: 'center', behavior: 'instant' });
+      var r = b.getBoundingClientRect();
+      return { x: r.left + r.width/2, y: r.top + r.height/2, text: (b.innerText||b.textContent||'').trim() };
+    })()`);
 
-    if (btnCount > 0) {
-      await btn.first().scrollIntoViewIfNeeded();
-      await humanPause(600);
-      // Normal click — lets React process the event properly
-      try {
-        await btn.first().click({ timeout: 8000 });
-      } catch {
-        // Fallback: JS click if element is somehow not directly clickable
-        await btn.first().evaluate((el: HTMLElement) => el.click());
-      }
-      console.log("[Shafa] Submit btn clicked");
-    } else {
-      const jsFound = await page.evaluate(`(function() {
-        var btns = Array.from(document.querySelectorAll('button'));
-        var b = btns.find(function(b) {
-          return /Додати річ|Добавить вещь|Зберегти/i.test((b.innerText||b.textContent||'').trim());
-        });
-        if (b) { b.scrollIntoView({ block:'center' }); b.click(); return b.innerText.trim(); }
-        return null;
-      })()`);
-      console.log("[Shafa] JS submit btn:", jsFound);
-      if (!jsFound) throw new Error("Кнопка 'Додати річ' не знайдена на сторінці");
-    }
+    if (!submitCoords) throw new Error("Кнопка 'Додати річ' не знайдена на сторінці");
+    const sc = submitCoords as { x: number; y: number; text: string };
+    console.log(`[Shafa] Submit btn found: "${sc.text}" at (${sc.x.toFixed(0)},${sc.y.toFixed(0)})`);
 
-    // Після кліку — невелика пауза + dismiss будь-яких підтверджень
+    await humanPause(500);
+    await page.mouse.click(sc.x, sc.y);
+    console.log("[Shafa] Submit btn clicked via mouse");
+
+    // Читаємо помилки форми через 2с після кліку — до dismiss щоб не скидати стан
     await humanPause(2000);
-    await dismissModals(page);
-    await page.screenshot({ path: `${debugDir}/shafa-after-click.png`, fullPage: false }).catch(() => {});
 
-    // Логуємо всі видимі помилки форми
-    const formErrors: string[] = await page.evaluate(() => {
-      const sels = ['[class*="error"]', '[class*="Error"]', '[class*="invalid"]', '[class*="Invalid"]', '.alert', '[role="alert"]'];
-      const seen = new Set<string>();
-      const result: string[] = [];
-      for (const s of sels) {
-        document.querySelectorAll(s).forEach(el => {
-          const t = ((el as HTMLElement).innerText || el.textContent || "").trim();
-          if (t && t.length < 300 && !seen.has(t)) { seen.add(t); result.push(t); }
-        });
-      }
-      return result;
-    });
+    const getFormErrors = async () => {
+      return page.evaluate(`(function() {
+        var sels = ['[class*="error"]','[class*="Error"]','[class*="invalid"]','[class*="Invalid"]',
+                    '[role="alert"]','.alert','[class*="message"]','[class*="Message"]',
+                    '[class*="warning"]','[class*="Warning"]','[class*="hint"]','[class*="Hint"]'];
+        var seen = {};
+        var result = [];
+        for (var i = 0; i < sels.length; i++) {
+          document.querySelectorAll(sels[i]).forEach(function(el) {
+            var t = (el.innerText || el.textContent || '').trim();
+            if (t && t.length > 2 && t.length < 300 && !seen[t]) { seen[t]=1; result.push(t); }
+          });
+        }
+        return result;
+      })()`);
+    };
+
+    let formErrors = (await getFormErrors()) as string[];
     if (formErrors.length) console.log(`[Shafa] Form errors after click:`, formErrors);
+
+    await page.screenshot({ path: `${debugDir}/shafa-after-click.png`, fullPage: true }).catch(() => {});
 
     // Чекаємо переходу — Shafa робить редирект після успішної публікації
     let finalUrl = page.url();
     try {
       await page.waitForURL(
         url => !url.toString().includes("/new"),
-        { timeout: 25000 }
+        { timeout: 30000 }
       );
       finalUrl = page.url();
       console.log(`[Shafa] Success! Redirected to: ${finalUrl}`);
     } catch {
       finalUrl = page.url();
-      console.log(`[Shafa] No redirect after 25s, current url: ${finalUrl}`);
+      // Перечитуємо помилки після повного очікування
+      formErrors = (await getFormErrors()) as string[];
+      if (formErrors.length) console.log(`[Shafa] Form errors after timeout:`, formErrors);
+      console.log(`[Shafa] No redirect after 30s, current url: ${finalUrl}`);
       await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
       if (finalUrl.includes("/new")) {
         const errMsg = formErrors.length ? formErrors.join("; ") : "Форма не відправилась — URL не змінився після сабміту";
