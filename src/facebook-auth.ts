@@ -184,7 +184,8 @@ export async function selectFacebookPageManual(pageId: string) {
   if (ig) {
     vars.INSTAGRAM_USER_ID = ig.id;
     if (ig.username) vars.INSTAGRAM_USERNAME = ig.username;
-    vars.INSTAGRAM_ACCESS_TOKEN = page.access_token;
+    // NPE pages: user token works for Instagram Graph API; page token gives #10 error
+    vars.INSTAGRAM_ACCESS_TOKEN = userToken;
   }
 
   writeEnvVars(vars);
@@ -212,8 +213,8 @@ export async function selectFacebookPage(pageId: string) {
   if (ig) {
     vars.INSTAGRAM_USER_ID = ig.id;
     if (ig.username) vars.INSTAGRAM_USERNAME = ig.username;
-    // Instagram uses the Page token too
-    vars.INSTAGRAM_ACCESS_TOKEN = page.access_token;
+    // Use user token for Instagram (NPE page tokens don't work with Instagram Graph API)
+    vars.INSTAGRAM_ACCESS_TOKEN = userToken;
   }
 
   writeEnvVars(vars);

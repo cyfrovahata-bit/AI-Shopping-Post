@@ -990,11 +990,13 @@ async function startServer() {
     const { instagramId, instagramUsername } = req.body as { instagramId: string; instagramUsername?: string };
     if (!instagramId) return res.status(400).json({ success: false, message: "Потрібен Instagram ID" });
     const env = readEnv();
+    // For New Page Experience pages, user token works for Instagram API; page token does not
+    const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN || "";
     const pageToken = env.FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
-    if (!pageToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook сторінку" });
+    if (!userToken && !pageToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook" });
     const vars: Record<string, string> = {
       INSTAGRAM_USER_ID: instagramId.trim(),
-      INSTAGRAM_ACCESS_TOKEN: pageToken,
+      INSTAGRAM_ACCESS_TOKEN: userToken || pageToken,
     };
     if (instagramUsername) vars.INSTAGRAM_USERNAME = instagramUsername.trim().replace(/^@/, "");
     writeEnvVars(vars);
