@@ -47,7 +47,7 @@ export async function promTestConnection(): Promise<{ ok: boolean; shopName?: st
   const token = getToken();
   if (!token) return { ok: false, error: "PROM_API_TOKEN не задано" };
   try {
-    const r = await fetch(`${API_BASE}/products/list?limit=1`, {
+    const r = await fetch(`${API_BASE}/products/list`, {
       headers: headers() as any,
     });
     const d = await r.json() as any;
@@ -203,7 +203,7 @@ export async function publishToProm(opts: {
   const tokenVal = getToken();
   console.log(`[Prom] token present: ${!!tokenVal}, length: ${tokenVal.length}, url: ${API_BASE}/products/edit_list`);
 
-  const r = await fetch(`${API_BASE}/products/edit_list`, {
+  const r = await fetch(`${API_BASE}/products/edit`, {
     method: "POST",
     headers: headers() as any,
     body: JSON.stringify({ products: [product] }),
