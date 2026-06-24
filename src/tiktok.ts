@@ -180,20 +180,22 @@ export async function publishTikTokPhotos(photoPaths: string[], caption: string)
   console.log(`[TikTok] Publishing ${paths.length} photo(s) via FILE_UPLOAD`);
 
   // Step 1: init upload — get upload_urls from TikTok
-  const init = await tiktokFetch("/post/publish/content/init/", {
+  const body = {
     post_info: {
       description: caption.slice(0, 2200),
       privacy_level: "SELF_ONLY",
       disable_comment: false,
-      auto_add_music: true,
     },
     source_info: {
       source: "FILE_UPLOAD",
       photo_count: paths.length,
+      photo_cover_index: 1,
     },
     post_mode: "DIRECT_POST",
     media_type: "PHOTO",
-  });
+  };
+  console.log(`[TikTok] Photo init body:`, JSON.stringify(body));
+  const init = await tiktokFetch("/post/publish/content/init/", body);
 
   const publishId = (init as any)?.publish_id as string;
   const uploadUrls = (init as any)?.upload_urls as Array<{ upload_url: string; content_type: string }>;
