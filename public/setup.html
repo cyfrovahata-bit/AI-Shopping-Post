@@ -1026,7 +1026,7 @@ async function loadFbStatus() {
         <div class="detail">Сторінка: <b>${s.pageName || s.pageId}</b></div>
         <div class="detail">${s.instagramId
           ? `Instagram: <b>@${s.instagramUsername || s.instagramId}</b>`
-          : `<span style="color:#d29922">Instagram не знайдено — прив'яжи Business акаунт до Сторінки</span>`
+          : `<span style="color:#d29922">⚠️ Instagram не знайдено — прив'яжи аккаунт до Сторінки та <b>Переп'єднай</b></span>`
         }</div>
         ${s.userTokenDaysLeft !== null ? `<div class="detail">Токен дійсний ще: <b>${s.userTokenDaysLeft} днів</b></div>` : ""}
         <div class="status-actions">
@@ -1085,9 +1085,18 @@ function updateIgStatus(fbStatus) {
     box.innerHTML = `<div class="status-icon">⚠️</div>
       <div class="status-body">
         <strong>Facebook підключено, Instagram не знайдено</strong>
-        <div class="detail" style="color:var(--text2)">Прив'яжи Instagram Business акаунт до Facebook Сторінки «${fbStatus.pageName}» (крок 1 нижче), потім переп'єднай Facebook.</div>
+        <div class="detail" style="color:var(--text2);margin-bottom:8px">Instagram не прив'язаний до Facebook Сторінки «${fbStatus.pageName}» в Meta.</div>
+        <div class="detail" style="font-size:12px;color:var(--text2);margin-bottom:10px">
+          <b style="color:var(--text)">Що зробити:</b><br>
+          1. В Instagram: Налаштування → Акаунт → Прив'язані акаунти → Facebook → вибери «${fbStatus.pageName}»<br>
+          або: Meta Business Suite → Налаштування → Instagram-акаунти → Підключити<br>
+          2. Потім натисни кнопку нижче:
+        </div>
+        <div class="status-actions">
+          <button class="btn primary" onclick="fbReconnect()" style="background:#E1306C">🔁 Переп'єднати (знайти Instagram)</button>
+        </div>
       </div>`;
-    if (inlineBox) inlineBox.innerHTML = `<div class="alert alert-warn" style="margin-bottom:12px"><span class="aico">⚠️</span><div>Facebook підключено (<b>${fbStatus.pageName}</b>), але Instagram не знайдено. Виконай крок 1 і переп'єднай Facebook.</div></div>`;
+    if (inlineBox) inlineBox.innerHTML = `<div class="alert alert-warn" style="margin-bottom:12px"><span class="aico">⚠️</span><div>Facebook підключено (<b>${fbStatus.pageName}</b>), але Instagram не знайдено. Прив'яжи Instagram до Сторінки, потім натисни «Переп'єднати» у вкладці Facebook.</div></div>`;
   } else {
     setDot("ig", "red");
     box.className = "status-panel error";
