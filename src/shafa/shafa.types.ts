@@ -8,7 +8,7 @@ export type ShafaCondition =
 export type ShafaSizeSystem =
   | "Міжнародний"
   | "Європейський"
-  | "🇺🇦 Український";
+  | "Українські";
 
 export type ShafaProduct = {
   title: string;
@@ -47,10 +47,24 @@ export const SHAFA_COLORS = [
 ] as const;
 
 export const SHAFA_SIZES_INT = [
-  "XХS", "ХS", "S", "M", "L", "XL", "XXL", "XXXL",
+  "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL",
   "4XL", "5XL", "6XL", "7XL", "8XL", "9XL",
   "XXS-XS", "XS-S", "S-M", "M-L", "L-XL", "XL-XXL",
   "One size", "Інший",
+] as const;
+
+export const SHAFA_SIZES_EUR = [
+  "32", "34", "36", "38", "40", "42", "44", "46", "48",
+  "50", "52", "54", "56", "58", "60", "62", "64",
+  "One size", "Інший",
+] as const;
+
+export const SHAFA_SIZES_UKR = [
+  "38", "40", "42", "44", "46", "48", "50", "52", "54",
+  "56", "58", "60", "62", "64", "66", "68", "70",
+  "40-42", "42-44", "42-48", "44-46", "46-48", "48-50",
+  "50-52", "52-54", "54-56", "56-58", "58-60", "60-62",
+  "62-64", "64-66", "66-68", "68-70", "One size", "Інший",
 ] as const;
 
 export const SHAFA_SLEEVE_LENGTHS = ["Без рукавів", "Довгий", "Короткий", "Три чверті"] as const;

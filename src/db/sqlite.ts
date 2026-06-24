@@ -53,6 +53,7 @@ export async function initDb() {
   await ensureColumn(db, "products", "processedVideoPath", "TEXT");
   await ensureColumn(db, "products", "useProcessedVideo", "INTEGER DEFAULT 1");
   await ensureColumn(db, "products", "generateVideo", "INTEGER DEFAULT 1");
+  await ensureColumn(db, "products", "sizeSystem", "TEXT");
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS product_images (

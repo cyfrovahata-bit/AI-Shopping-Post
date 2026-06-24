@@ -163,6 +163,7 @@ function productInputFromBody(
     price: toText(body.price),
     dropPrice: toText(body.dropPrice),
     sizes: toText(body.sizes),
+    sizeSystem: toText(body.sizeSystem) || undefined,
     colors: toText(body.colors),
     fabric: toText(body.fabric),
     description: toText(body.description),
@@ -238,6 +239,7 @@ async function insertProduct(
       price,
       dropPrice,
       sizes,
+      sizeSystem,
       colors,
       fabric,
       description,
@@ -254,7 +256,7 @@ async function insertProduct(
       telegramPublished,
       telegramChatId,
       telegramMessageId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
     `,
     [
       "default",
@@ -265,6 +267,7 @@ async function insertProduct(
       product.price,
       product.dropPrice,
       product.sizes,
+      product.sizeSystem || null,
       product.colors,
       product.fabric,
       product.description,
@@ -322,6 +325,7 @@ async function updateProductFields(db: any, productId: number, body: any) {
         price = ?,
         dropPrice = ?,
         sizes = ?,
+        sizeSystem = ?,
         colors = ?,
         fabric = ?,
         description = ?,
@@ -337,6 +341,7 @@ async function updateProductFields(db: any, productId: number, body: any) {
       toText(body.price),
       toText(body.dropPrice),
       toText(body.sizes),
+      toText(body.sizeSystem) || null,
       toText(body.colors),
       toText(body.fabric),
       toText(body.description),

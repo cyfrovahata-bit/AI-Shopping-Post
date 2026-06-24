@@ -137,13 +137,23 @@
               <input type="text" name="dropPrice" placeholder="805 грн" />
             </label>
             <label>
-              Розміри
-              <input type="text" name="sizes" placeholder="42-44, 46-48" />
-            </label>
-            <label>
               Кольори
               <input type="text" name="colors" placeholder="чорний, молочний" />
             </label>
+          </div>
+
+          <div class="size-picker-wrap">
+            <div class="size-picker-label">Розміри</div>
+            <div class="size-picker-tabs" id="sizeTabs">
+              <button type="button" class="size-tab active" onclick="setSizeTab(this,'int')">Міжнародний</button>
+              <button type="button" class="size-tab" onclick="setSizeTab(this,'eur')">Європейський</button>
+              <button type="button" class="size-tab" onclick="setSizeTab(this,'ukr')">Українські</button>
+            </div>
+            <div class="size-grid" id="size-grid-int"></div>
+            <div class="size-grid" id="size-grid-eur" style="display:none"></div>
+            <div class="size-grid" id="size-grid-ukr" style="display:none"></div>
+            <input type="hidden" name="sizes" id="sizes-hidden" />
+            <input type="hidden" name="sizeSystem" id="sizeSystem-hidden" value="Міжнародний" />
           </div>
 
           <label>
@@ -232,5 +242,71 @@
   </div>
 
   <script src="./app.js"></script>
+  <script>
+  // ── SIZE PICKER ─────────────────────────────────────────────────────────
+  const SIZES_DATA = {
+    int: { label: "Міжнародний", sizes: ["XXS","XS","S","M","L","XL","XXL","XXXL","4XL","5XL","6XL","7XL","8XL","9XL","XXS-XS","XS-S","S-M","M-L","L-XL","XL-XXL","One size","Інший"] },
+    eur: { label: "Європейський", sizes: ["32","34","36","38","40","42","44","46","48","50","52","54","56","58","60","62","64","One size","Інший"] },
+    ukr: { label: "Українські", sizes: ["38","40","42","44","46","48","50","52","54","56","58","60","62","64","66","68","70","40-42","42-44","42-48","44-46","46-48","48-50","50-52","52-54","54-56","56-58","58-60","60-62","62-64","64-66","66-68","68-70","One size","Інший"] },
+  };
+  let currentSizeSystem = "int";
+
+  function buildSizeGrids() {
+    for (const [key, data] of Object.entries(SIZES_DATA)) {
+      const grid = document.getElementById("size-grid-" + key);
+      if (!grid) continue;
+      grid.innerHTML = data.sizes.map(s =>
+        `<button type="button" class="size-btn" data-size="${s}" onclick="toggleSizeBtn(this)">${s}</button>`
+      ).join("");
+    }
+  }
+
+  function setSizeTab(btn, key) {
+    currentSizeSystem = key;
+    document.querySelectorAll(".size-tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".size-grid").forEach(g => g.style.display = "none");
+    document.getElementById("size-grid-" + key).style.display = "";
+    document.getElementById("sizeSystem-hidden").value = SIZES_DATA[key].label;
+    updateSizesHidden();
+  }
+
+  function toggleSizeBtn(btn) {
+    btn.classList.toggle("selected");
+    updateSizesHidden();
+  }
+
+  function updateSizesHidden() {
+    const grid = document.getElementById("size-grid-" + currentSizeSystem);
+    const selected = grid ? [...grid.querySelectorAll(".size-btn.selected")].map(b => b.dataset.size) : [];
+    document.getElementById("sizes-hidden").value = selected.join(", ");
+  }
+
+  function restoreSizePicker(sizesStr, sysLabel) {
+    const keyMap = { "Міжнародний": "int", "Європейський": "eur", "Українські": "ukr" };
+    const key = keyMap[sysLabel] || "int";
+    const tab = document.querySelector(`.size-tab[onclick*="'${key}'"]`);
+    if (tab) setSizeTab(tab, key);
+    const vals = (sizesStr || "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    const grid = document.getElementById("size-grid-" + key);
+    if (grid) grid.querySelectorAll(".size-btn").forEach(b => {
+      if (vals.includes(b.dataset.size)) b.classList.add("selected");
+    });
+    updateSizesHidden();
+  }
+
+  buildSizeGrids();
+  </script>
+  <style>
+  .size-picker-wrap { margin-top: 12px; }
+  .size-picker-label { font-size: 13px; font-weight: 500; color: var(--text2, #888); margin-bottom: 6px; }
+  .size-picker-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .size-tab { padding: 4px 14px; border: 1.5px solid var(--border, #e0e0e0); border-radius: 20px; cursor: pointer; background: transparent; font-size: 13px; color: var(--text, #333); transition: all .15s; }
+  .size-tab.active { border-color: var(--accent, #3b82f6); color: var(--accent, #3b82f6); background: color-mix(in srgb, var(--accent, #3b82f6) 10%, transparent); }
+  .size-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+  .size-btn { padding: 5px 11px; border: 1.5px solid var(--border, #e0e0e0); border-radius: 8px; cursor: pointer; background: transparent; font-size: 13px; color: var(--text, #333); transition: all .15s; }
+  .size-btn:hover { border-color: #aaa; }
+  .size-btn.selected { border-color: var(--accent, #3b82f6); background: var(--accent, #3b82f6); color: #fff; }
+  </style>
 </body>
 </html>

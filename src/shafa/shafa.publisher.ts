@@ -321,10 +321,13 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
           minLen = t.length; sizeLabel = el;
         }
       }
+      // Normalize Cyrillic lookalikes to Latin for reliable matching
+      const norm = (s: string) => s.replace(/Х/g, "X").replace(/х/g, "x").replace(/С/g, "C").replace(/с/g, "c");
+      const normSz = norm(sz);
       let container: HTMLElement | null = sizeLabel ? sizeLabel.parentElement : null;
       for (let d = 0; d < 10 && container; d++) {
         const btns = Array.from(container.querySelectorAll("button, [role='button']")) as HTMLElement[];
-        const btn = btns.find(b => (b.innerText || b.textContent || "").trim() === sz && b.offsetParent !== null);
+        const btn = btns.find(b => norm((b.innerText || b.textContent || "").trim()) === normSz && b.offsetParent !== null);
         if (btn) {
           btn.scrollIntoView({ block: "nearest", behavior: "instant" });
           const r = btn.getBoundingClientRect();

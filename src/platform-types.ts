@@ -21,6 +21,7 @@ export type ProductInput = {
   price: string;
   dropPrice?: string;
   sizes?: string;
+  sizeSystem?: string;
   colors?: string;
   fabric?: string;
   description?: string;

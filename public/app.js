@@ -369,6 +369,7 @@ function getFormPayload() {
     price: data.price || "",
     dropPrice: data.dropPrice || "",
     sizes: data.sizes || "",
+    sizeSystem: data.sizeSystem || "Міжнародний",
     colors: data.colors || "",
     fabric: data.fabric || "",
     description: data.description || "",

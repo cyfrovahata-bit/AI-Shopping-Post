@@ -1,15 +1,9 @@
 import { ProductInput } from "../platform-types";
-import { ShafaProduct, SHAFA_SIZES_INT } from "./shafa.types";
+import { ShafaProduct, ShafaSizeSystem } from "./shafa.types";
 
-function parseSizes(sizesStr: string): string[] {
+function splitSizes(sizesStr: string): string[] {
   if (!sizesStr) return [];
-  const result: string[] = [];
-  for (const part of sizesStr.split(/[,;\/]/)) {
-    const up = part.trim().toUpperCase();
-    const found = SHAFA_SIZES_INT.find(v => v.toUpperCase() === up);
-    if (found) result.push(found);
-  }
-  return result;
+  return sizesStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
 }
 
 function fallbackKeywords(title: string, description: string): string[] {
@@ -41,15 +35,15 @@ export function mapProductToShafa(
     } catch { /* use empty ai */ }
   }
 
-  const fallbackSizes = parseSizes(product.sizes || "");
-
   const title = typeof ai.title === "string" ? ai.title : product.title;
   const description = typeof ai.description === "string" ? ai.description : aiJson;
   const keywords = Array.isArray(ai.keywords) ? (ai.keywords as string[]) : fallbackKeywords(product.title, product.description || "");
   const colors = Array.isArray(ai.colors) ? (ai.colors as string[]).slice(0, 2) : [];
-  const sizes = Array.isArray(ai.sizes) && (ai.sizes as string[]).length
-    ? (ai.sizes as string[])
-    : fallbackSizes.length ? fallbackSizes : ["S", "M", "L"];
+
+  // User-selected sizes from the UI take priority over AI output
+  const userSizes = splitSizes(product.sizes || "");
+  const sizes = userSizes.length > 0 ? userSizes : ["S", "M", "L"];
+  const sizeSystem: ShafaSizeSystem = (product.sizeSystem as ShafaSizeSystem) || "Міжнародний";
 
   // Матеріали: з AI або з product.fabric
   let materials: string[] = [];
@@ -70,7 +64,7 @@ export function mapProductToShafa(
     imagePaths: product.photoPaths,
     categoryPath: ["Жіночий одяг", "Плаття", "Сукні міді"],
     quantity: "3",
-    sizeSystem: sizes.length ? "Міжнародний" : undefined,
+    sizeSystem,
     sizes,
     colors,
     materials,
