@@ -692,25 +692,34 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
 
     // Закриваємо будь-які відкриті dropdown перед сабмітом
     await page.keyboard.press("Escape");
-    await humanPause(300);
-    await page.evaluate("document.body.click()");
     await humanPause(500);
+    await page.evaluate("document.body.click()");
+    await humanPause(800);
+    await dismissModals(page);
 
     const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
 
     // Скріншот перед сабмітом
     await page.screenshot({ path: `${debugDir}/shafa-before-submit.png`, fullPage: true }).catch(() => {});
 
-    // Натискаємо "Додати річ"
+    // Натискаємо "Додати річ" — без force, щоб React отримав подію нормально
     const btn = page.getByRole("button", { name: /Додати річ|Добавить вещь/i });
     const btnCount = await btn.count();
-    console.log(`[Shafa] Submit btn count: ${btnCount}, url: ${page.url()}`);
+    const btnDisabled = btnCount > 0 ? await btn.first().getAttribute("disabled") : null;
+    const btnAriaDisabled = btnCount > 0 ? await btn.first().getAttribute("aria-disabled") : null;
+    console.log(`[Shafa] Submit btn count: ${btnCount}, disabled=${btnDisabled}, aria-disabled=${btnAriaDisabled}, url: ${page.url()}`);
 
     if (btnCount > 0) {
-      await btn.first().evaluate(el => el.scrollIntoView({ block: "center" }));
+      await btn.first().scrollIntoViewIfNeeded();
       await humanPause(600);
-      await btn.first().click({ force: true });
-      console.log("[Shafa] Submit btn clicked via Playwright");
+      // Normal click — lets React process the event properly
+      try {
+        await btn.first().click({ timeout: 8000 });
+      } catch {
+        // Fallback: JS click if element is somehow not directly clickable
+        await btn.first().evaluate((el: HTMLElement) => el.click());
+      }
+      console.log("[Shafa] Submit btn clicked");
     } else {
       const jsFound = await page.evaluate(`(function() {
         var btns = Array.from(document.querySelectorAll('button'));
@@ -724,23 +733,42 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       if (!jsFound) throw new Error("Кнопка 'Додати річ' не знайдена на сторінці");
     }
 
+    // Після кліку — невелика пауза + dismiss будь-яких підтверджень
+    await humanPause(2000);
+    await dismissModals(page);
+    await page.screenshot({ path: `${debugDir}/shafa-after-click.png`, fullPage: false }).catch(() => {});
+
+    // Логуємо всі видимі помилки форми
+    const formErrors: string[] = await page.evaluate(() => {
+      const sels = ['[class*="error"]', '[class*="Error"]', '[class*="invalid"]', '[class*="Invalid"]', '.alert', '[role="alert"]'];
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const s of sels) {
+        document.querySelectorAll(s).forEach(el => {
+          const t = ((el as HTMLElement).innerText || el.textContent || "").trim();
+          if (t && t.length < 300 && !seen.has(t)) { seen.add(t); result.push(t); }
+        });
+      }
+      return result;
+    });
+    if (formErrors.length) console.log(`[Shafa] Form errors after click:`, formErrors);
+
     // Чекаємо переходу — Shafa робить редирект після успішної публікації
     let finalUrl = page.url();
     try {
       await page.waitForURL(
         url => !url.toString().includes("/new"),
-        { timeout: 20000 }
+        { timeout: 25000 }
       );
       finalUrl = page.url();
       console.log(`[Shafa] Success! Redirected to: ${finalUrl}`);
     } catch {
       finalUrl = page.url();
-      console.log(`[Shafa] No redirect after 20s, current url: ${finalUrl}`);
-      const errorText = await page.locator('[class*="error"], [class*="Error"], .alert, [role="alert"]').first().textContent().catch(() => "");
+      console.log(`[Shafa] No redirect after 25s, current url: ${finalUrl}`);
       await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
       if (finalUrl.includes("/new")) {
-        if (errorText) throw new Error(`Shafa показала помилку: ${errorText.trim()}`);
-        throw new Error("Форма не відправилась — URL не змінився після сабміту");
+        const errMsg = formErrors.length ? formErrors.join("; ") : "Форма не відправилась — URL не змінився після сабміту";
+        throw new Error(errMsg);
       }
       console.log(`[Shafa] Accepted as success: ${finalUrl}`);
     }
