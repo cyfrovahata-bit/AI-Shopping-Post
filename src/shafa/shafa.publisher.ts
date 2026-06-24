@@ -648,12 +648,14 @@ export type ShafaPublishResult = {
   raw?: unknown;
 };
 
-export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublishResult> {
-  const email = process.env.SHAFA_EMAIL;
-  const password = process.env.SHAFA_PASSWORD;
-  if (!email || !password) throw new Error("SHAFA_EMAIL або SHAFA_PASSWORD не задані в .env");
+export class ShafaSessionExpiredError extends Error {
+  constructor() { super("SHAFA_SESSION_EXPIRED"); this.name = "ShafaSessionExpiredError"; }
+}
 
+export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublishResult> {
   const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
+  if (!(await fileExists(sessionPath))) throw new ShafaSessionExpiredError();
+
   const browser = await chromium.launch({
     headless: true,
     args: [
@@ -672,9 +674,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     ],
   });
 
-  const context = (await fileExists(sessionPath))
-    ? await browser.newContext({ storageState: sessionPath })
-    : await browser.newContext();
+  const context = await browser.newContext({ storageState: sessionPath });
 
   const page = await context.newPage();
 
@@ -690,7 +690,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
 
   try {
     if (!(await isAuthorized(page))) {
-      await loginToShafa(page, context, sessionPath, email, password);
+      throw new ShafaSessionExpiredError();
     }
 
     await fillShafaForm(page, product);

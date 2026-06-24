@@ -1252,23 +1252,15 @@ async function startServer() {
   // ── Shafa setup ───────────────────────────────────────────────────────────
 
   app.get("/api/shafa/status", (_req: Request, res: Response) => {
-    const email = process.env.SHAFA_EMAIL;
-    const password = process.env.SHAFA_PASSWORD;
-    const sessionPath = process.env.SHAFA_SESSION_PATH || "./shafa-session.json";
+    const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
     let sessionValid = false;
     try {
-      const s = JSON.parse(fs.readFileSync(sessionPath, "utf8"));
-      sessionValid = Array.isArray(s) && s.length > 0;
+      const raw = fs.readFileSync(sessionPath, "utf8");
+      const s = JSON.parse(raw);
+      sessionValid = (Array.isArray(s) && s.length > 0) ||
+        (s && typeof s === "object" && s.cookies && Array.isArray(s.cookies) && s.cookies.length > 0);
     } catch { /**/ }
-    res.json({ hasCredentials: !!(email && password), email: email || "", sessionValid });
-  });
-
-  app.post("/api/shafa/save", (req: Request, res: Response) => {
-    const { email, password } = req.body as { email?: string; password?: string };
-    if (!email || !password) return res.status(400).json({ success: false, message: "Потрібні email та пароль" });
-    const { writeEnvVars } = require("./facebook-auth");
-    writeEnvVars({ SHAFA_EMAIL: email, SHAFA_PASSWORD: password });
-    res.json({ success: true });
+    res.json({ sessionValid });
   });
 
   app.post("/api/shafa/login", async (req: Request, res: Response) => {
@@ -1276,8 +1268,7 @@ async function startServer() {
     if (!email || !password) return res.status(400).json({ success: false, message: "Потрібні email та пароль" });
     try {
       const { loginShafaAndSaveSession } = await import("./shafa/shafa.publisher");
-      const { writeEnvVars } = require("./facebook-auth");
-      writeEnvVars({ SHAFA_EMAIL: email, SHAFA_PASSWORD: password });
+      // Credentials are NOT saved — only session cookies are stored
       const result = await loginShafaAndSaveSession(email, password);
       res.json({ success: true, username: result.username });
     } catch (err: any) {
@@ -1286,8 +1277,6 @@ async function startServer() {
   });
 
   app.post("/api/shafa/disconnect", (_req: Request, res: Response) => {
-    const { writeEnvVars } = require("./facebook-auth");
-    writeEnvVars({ SHAFA_EMAIL: "", SHAFA_PASSWORD: "" });
     const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
     try { require("fs").unlinkSync(sessionPath); } catch { /* ok */ }
     res.json({ success: true });

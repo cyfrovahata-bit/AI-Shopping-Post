@@ -1,7 +1,7 @@
 import { publishInstagramPost } from "../instagram";
 import { sendTelegramPost } from "../telegram";
 import { publishFacebookPost } from "../facebook";
-import { publishToShafa, mapProductToShafa } from "../shafa";
+import { publishToShafa, mapProductToShafa, ShafaSessionExpiredError } from "../shafa";
 import { publishPromPost } from "../prom";
 import { publishOlxPost } from "../olx";
 import { publishRozetkaPost } from "../rozetka";
@@ -330,8 +330,15 @@ ${JSON.stringify([...SHAFA_COLORS])}
       }
     }
 
-    const result = await publishToShafa(shafaProduct);
-    return { externalPostId: result.externalPostId };
+    try {
+      const result = await publishToShafa(shafaProduct);
+      return { externalPostId: result.externalPostId };
+    } catch (err) {
+      if (err instanceof ShafaSessionExpiredError) {
+        throw new Error("SHAFA_SESSION_EXPIRED");
+      }
+      throw err;
+    }
   },
 };
 

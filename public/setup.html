@@ -588,7 +588,7 @@
               </div>
               <div class="step-body">
                 <div class="step-title">🔑 Залогінитись в Shafa.ua</div>
-                <div class="step-desc">Натисни кнопку — введи email та пароль від свого акаунту Shafa.ua. Сесія збережеться, подальші публікації будуть без повторного входу.</div>
+                <div class="step-desc">Натисни кнопку, введи email і пароль. Зберігаються тільки <b>cookies сесії</b> — сам пароль не зберігається. Коли сесія протухне (зазвичай через кілька місяців) — система скаже залогінитись знову.</div>
                 <button class="btn primary" onclick="openShafaLogin()" style="margin-top:4px">Залогінитись в Shafa.ua</button>
               </div>
             </div>
@@ -624,7 +624,7 @@
             <button class="btn ghost" onclick="closeShafaModal()">Скасувати</button>
           </div>
           <div style="margin-top:12px;font-size:11px;color:var(--text2);text-align:center">
-            Дані входу зберігаються на сервері для автоматичного поновлення сесії
+            Email і пароль <b>не зберігаються</b> — тільки сесійні cookies. При протуханні сесії потрібно залогінитись знову.
           </div>
         </div>
       </div>
@@ -1358,38 +1358,24 @@ async function loadShafaStatus() {
   const s = await fetch("/api/shafa/status").then(r => r.json());
   const box = document.getElementById("shafa-status");
   const card = document.getElementById("shafa-connect-card");
-  if (s.hasCredentials && s.sessionValid) {
+  if (s.sessionValid) {
     setDot("shafa", "green");
     box.className = "status-panel ok";
     box.innerHTML = `<div class="status-icon">✅</div>
       <div class="status-body">
         <strong>Shafa.ua підключено</strong>
-        <div class="detail">Акаунт: <b>${s.email}</b></div>
-        <div class="detail" style="color:var(--text2)">Сесія активна — вхід не потрібен</div>
+        <div class="detail" style="color:var(--text2)">Сесія активна — публікація працює</div>
         <div class="status-actions" style="margin-top:8px">
-          <button class="btn ghost" onclick="openShafaLogin()">Перепідключити</button>
+          <button class="btn ghost" onclick="openShafaLogin()">Оновити сесію</button>
           <button class="btn ghost" onclick="shafaDisconnect()" style="color:#f85149">Відключити</button>
         </div>
       </div>`;
     if (card) card.style.display = "none";
-  } else if (s.hasCredentials) {
-    setDot("shafa", "yellow");
-    box.className = "status-panel warn";
-    box.innerHTML = `<div class="status-icon">⚠️</div>
-      <div class="status-body"><strong>Дані збережено, потрібно залогінитись</strong>
-      <div class="detail">Акаунт: <b>${s.email}</b></div>
-      <div class="detail" style="color:var(--text2)">Сесія відсутня — натисни «Залогінитись»</div>
-      <div class="status-actions" style="margin-top:8px">
-        <button class="btn secondary" onclick="openShafaLogin()">Залогінитись</button>
-      </div>
-      </div>`;
-    if (card) card.style.display = "";
-    document.getElementById("shafa-modal-email").value = s.email;
   } else {
     setDot("shafa", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div>
-      <div class="status-body"><strong>Shafa.ua не налаштовано</strong>
+      <div class="status-body"><strong>Потрібно залогінитись</strong>
       <div class="detail" style="color:var(--text2)">Натисни «Залогінитись в Shafa.ua» нижче.</div></div>`;
     if (card) card.style.display = "";
   }
