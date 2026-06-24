@@ -557,13 +557,9 @@ async function fillShafaForm(page: Page, product: ShafaProduct) {
 // ─── Авторизація ──────────────────────────────────────────────────────────
 
 async function isAuthorized(page: Page) {
-  await page.goto("https://shafa.ua", { waitUntil: "domcontentloaded", timeout: 60000 });
-  return (
-    (await page.locator("text=Мій профіль").count()) > 0 ||
-    (await page.locator("text=Вийти").count()) > 0 ||
-    (await page.locator('a[href*="/profile"]').count()) > 0 ||
-    (await page.locator('[class*="avatar"]').count()) > 0
-  );
+  // Navigate to a protected page — unauthenticated sessions get redirected to /login
+  await page.goto("https://shafa.ua/uk/cabinet", { waitUntil: "domcontentloaded", timeout: 60000 });
+  return !page.url().includes("/login");
 }
 
 async function saveSession(context: BrowserContext, sessionPath: string) {
