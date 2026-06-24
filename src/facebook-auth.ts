@@ -147,17 +147,18 @@ export async function completeFacebookOAuth(
 ): Promise<{ pages: { id: string; name: string }[] }> {
   const shortToken = await exchangeCode(cfg, code);
   const { token: longToken, expiresIn } = await getLongLivedToken(cfg, shortToken);
-  const pages = await getPages(longToken);
 
-  if (!pages.length) throw new Error("Немає жодної Facebook Page. Спочатку створи Сторінку на Facebook.");
-
-  // Store the long-lived user token + page list for later selection
+  // Save user token FIRST so it's available for debugging even if pages call fails
   writeEnvVars({
     FACEBOOK_APP_ID: cfg.appId,
     FACEBOOK_APP_SECRET: cfg.appSecret,
     FACEBOOK_USER_TOKEN: longToken,
     FACEBOOK_USER_TOKEN_EXPIRES: String(Date.now() + expiresIn * 1000),
   });
+
+  const pages = await getPages(longToken);
+
+  if (!pages.length) throw new Error("Немає жодної Facebook Page. Спочатку створи Сторінку на Facebook.");
 
   return { pages: pages.map(p => ({ id: p.id, name: p.name })) };
 }
