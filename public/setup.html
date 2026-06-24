@@ -544,20 +544,30 @@
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">🔑 Додай Instagram Login до Meta App</div>
-                <div class="step-desc">У Meta Developer Portal потрібно додати продукт «Instagram» і вказати Redirect URI для Instagram.</div>
+                <div class="step-title">🔑 Налаштуй Instagram Business Login</div>
+                <div class="step-desc">У тебе вже є Instagram API ("My Shop Bot-IG"). Потрібно лише додати Redirect URI і скопіювати App ID/Secret.</div>
                 <div class="info-box">
+                  <b>Крок 1 — Додай Redirect URI:</b>
                   <ol>
-                    <li>Відкрий <a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → твій додаток</li>
-                    <li>Зліва → <b>«Add product»</b> → знайди <b>«Instagram»</b> → натисни <b>«Set up»</b></li>
-                    <li>В розділі Instagram → <b>«API setup with Instagram login»</b> → <b>«Settings»</b></li>
-                    <li>У полі <b>«Valid OAuth Redirect URIs»</b> додай адресу нижче:</li>
+                    <li>В розділі <b>«API setup with Instagram login»</b> → <b>крок 4 «Set up Instagram business login»</b> → натисни <b>«Set up»</b></li>
+                    <li>У полі <b>«Valid OAuth Redirect URIs»</b> додай адресу:</li>
                   </ol>
-                  <div class="copy-row" style="margin-top:8px">
-                    <span id="ig-redirect-uri"></span>
+                  <div class="copy-row" style="margin-top:4px;margin-bottom:12px">
+                    <span id="ig-redirect-uri" style="word-break:break-all"></span>
                     <button class="btn ghost" onclick="copy('ig-redirect-uri', this)">Скопіювати</button>
                   </div>
-                  <li style="margin-top:6px">Натисни <b>«Save Changes»</b></li>
+                  <b>Крок 2 — Введи Instagram App ID та App Secret:</b>
+                  <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+                    <div class="field-row">
+                      <input type="text" id="ig-app-id" placeholder="Instagram App ID (напр. 1541144427499605)" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:13px">
+                    </div>
+                    <div class="field-row">
+                      <input type="password" id="ig-app-secret" placeholder="Instagram App Secret" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:13px">
+                      <button class="btn ghost" onclick="togglePassVis('ig-app-secret')" style="flex-shrink:0">👁</button>
+                    </div>
+                    <button class="btn secondary" id="ig-save-app-btn" onclick="igSaveApp()" style="align-self:flex-start">Зберегти App ID/Secret</button>
+                    <div id="ig-save-app-result" style="font-size:12px"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1108,6 +1118,38 @@ async function igDisconnect() {
 
 function igConnect() {
   window.location.href = "/auth/instagram";
+}
+
+async function igSaveApp() {
+  const appId = document.getElementById("ig-app-id").value.trim();
+  const appSecret = document.getElementById("ig-app-secret").value.trim();
+  const result = document.getElementById("ig-save-app-result");
+  if (!appId || !appSecret) { result.innerHTML = '<span style="color:var(--err)">Введи обидва поля</span>'; return; }
+  const btn = document.getElementById("ig-save-app-btn");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/instagram/save-app", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ appId, appSecret }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти App ID/Secret";
+  if (r.success) {
+    result.innerHTML = '<span style="color:var(--ok)">✓ Збережено! Тепер натисни «Підключити Instagram».</span>';
+    markDone("ig-s2");
+  } else {
+    result.innerHTML = `<span style="color:var(--err)">${r.message}</span>`;
+  }
+}
+
+async function loadIgAppCreds() {
+  const r = await fetch("/api/facebook/status").then(r => r.json());
+  // Check if Instagram-specific app creds are saved (via env)
+  const igIdEl = document.getElementById("ig-app-id");
+  const igSecEl = document.getElementById("ig-app-secret");
+  if (!igIdEl || !igSecEl) return;
+  // Pre-fill hint only — actual values not returned for security
+  const env = await fetch("/api/settings/shop").then(r => r.json()).catch(() => ({}));
+  // If we at least have FB app id saved, show a hint
+  if (r.connected) markDone("ig-s2");
 }
 
 function updateIgStatus() { /* legacy no-op — use loadIgStatus() */ }

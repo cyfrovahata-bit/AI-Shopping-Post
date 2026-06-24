@@ -1124,11 +1124,23 @@ async function startServer() {
 
   // ── Instagram Login OAuth (new flow — does not require Facebook Page) ──────
 
+  app.post("/api/instagram/save-app", (req: Request, res: Response) => {
+    const { appId, appSecret } = req.body as { appId?: string; appSecret?: string };
+    if (!appId || !appSecret) return res.json({ success: false, message: "Потрібні appId та appSecret" });
+    writeEnvVars({ INSTAGRAM_APP_ID: appId.trim(), INSTAGRAM_APP_SECRET: appSecret.trim() });
+    res.json({ success: true });
+  });
+
   app.get("/auth/instagram", (req: Request, res: Response) => {
     const env = readEnv();
-    const appId = (req.query.appId as string) || env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "";
-    const appSecret = (req.query.appSecret as string) || env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
-    if (!appId || !appSecret) return res.redirect("/setup.html?igError=" + encodeURIComponent("Спочатку збережи App ID та App Secret у налаштуваннях Facebook"));
+    // Use Instagram-specific app credentials if set, otherwise fall back to Facebook ones
+    const appId = (req.query.appId as string)
+      || env.INSTAGRAM_APP_ID || process.env.INSTAGRAM_APP_ID
+      || env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "";
+    const appSecret = (req.query.appSecret as string)
+      || env.INSTAGRAM_APP_SECRET || process.env.INSTAGRAM_APP_SECRET
+      || env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
+    if (!appId || !appSecret) return res.redirect("/setup.html?igError=" + encodeURIComponent("Спочатку збережи Instagram App ID та App Secret"));
     const redirectUri = getIgRedirectUri(req);
     const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri })).toString("base64");
     res.redirect(buildInstagramAuthUrl({ appId, appSecret, redirectUri }, state));
