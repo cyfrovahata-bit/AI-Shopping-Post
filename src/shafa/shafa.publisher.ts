@@ -574,7 +574,7 @@ async function saveSession(context: BrowserContext, sessionPath: string) {
 
 async function loginToShafa(
   page: Page, context: BrowserContext,
-  sessionPath: string, email: string, password: string
+  sessionPath: string, login: string, password: string
 ) {
   await page.goto("https://shafa.ua/uk/login", { waitUntil: "domcontentloaded" });
   await humanPause(2000);
@@ -582,10 +582,9 @@ async function loginToShafa(
   const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
   await page.screenshot({ path: `${debugDir}/shafa-debug-login.png` }).catch(() => {});
 
-  // Try multiple login field selectors
-  const loginInput = page.locator('input[placeholder*="логін"], input[placeholder*="логин"], input[type="email"], input[name="login"], input[name="email"]').first();
+  const loginInput = page.locator('input[placeholder*="логін"], input[placeholder*="логин"], input[name="login"], input[name="email"], input[type="email"]').first();
   await loginInput.waitFor({ timeout: 15000 });
-  await loginInput.fill(email);
+  await loginInput.fill(login);
   await humanPause(500);
 
   const passwordInput = page.locator('input[placeholder*="пароль"], input[type="password"]').first();
@@ -601,7 +600,7 @@ async function loginToShafa(
 
 // ─── Логін (окрема публічна функція для UI) ───────────────────────────────
 
-export async function loginShafaAndSaveSession(email: string, password: string): Promise<{ username?: string }> {
+export async function loginShafaAndSaveSession(login: string, password: string): Promise<{ username?: string }> {
   const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
   const browser = await chromium.launch({
     headless: true,
@@ -618,10 +617,10 @@ export async function loginShafaAndSaveSession(email: string, password: string):
     else route.continue();
   });
   try {
-    await loginToShafa(page, context, sessionPath, email, password);
+    await loginToShafa(page, context, sessionPath, login, password);
     // Verify login succeeded
     const authorized = await isAuthorized(page);
-    if (!authorized) throw new Error("Не вдалося увійти — перевір email та пароль");
+    if (!authorized) throw new Error("Не вдалося увійти — перевір логін та пароль");
     // Try to get username
     let username: string | undefined;
     try {

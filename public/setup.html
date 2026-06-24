@@ -605,8 +605,8 @@
             <button onclick="closeShafaModal()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
           </div>
           <div class="field" style="margin-bottom:14px">
-            <label>Email від Shafa.ua</label>
-            <input type="email" id="shafa-modal-email" placeholder="myemail@gmail.com" oninput="shafaModalChanged()" autocomplete="username" />
+            <label>Логін від Shafa.ua</label>
+            <input type="text" id="shafa-modal-email" placeholder="ваш_логін" oninput="shafaModalChanged()" autocomplete="username" />
           </div>
           <div class="field" style="margin-bottom:18px">
             <label>Пароль від Shafa.ua</label>
@@ -1398,9 +1398,9 @@ function closeShafaModal() {
 }
 
 function shafaModalChanged() {
-  const email = document.getElementById("shafa-modal-email").value.trim();
+  const login = document.getElementById("shafa-modal-email").value.trim();
   const pwd = document.getElementById("shafa-modal-password").value.trim();
-  document.getElementById("shafa-modal-btn").disabled = !(email.includes("@") && pwd);
+  document.getElementById("shafa-modal-btn").disabled = !(login && pwd);
 }
 
 async function shafaDoLogin() {

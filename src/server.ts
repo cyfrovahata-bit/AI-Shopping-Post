@@ -1264,12 +1264,12 @@ async function startServer() {
   });
 
   app.post("/api/shafa/login", async (req: Request, res: Response) => {
-    const { email, password } = req.body as { email?: string; password?: string };
-    if (!email || !password) return res.status(400).json({ success: false, message: "Потрібні email та пароль" });
+    const { email: login, password } = req.body as { email?: string; password?: string };
+    if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін та пароль" });
     try {
       const { loginShafaAndSaveSession } = await import("./shafa/shafa.publisher");
       // Credentials are NOT saved — only session cookies are stored
-      const result = await loginShafaAndSaveSession(email, password);
+      const result = await loginShafaAndSaveSession(login, password);
       res.json({ success: true, username: result.username });
     } catch (err: any) {
       res.json({ success: false, message: err.message || "Помилка логіну" });
