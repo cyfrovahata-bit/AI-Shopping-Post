@@ -27,6 +27,11 @@ import {
   readEnv,
   writeEnvVars,
 } from "./facebook-auth";
+import {
+  buildInstagramAuthUrl,
+  completeInstagramOAuth,
+  getInstagramStatus,
+} from "./instagram-auth";
 
 dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
@@ -920,10 +925,18 @@ async function startServer() {
     res.json(getFacebookStatus());
   });
 
-  function getFbRedirectUri(req: Request): string {
+  function getBaseUrl(req: Request): string {
     const proto = (req.get("x-forwarded-proto") || req.protocol).split(",")[0].trim();
     const host = req.get("x-forwarded-host") || req.get("host") || `localhost:${PORT}`;
-    return `${proto}://${host}/auth/facebook/callback`;
+    return `${proto}://${host}`;
+  }
+
+  function getFbRedirectUri(req: Request): string {
+    return `${getBaseUrl(req)}/auth/facebook/callback`;
+  }
+
+  function getIgRedirectUri(req: Request): string {
+    return `${getBaseUrl(req)}/auth/instagram/callback`;
   }
 
   // GET /auth/facebook — start OAuth (requires ?appId=&appSecret= or they're in .env)
@@ -1107,6 +1120,44 @@ async function startServer() {
     } catch (e) {
       res.json({ ok: false, reason: e instanceof Error ? e.message : String(e) });
     }
+  });
+
+  // ── Instagram Login OAuth (new flow — does not require Facebook Page) ──────
+
+  app.get("/auth/instagram", (req: Request, res: Response) => {
+    const env = readEnv();
+    const appId = (req.query.appId as string) || env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "";
+    const appSecret = (req.query.appSecret as string) || env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
+    if (!appId || !appSecret) return res.redirect("/setup.html?igError=" + encodeURIComponent("Спочатку збережи App ID та App Secret у налаштуваннях Facebook"));
+    const redirectUri = getIgRedirectUri(req);
+    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri })).toString("base64");
+    res.redirect(buildInstagramAuthUrl({ appId, appSecret, redirectUri }, state));
+  });
+
+  app.get("/auth/instagram/callback", async (req: Request, res: Response) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const error = req.query.error as string;
+    if (error) return res.redirect(`/setup.html?igError=${encodeURIComponent(req.query.error_description as string || error)}`);
+    if (!code || !state) return res.redirect("/setup.html?igError=missing_code");
+    try {
+      const { appId, appSecret, redirectUri: savedRedirectUri } = JSON.parse(Buffer.from(state, "base64").toString());
+      const redirectUri = savedRedirectUri || getIgRedirectUri(req);
+      const ig = await completeInstagramOAuth({ appId, appSecret, redirectUri }, code);
+      res.redirect(`/setup.html?igSuccess=1&igUsername=${encodeURIComponent(ig.username || ig.id)}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.redirect(`/setup.html?igError=${encodeURIComponent(msg)}`);
+    }
+  });
+
+  app.get("/api/instagram/status", (_req: Request, res: Response) => {
+    res.json(getInstagramStatus());
+  });
+
+  app.post("/api/instagram/disconnect", (_req: Request, res: Response) => {
+    writeEnvVars({ INSTAGRAM_USER_ID: "", INSTAGRAM_USERNAME: "", INSTAGRAM_ACCESS_TOKEN: "", INSTAGRAM_TOKEN_EXPIRES: "" });
+    res.json({ success: true });
   });
 
   // ── Shop settings ──────────────────────────────────────────────────────────

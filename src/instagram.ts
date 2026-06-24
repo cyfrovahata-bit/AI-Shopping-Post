@@ -1,6 +1,8 @@
 import fetch from "node-fetch";
 
-const GRAPH_API = "https://graph.facebook.com/v25.0";
+// Instagram API with Instagram Login uses graph.instagram.com (not graph.facebook.com)
+// instagram_basic was deprecated Dec 2024; new approach requires Instagram Login OAuth
+const GRAPH_API = "https://graph.instagram.com/v25.0";
 
 export function cleanInstagramCaption(text: string) {
   return text
