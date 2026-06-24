@@ -201,12 +201,13 @@ export async function publishToProm(opts: {
   if (opts.sku) product.sku = opts.sku;
 
   const tokenVal = getToken();
-  console.log(`[Prom] token present: ${!!tokenVal}, length: ${tokenVal.length}, url: ${API_BASE}/products/edit_list`);
+  console.log(`[Prom] token present: ${!!tokenVal}, length: ${tokenVal.length}`);
 
-  const r = await fetch(`${API_BASE}/products/edit`, {
+  // Prom API expects a top-level array of products (not wrapped in { products: [] })
+  const r = await fetch(`${API_BASE}/products/edit_list`, {
     method: "POST",
     headers: headers() as any,
-    body: JSON.stringify({ products: [product] }),
+    body: JSON.stringify([product]),
   });
 
   const rawText = await r.text();
@@ -216,8 +217,12 @@ export async function publishToProm(opts: {
   try { data = JSON.parse(rawText); }
   catch { throw new Error(`Prom API повернув не-JSON (${r.status}): ${rawText.slice(0, 300)}`); }
 
-  if (!r.ok || data.errors?.length) {
-    const errMsg = data.errors?.[0] || data.error_message || data.message || `HTTP ${r.status}`;
+  // Check for errors — errors can be object or array
+  const hasErrors = Array.isArray(data.errors)
+    ? data.errors.length > 0
+    : data.errors && Object.keys(data.errors).length > 0;
+  if (!r.ok || hasErrors) {
+    const errMsg = Array.isArray(data.errors) ? data.errors[0] : (data.errors?.error || data.error_message || data.message || `HTTP ${r.status}`);
     throw new Error(`Prom API помилка: ${JSON.stringify(errMsg)}`);
   }
 
