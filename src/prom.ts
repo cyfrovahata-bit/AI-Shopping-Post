@@ -210,7 +210,7 @@ export async function publishToProm(opts: {
   });
 
   const rawText = await r.text();
-  console.log(`[Prom] response status: ${r.status}, body preview: ${rawText.slice(0, 200)}`);
+  console.log(`[Prom] response status: ${r.status}, full body: ${rawText.slice(0, 1000)}`);
 
   let data: any;
   try { data = JSON.parse(rawText); }
