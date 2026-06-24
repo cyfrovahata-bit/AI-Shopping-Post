@@ -1069,16 +1069,25 @@ async function startServer() {
     out.permissions = permR?.data?.filter((p: any) => p.status === "granted").map((p: any) => p.permission);
     out.pageIgAccount = pageIgR;
 
+    // Try to find Instagram accounts via user-level endpoints
+    const [meIgR, userAccountsIgR, igViaPageTokenR] = await Promise.all([
+      fetch(`${G}/me?fields=id,name,instagram_business_accounts{id,username}&access_token=${userToken}`).then(r => r.json()),
+      fetch(`${G}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${userToken}`).then(r => r.json()),
+      pageToken && igId ? fetch(`${G}/${igId}?fields=id,username&access_token=${pageToken}`).then(r => r.json()) : Promise.resolve("no-page-token"),
+    ]);
+    out.meInstagramAccounts = meIgR;
+    out.userAccountsWithIg = userAccountsIgR;
+    out.igViaPageToken = igViaPageTokenR;
+
     if (igId && igToken) {
       const igMeR = await fetch(`${G}/${igId}?fields=id,username,name&access_token=${igToken}`).then(r => r.json());
-      out.igAccount = igMeR;
+      out.igAccountViaUserToken = igMeR;
 
-      // Try dummy container to see exact error
-      const testR = await fetch(`${G}/${igId}/media`, {
-        method: "POST",
-        body: new URLSearchParams({ image_url: "https://httpbin.org/image/jpeg", caption: "test", access_token: igToken }),
-      }).then(r => r.json());
-      out.testContainerResult = testR;
+      // Try with page token
+      if (pageToken) {
+        const igMePageR = await fetch(`${G}/${igId}?fields=id,username,name&access_token=${pageToken}`).then(r => r.json());
+        out.igAccountViaPageToken = igMePageR;
+      }
     }
 
     res.json(out);
