@@ -307,36 +307,39 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
     await humanPause(800);
   }
 
+  // Normalize Cyrillic lookalikes to Latin (Shafa HTML uses mixed encoding)
+  const normSize = (s: string) => s.replace(/Х/g, "X").replace(/х/g, "x").replace(/С/g, "C").replace(/с/g, "c");
+
   // Click each size button using mouse coordinates (bypasses React synthetic event issues)
   for (const size of sizes) {
-    const coords = await page.evaluate((sz: string) => {
-      // Find size section container
-      const all = Array.from(document.querySelectorAll("*")) as HTMLElement[];
-      let sizeLabel: HTMLElement | null = null;
-      let minLen = Infinity;
-      for (const el of all) {
-        if (el.offsetParent === null) continue;
-        const t = (el.innerText || el.textContent || "").trim();
-        if ((t === "Розмір *" || t === "Розмір" || t.startsWith("Розмір")) && t.length < minLen) {
+    const normSz = normSize(size);
+    // Pass as string to avoid TypeScript checking browser-context code
+    const coords = await page.evaluate(`(function() {
+      var sz = ${JSON.stringify(normSz)};
+      function norm(s) { return s.replace(/Х/g,"X").replace(/х/g,"x").replace(/С/g,"C").replace(/с/g,"c"); }
+      var all = Array.from(document.querySelectorAll("*"));
+      var sizeLabel = null; var minLen = Infinity;
+      for (var i = 0; i < all.length; i++) {
+        var el = all[i];
+        if (!el.offsetParent) continue;
+        var t = (el.innerText || el.textContent || "").trim();
+        if ((t === "Розмір *" || t === "Розмір" || t.indexOf("Розмір") === 0) && t.length < minLen) {
           minLen = t.length; sizeLabel = el;
         }
       }
-      // Normalize Cyrillic lookalikes to Latin for reliable matching
-      const norm = (s: string) => s.replace(/Х/g, "X").replace(/х/g, "x").replace(/С/g, "C").replace(/с/g, "c");
-      const normSz = norm(sz);
-      let container: HTMLElement | null = sizeLabel ? sizeLabel.parentElement : null;
-      for (let d = 0; d < 10 && container; d++) {
-        const btns = Array.from(container.querySelectorAll("button, [role='button']")) as HTMLElement[];
-        const btn = btns.find(b => norm((b.innerText || b.textContent || "").trim()) === normSz && b.offsetParent !== null);
+      var container = sizeLabel ? sizeLabel.parentElement : null;
+      for (var d = 0; d < 10 && container; d++) {
+        var btns = Array.from(container.querySelectorAll("button, [role='button']"));
+        var btn = btns.find(function(b) { return norm((b.innerText||b.textContent||"").trim()) === sz && b.offsetParent; });
         if (btn) {
-          btn.scrollIntoView({ block: "nearest", behavior: "instant" });
-          const r = btn.getBoundingClientRect();
-          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+          btn.scrollIntoView({ block:"nearest", behavior:"instant" });
+          var r = btn.getBoundingClientRect();
+          return { x: r.left + r.width/2, y: r.top + r.height/2 };
         }
         container = container.parentElement;
       }
       return null;
-    }, size);
+    })()`) as { x: number; y: number } | null;
 
     if (coords) {
       await page.mouse.click(coords.x, coords.y);
