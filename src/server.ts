@@ -970,6 +970,17 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // POST /api/facebook/disconnect — clear all Facebook/Instagram tokens
+  app.post("/api/facebook/disconnect", (_req: Request, res: Response) => {
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({
+      FACEBOOK_USER_TOKEN: "", FACEBOOK_USER_TOKEN_EXPIRES: "",
+      FACEBOOK_PAGE_ID: "", FACEBOOK_PAGE_NAME: "", FACEBOOK_ACCESS_TOKEN: "",
+      INSTAGRAM_USER_ID: "", INSTAGRAM_USERNAME: "", INSTAGRAM_ACCESS_TOKEN: "",
+    });
+    res.json({ success: true });
+  });
+
   // POST /api/facebook/verify — test if current tokens actually work
   app.post("/api/facebook/verify", async (_req: Request, res: Response) => {
     const status = getFacebookStatus();

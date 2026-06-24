@@ -201,20 +201,18 @@
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">🏗 Створи Facebook-додаток</div>
-                <div class="step-desc">Це потрібно зробити один раз. Facebook не дає публікувати через сторонні програми без спеціального «додатку». Це безкоштовно і займає ~5 хвилин.</div>
+                <div class="step-title">📄 Створи Facebook Сторінку</div>
+                <div class="step-desc">Публікувати через API можна тільки на Facebook <b>Сторінку</b> (не особистий профіль). Якщо у тебе вже є Сторінка — пропусти цей крок.</div>
                 <div class="info-box">
-                  <b>Покрокова інструкція:</b>
+                  <b>Як створити Сторінку:</b>
                   <ol>
-                    <li>Відкрий <a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a></li>
-                    <li>Натисни <b>«Create App»</b></li>
-                    <li>Вибери тип: <b>«Other»</b> → далі <b>«Consumer»</b></li>
-                    <li>Введи довільну назву, наприклад <code>My Shop Bot</code></li>
-                    <li>Натисни <b>«Create App»</b> і підтверди пароль</li>
-                    <li>Зліва: <b>Settings → Basic</b> — тут твої коди</li>
+                    <li>Відкрий <a href="https://www.facebook.com/pages/create" target="_blank" style="color:var(--accent)">facebook.com/pages/create</a></li>
+                    <li>Введи назву сторінки (наприклад, назва магазину)</li>
+                    <li>Вибери категорію: <b>«Інтернет-магазин»</b> або <b>«Одяг»</b></li>
+                    <li>Натисни <b>«Створити сторінку»</b></li>
                   </ol>
                 </div>
-                <a href="https://developers.facebook.com/apps/create/" target="_blank" class="btn primary">Відкрити Meta Developer Portal →</a>
+                <a href="https://www.facebook.com/pages/create" target="_blank" class="btn primary">Створити Facebook Сторінку →</a>
               </div>
             </div>
 
@@ -224,13 +222,41 @@
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
+                <div class="step-title">🏗 Створи Meta-додаток та підключи Instagram</div>
+                <div class="step-desc">Щоб публікувати через API — потрібен власний Meta-додаток. Це безкоштовно і займає ~10 хвилин.</div>
+                <div class="info-box">
+                  <b>Крок А — Створи додаток:</b>
+                  <ol>
+                    <li>Відкрий <a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a></li>
+                    <li>Натисни <b>«Create App»</b></li>
+                    <li>Вибери тип: <b>«Other»</b> → далі <b>«Consumer»</b></li>
+                    <li>Введи довільну назву, наприклад <code>My Shop Bot</code></li>
+                    <li>Натисни <b>«Create App»</b> і підтверди пароль</li>
+                  </ol>
+                  <b style="display:block;margin-top:10px">Крок Б — Додай Instagram Graph API:</b>
+                  <ol>
+                    <li>Зліва натисни <b>«Add Product»</b></li>
+                    <li>Знайди <b>«Instagram Graph API»</b> і натисни <b>«Set up»</b></li>
+                    <li>Це дозволить публікувати пости в Instagram через API</li>
+                  </ol>
+                </div>
+                <a href="https://developers.facebook.com/apps/create/" target="_blank" class="btn primary">Відкрити Meta Developer Portal →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left">
+                <div class="step-num" id="fb-s3">3</div>
+                <div class="step-line"></div>
+              </div>
+              <div class="step-body">
                 <div class="step-title">🔗 Додай адресу повернення</div>
-                <div class="step-desc">Щоб Facebook знав куди тебе повернути після входу — скопіюй цю адресу і встав у налаштуваннях свого додатку.</div>
+                <div class="step-desc">Скопіюй цю адресу і встав у налаштуваннях свого Meta-додатку — Facebook повертатиме сюди після входу.</div>
                 <div class="info-box">
                   <b>Де вставити:</b>
                   <ol>
-                    <li>У своєму додатку зліва знайди <b>«Facebook Login for Business»</b> або <b>«Facebook Login»</b></li>
-                    <li>Якщо немає — натисни <b>«Add Product»</b> і додай «Facebook Login»</li>
+                    <li>У своєму додатку зліва знайди <b>«Facebook Login for Business»</b></li>
+                    <li>Якщо немає — натисни <b>«Add Product»</b> і додай <b>«Facebook Login for Business»</b></li>
                     <li>Відкрий <b>Settings</b> цього продукту</li>
                     <li>У полі <b>«Valid OAuth Redirect URIs»</b> встав адресу нижче і натисни <b>«Save Changes»</b></li>
                   </ol>
@@ -244,12 +270,12 @@
 
             <div class="step">
               <div class="step-left">
-                <div class="step-num" id="fb-s3">3</div>
+                <div class="step-num" id="fb-s4">4</div>
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
                 <div class="step-title">🔑 Введи App ID та App Secret</div>
-                <div class="step-desc">Ці коди — як логін і пароль для твого Facebook-додатку. Знайдеш їх у <b>Settings → Basic</b> на сторінці додатку.</div>
+                <div class="step-desc">Знайдеш їх у <b>Settings → Basic</b> свого Meta-додатку.</div>
                 <div class="grid-2">
                   <div class="field">
                     <label>App ID</label>
@@ -257,12 +283,12 @@
                     <div class="hint">Тільки цифри</div>
                   </div>
                   <div class="field">
-                    <label>App Secret <span style="font-weight:400;text-transform:none;letter-spacing:0">(натисни «Show» поруч з ним)</span></label>
+                    <label>App Secret <span style="font-weight:400;text-transform:none;letter-spacing:0">(натисни «Show»)</span></label>
                     <input type="password" id="fb-app-secret" placeholder="abc1234def5678..." oninput="fbCredsChanged()" />
                     <div class="hint">32 символи, Settings → Basic → App Secret</div>
                   </div>
                 </div>
-                <div id="fb-creds-err" style="display:none" class="alert alert-err" style="margin-top:8px"><span class="aico">❌</span><span id="fb-creds-err-text"></span></div>
+                <div id="fb-creds-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="fb-creds-err-text"></span></div>
                 <button class="btn secondary" id="fb-save-btn" onclick="fbSaveCreds()" disabled>Зберегти коди</button>
                 <div id="fb-saved-hint" style="display:none;font-size:12px;color:#3fb950;margin-top:6px"></div>
               </div>
@@ -270,18 +296,18 @@
 
             <div class="step">
               <div class="step-left">
-                <div class="step-num" id="fb-s4">4</div>
+                <div class="step-num" id="fb-s5">5</div>
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">🔐 Увійди у Facebook</div>
-                <div class="step-desc">Натисни кнопку — відкриється вікно Facebook де він запитає дозвіл на публікацію від імені твоєї Сторінки. Просто натисни «Дозволити».</div>
+                <div class="step-title">🔐 Підключи Facebook</div>
+                <div class="step-desc">Натисни кнопку — відкриється вікно Facebook де він запитає дозволи. Просто натисни «Дозволити».</div>
                 <div class="info-box">
-                  <b>Що Facebook запитає дозвіл:</b>
+                  <b>Facebook запитає дозвіл на:</b>
                   <ul>
-                    <li>Публікувати пости на твою Facebook Сторінку</li>
-                    <li>Читати статистику публікацій</li>
-                    <li>Публікувати в Instagram (якщо прив'язаний до Сторінки)</li>
+                    <li>Перегляд списку твоїх Facebook Сторінок</li>
+                    <li>Публікацію постів на Facebook Сторінку</li>
+                    <li>Публікацію в Instagram (якщо акаунт прив'язаний до Сторінки)</li>
                   </ul>
                 </div>
                 <button class="btn primary" id="fb-connect-btn" onclick="fbConnect()" style="font-size:14px;padding:11px 20px">📘 Підключити Facebook →</button>
@@ -856,10 +882,11 @@ async function loadFbStatus() {
         <div class="status-actions">
           <button class="btn ghost" onclick="fbVerify()">Перевірити</button>
           <button class="btn ghost" onclick="fbReconnect()">Переп'єднати</button>
+          <button class="btn ghost" style="color:#f85149" onclick="fbDisconnect()">Відключити</button>
         </div>
         <div id="fb-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
       </div>`;
-    ["fb-s1","fb-s2","fb-s3","fb-s4"].forEach(markDone);
+    ["fb-s1","fb-s2","fb-s3","fb-s4","fb-s5"].forEach(markDone);
   } else {
     setDot("fb", "red");
     box.className = "status-panel error";
@@ -870,6 +897,13 @@ async function loadFbStatus() {
   }
   updateIgStatus(s);
   return s;
+}
+
+async function fbDisconnect() {
+  if (!confirm("Відключити Facebook та Instagram? Токени будуть видалені.")) return;
+  await fetch("/api/facebook/disconnect", { method: "POST" });
+  await loadFbStatus();
+  showGlobalAlert("Facebook відключено. Виконай кроки щоб підключити знову.", "warn");
 }
 
 function updateIgStatus(fbStatus) {

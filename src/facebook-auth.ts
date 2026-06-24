@@ -63,9 +63,9 @@ export function writeEnvVars(vars: Record<string, string>) {
 // Build the Facebook OAuth URL
 export function buildAuthUrl(cfg: FacebookAuthConfig, state: string): string {
   const scopes = [
+    "pages_show_list",
     "pages_manage_posts",
     "pages_read_engagement",
-    "instagram_basic",
     "instagram_content_publish",
   ].join(",");
 
