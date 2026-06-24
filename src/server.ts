@@ -987,6 +987,26 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // GET /api/facebook/debug-pages — show raw /me/accounts response for debugging
+  app.get("/api/facebook/debug-pages", async (_req: Request, res: Response) => {
+    const { readFileSync } = require("fs");
+    const readEnvFile = () => {
+      const map: Record<string, string> = {};
+      for (const p of ["/data/.env", require("path").resolve(process.cwd(), ".env")]) {
+        try { for (const line of readFileSync(p, "utf8").split("\n")) { const m = line.match(/^([^#=\s][^=]*)=(.*)$/); if (m) map[m[1].trim()] = m[2].trim(); } } catch {}
+      }
+      return map;
+    };
+    const env = readEnvFile();
+    const token = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN || "";
+    if (!token) return res.json({ error: "No user token saved yet" });
+    const r = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${token}&fields=id,name`);
+    const data = await r.json();
+    const permR = await fetch(`https://graph.facebook.com/v25.0/me/permissions?access_token=${token}`);
+    const perms = await permR.json();
+    res.json({ accounts: data, permissions: perms });
+  });
+
   // POST /api/facebook/verify — test if current tokens actually work
   app.post("/api/facebook/verify", async (_req: Request, res: Response) => {
     const status = getFacebookStatus();
