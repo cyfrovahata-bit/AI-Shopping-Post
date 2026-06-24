@@ -467,18 +467,11 @@ ${commonRules(product)}
 Поверни ТІЛЬКИ текст підпису, без JSON і без пояснень.
 `.trim();
   },
-  async publish({ product, text, photoPaths, imageUrls, videoUrl }) {
-    if (videoUrl) {
-      const id = await publishTikTokVideo(videoUrl, text);
-      return { externalPostId: id };
-    }
-    // Use local file paths for FILE_UPLOAD (no domain verification needed)
-    const files = photoPaths.length ? photoPaths : imageUrls;
-    if (files.length) {
-      const id = await publishTikTokPhotos(files, text);
-      return { externalPostId: id };
-    }
-    throw new Error("TikTok: потрібне відео або хоча б одне фото");
+  async publish({ product, text, videoUrl }) {
+    // Photo carousel requires production TikTok approval — video only for now
+    if (!videoUrl) throw new Error("TikTok: для публікації потрібне відео (фото-карусель доступна після production approval)");
+    const id = await publishTikTokVideo(videoUrl, text);
+    return { externalPostId: id };
   },
 };
 
