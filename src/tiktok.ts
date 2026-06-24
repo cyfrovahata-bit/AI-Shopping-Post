@@ -180,7 +180,8 @@ export async function publishTikTokPhotos(photoPaths: string[], caption: string)
   console.log(`[TikTok] Publishing ${paths.length} photo(s) via FILE_UPLOAD`);
 
   // Step 1: init upload — get upload_urls from TikTok
-  const body = {
+  // Try DIRECT_POST first; if source_info rejected, fallback to UPLOAD_TO_INBOX
+  const makeBody = (postMode: string) => ({
     post_info: {
       description: caption.slice(0, 2200),
       privacy_level: "SELF_ONLY",
@@ -189,13 +190,23 @@ export async function publishTikTokPhotos(photoPaths: string[], caption: string)
     source_info: {
       source: "FILE_UPLOAD",
       photo_count: paths.length,
-      photo_cover_index: 1,
     },
-    post_mode: "DIRECT_POST",
+    post_mode: postMode,
     media_type: "PHOTO",
-  };
+  });
+
+  let body = makeBody("DIRECT_POST");
   console.log(`[TikTok] Photo init body:`, JSON.stringify(body));
-  const init = await tiktokFetch("/post/publish/content/init/", body);
+  let init: Record<string, unknown>;
+  try {
+    init = await tiktokFetch("/post/publish/content/init/", body);
+  } catch (e: any) {
+    if (e.message?.includes("source info")) {
+      console.log(`[TikTok] DIRECT_POST rejected, trying UPLOAD_TO_INBOX`);
+      body = makeBody("UPLOAD_TO_INBOX");
+      init = await tiktokFetch("/post/publish/content/init/", body);
+    } else throw e;
+  }
 
   const publishId = (init as any)?.publish_id as string;
   const uploadUrls = (init as any)?.upload_urls as Array<{ upload_url: string; content_type: string }>;
