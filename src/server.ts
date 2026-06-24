@@ -985,6 +985,22 @@ async function startServer() {
     }
   });
 
+  // POST /api/facebook/set-instagram — manually save Instagram Business Account ID
+  app.post("/api/facebook/set-instagram", (req: Request, res: Response) => {
+    const { instagramId, instagramUsername } = req.body as { instagramId: string; instagramUsername?: string };
+    if (!instagramId) return res.status(400).json({ success: false, message: "Потрібен Instagram ID" });
+    const env = readEnv();
+    const pageToken = env.FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
+    if (!pageToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook сторінку" });
+    const vars: Record<string, string> = {
+      INSTAGRAM_USER_ID: instagramId.trim(),
+      INSTAGRAM_ACCESS_TOKEN: pageToken,
+    };
+    if (instagramUsername) vars.INSTAGRAM_USERNAME = instagramUsername.trim().replace(/^@/, "");
+    writeEnvVars(vars);
+    res.json({ success: true });
+  });
+
   // POST /api/facebook/save-app — save App ID + App Secret without starting OAuth
   app.post("/api/facebook/save-app", (req: Request, res: Response) => {
     const { appId, appSecret } = req.body as { appId: string; appSecret: string };

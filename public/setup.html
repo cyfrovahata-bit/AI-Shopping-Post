@@ -1087,13 +1087,19 @@ function updateIgStatus(fbStatus) {
         <strong>Facebook підключено, Instagram не знайдено</strong>
         <div class="detail" style="color:var(--text2);margin-bottom:8px">Instagram не прив'язаний до Facebook Сторінки «${fbStatus.pageName}» в Meta.</div>
         <div class="detail" style="font-size:12px;color:var(--text2);margin-bottom:10px">
-          <b style="color:var(--text)">Що зробити:</b><br>
-          1. В Instagram: Налаштування → Акаунт → Прив'язані акаунти → Facebook → вибери «${fbStatus.pageName}»<br>
-          або: Meta Business Suite → Налаштування → Instagram-акаунти → Підключити<br>
-          2. Потім натисни кнопку нижче:
+          Якщо Instagram вже прив'язаний до Сторінки в Meta Business — введи ID вручну:
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          <input id="ig-manual-id" type="text" placeholder="Instagram ID (напр. 17841430026118049)" style="flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:13px">
+          <input id="ig-manual-username" type="text" placeholder="@username (необов'язково)" style="width:160px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:13px">
+          <button class="btn primary" onclick="saveInstagramManual()" style="background:#E1306C;white-space:nowrap">Зберегти Instagram</button>
+        </div>
+        <div id="ig-manual-result" style="font-size:12px;margin-bottom:8px"></div>
+        <div class="detail" style="font-size:12px;color:var(--text2);margin-bottom:10px">
+          Де знайти ID: <b>business.facebook.com → Instagram accounts → @cyfrovahata → ID: 17841430026118049</b>
         </div>
         <div class="status-actions">
-          <button class="btn primary" onclick="fbReconnect()" style="background:#E1306C">🔁 Переп'єднати (знайти Instagram)</button>
+          <button class="btn ghost" onclick="fbReconnect()">🔁 Переп'єднати Facebook</button>
         </div>
       </div>`;
     if (inlineBox) inlineBox.innerHTML = `<div class="alert alert-warn" style="margin-bottom:12px"><span class="aico">⚠️</span><div>Facebook підключено (<b>${fbStatus.pageName}</b>), але Instagram не знайдено. Прив'яжи Instagram до Сторінки, потім натисни «Переп'єднати» у вкладці Facebook.</div></div>`;
@@ -1163,6 +1169,25 @@ function fbReconnect() {
   const appSecret = document.getElementById("fb-app-secret").value.trim();
   if (appId && appSecret) { fbConnect(); return; }
   showGlobalAlert("Введи App ID та App Secret на кроці 5 і натисни «Підключити Facebook».", "warn");
+}
+
+async function saveInstagramManual() {
+  const idEl = document.getElementById("ig-manual-id");
+  const usernameEl = document.getElementById("ig-manual-username");
+  const resultEl = document.getElementById("ig-manual-result");
+  const instagramId = idEl?.value?.trim();
+  if (!instagramId) { if (resultEl) resultEl.innerHTML = '<span style="color:#f85149">Введи Instagram ID</span>'; return; }
+  if (resultEl) resultEl.textContent = "Зберігаємо...";
+  const r = await fetch("/api/facebook/set-instagram", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ instagramId, instagramUsername: usernameEl?.value?.trim() }),
+  }).then(r => r.json());
+  if (r.success) {
+    await loadFbStatus();
+    showGlobalAlert("✅ Instagram підключено! Перевір публікацію.", "ok");
+  } else {
+    if (resultEl) resultEl.innerHTML = `<span style="color:#f85149">${r.message}</span>`;
+  }
 }
 
 async function fbVerify() {
