@@ -27,7 +27,7 @@ function envPath() {
 }
 
 // Read .env as key=value map (merges local + volume .env)
-function readEnv(): Record<string, string> {
+export function readEnv(): Record<string, string> {
   const map: Record<string, string> = {};
   const localPath = path.resolve(process.cwd(), ".env");
   const volumePath = envPath();

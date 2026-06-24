@@ -33,9 +33,23 @@ function productFacts(product: ProductInput) {
 `.trim();
 }
 
+function shopContext() {
+  const name = process.env.SHOP_NAME || "";
+  const desc = process.env.SHOP_DESCRIPTION || "магазину жіночого одягу";
+  const lang = process.env.SHOP_LANGUAGE || "uk";
+  const shopLabel = name ? `магазину «${name}» (${desc})` : desc;
+  const langRule = lang === "ru"
+    ? "Пиши тільки російською мовою."
+    : lang === "en"
+      ? "Write only in English."
+      : "Пиши тільки українською мовою.";
+  return { shopLabel, langRule };
+}
+
 function commonRules(product: ProductInput) {
+  const { shopLabel, langRule } = shopContext();
   return `
-Ти — український SMM-копірайтер для живого магазину жіночого одягу.
+Ти — SMM-копірайтер для живого ${shopLabel}.
 
 Дані товару:
 ${productFacts(product)}
@@ -43,13 +57,13 @@ ${productFacts(product)}
 Фото товару додані як візуальний контекст. Використовуй їх обережно: можна врахувати загальне враження, але не вигадуй тканину, склад, розміри, кольори, модель чи інші характеристики, якщо цього немає у текстових даних.
 
 Загальні правила:
-- Пиши тільки українською мовою.
+- ${langRule}
 - Не використовуй англійські фрази.
 - Не використовуй ці фрази:
 ${bannedPhrases}
 - Не вигадуй характеристик, яких немає в даних.
 - Не перебільшуй і не роби шаблонний рекламний текст.
-- Пиши природно для магазину жіночого одягу.
+- Пиши природно для ${shopLabel}.
 `.trim();
 }
 

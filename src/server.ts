@@ -24,6 +24,8 @@ import {
   selectFacebookPage,
   selectFacebookPageManual,
   getFacebookStatus,
+  readEnv,
+  writeEnvVars,
 } from "./facebook-auth";
 
 dotenv.config();
@@ -996,7 +998,6 @@ async function startServer() {
 
   // POST /api/facebook/disconnect — clear all Facebook/Instagram tokens
   app.post("/api/facebook/disconnect", (_req: Request, res: Response) => {
-    const { writeEnvVars } = require("./facebook-auth");
     writeEnvVars({
       FACEBOOK_USER_TOKEN: "", FACEBOOK_USER_TOKEN_EXPIRES: "",
       FACEBOOK_PAGE_ID: "", FACEBOOK_PAGE_NAME: "", FACEBOOK_ACCESS_TOKEN: "",
@@ -1039,6 +1040,32 @@ async function startServer() {
     } catch (e) {
       res.json({ ok: false, reason: e instanceof Error ? e.message : String(e) });
     }
+  });
+
+  // ── Shop settings ──────────────────────────────────────────────────────────
+
+  app.get("/api/settings/shop", (_req: Request, res: Response) => {
+    const env = readEnv();
+    const g = (k: string) => env[k] || process.env[k] || "";
+    res.json({
+      shopName: g("SHOP_NAME"),
+      shopDescription: g("SHOP_DESCRIPTION"),
+      shopLanguage: g("SHOP_LANGUAGE") || "uk",
+      facebookPageUrl: g("FACEBOOK_PAGE_URL"),
+      instagramUrl: g("INSTAGRAM_URL"),
+    });
+  });
+
+  app.post("/api/settings/shop", (req: Request, res: Response) => {
+    const { shopName, shopDescription, shopLanguage, facebookPageUrl, instagramUrl } = req.body as Record<string, string>;
+    const vars: Record<string, string> = {};
+    if (shopName !== undefined) vars.SHOP_NAME = shopName;
+    if (shopDescription !== undefined) vars.SHOP_DESCRIPTION = shopDescription;
+    if (shopLanguage !== undefined) vars.SHOP_LANGUAGE = shopLanguage;
+    if (facebookPageUrl !== undefined) vars.FACEBOOK_PAGE_URL = facebookPageUrl;
+    if (instagramUrl !== undefined) vars.INSTAGRAM_URL = instagramUrl;
+    writeEnvVars(vars);
+    res.json({ success: true });
   });
 
   // ── Telegram setup ─────────────────────────────────────────────────────────
