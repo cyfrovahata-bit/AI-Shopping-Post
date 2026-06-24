@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
+import { readEnv } from "./facebook-auth";
 
 const API_BASE = "https://my.prom.ua/api/v1";
 
@@ -31,7 +32,8 @@ interface PromApiProduct {
 }
 
 function getToken() {
-  return process.env.PROM_API_TOKEN || "";
+  const env = readEnv();
+  return env.PROM_API_TOKEN || process.env.PROM_API_TOKEN || "";
 }
 
 function headers() {
