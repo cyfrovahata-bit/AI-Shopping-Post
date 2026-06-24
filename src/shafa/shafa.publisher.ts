@@ -51,7 +51,13 @@ async function clickOption(page: Page, text: string): Promise<boolean> {
   }
   await el.scrollIntoViewIfNeeded().catch(() => {});
   await humanPause(200);
-  await el.click();
+  // Use mouse.click with coordinates — more reliable with React
+  const box = await el.boundingBox();
+  if (box) {
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  } else {
+    await el.click();
+  }
   await humanPause(300);
   return true;
 }
@@ -282,51 +288,59 @@ async function fillKeywords(page: Page, keywords: string[]) {
 async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжнародний") {
   if (!sizes || sizes.length === 0) return;
 
-  // Прокручуємо до секції Розмір та клікаємо систему розмірів через Playwright
+  // Scroll to size section
   const sizeHeader = page.getByText(/Розмір/i).first();
   if ((await sizeHeader.count()) > 0) {
     await sizeHeader.scrollIntoViewIfNeeded().catch(() => {});
     await humanPause(400);
   }
 
-  // Клік по системі розмірів: Playwright getByRole для надійного кліку
+  // Click size system tab using mouse coordinates (React-friendly)
   const sysBtn = page.getByRole("button", { name: sizeSystem, exact: true });
   if ((await sysBtn.count()) > 0) {
-    await sysBtn.first().scrollIntoViewIfNeeded().catch(() => {});
-    await sysBtn.first().click();
+    const box = await sysBtn.first().boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    } else {
+      await sysBtn.first().click();
+    }
     await humanPause(800);
   }
 
-  // Клік по кожному розміру: шукаємо кнопку точно в секції розмірів
+  // Click each size button using mouse coordinates (bypasses React synthetic event issues)
   for (const size of sizes) {
-    // Спочатку Playwright getByRole
-    const sizeBtn = page.getByRole("button", { name: size, exact: true });
-    const sizeBtnCount = await sizeBtn.count();
-    if (sizeBtnCount > 0) {
-      await sizeBtn.first().scrollIntoViewIfNeeded().catch(() => {});
-      await sizeBtn.first().click({ force: true });
+    const coords = await page.evaluate((sz: string) => {
+      // Find size section container
+      const all = Array.from(document.querySelectorAll("*")) as HTMLElement[];
+      let sizeLabel: HTMLElement | null = null;
+      let minLen = Infinity;
+      for (const el of all) {
+        if (el.offsetParent === null) continue;
+        const t = (el.innerText || el.textContent || "").trim();
+        if ((t === "Розмір *" || t === "Розмір" || t.startsWith("Розмір")) && t.length < minLen) {
+          minLen = t.length; sizeLabel = el;
+        }
+      }
+      let container: HTMLElement | null = sizeLabel ? sizeLabel.parentElement : null;
+      for (let d = 0; d < 10 && container; d++) {
+        const btns = Array.from(container.querySelectorAll("button, [role='button']")) as HTMLElement[];
+        const btn = btns.find(b => (b.innerText || b.textContent || "").trim() === sz && b.offsetParent !== null);
+        if (btn) {
+          btn.scrollIntoView({ block: "nearest", behavior: "instant" });
+          const r = btn.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        }
+        container = container.parentElement;
+      }
+      return null;
+    }, size);
+
+    if (coords) {
+      await page.mouse.click(coords.x, coords.y);
+      console.log(`[Shafa] Size "${size}" clicked`);
       await humanPause(400);
     } else {
-      // Fallback: JS click в межах секції Розмір
-      await page.evaluate(`(function(sz) {
-        var all = Array.from(document.querySelectorAll('*'));
-        var sizeLabel = null; var minLen = Infinity;
-        for (var i = 0; i < all.length; i++) {
-          var t = (all[i].innerText||all[i].textContent||'').trim();
-          if (t.indexOf('Розмір') !== -1 && t.length < minLen && all[i].offsetParent !== null) {
-            minLen = t.length; sizeLabel = all[i];
-          }
-        }
-        if (!sizeLabel) return;
-        var container = sizeLabel.parentElement; var d = 0;
-        while (container && d < 8) {
-          var btns = Array.from(container.querySelectorAll('button'));
-          var b = btns.find(function(btn) { return btn.innerText.trim() === sz && btn.offsetParent !== null; });
-          if (b) { b.scrollIntoView({ block:'nearest' }); b.click(); return; }
-          container = container.parentElement; d++;
-        }
-      })(${JSON.stringify(size)})`);
-      await humanPause(400);
+      console.log(`[Shafa] Size "${size}" not found`);
     }
   }
   await p();
