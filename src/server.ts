@@ -32,6 +32,20 @@ dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
 if (fs.existsSync("/data/.env")) dotenv.config({ path: "/data/.env", override: true });
 
+// Auto-fix: if INSTAGRAM_ACCESS_TOKEN is the page token, replace with user token
+// (NPE Facebook pages require user token for Instagram Graph API)
+{
+  const env = readEnv();
+  const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN || "";
+  const pageToken = env.FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
+  const igToken = env.INSTAGRAM_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || "";
+  const igId = env.INSTAGRAM_USER_ID || process.env.INSTAGRAM_USER_ID || "";
+  if (igId && userToken && igToken === pageToken && pageToken) {
+    writeEnvVars({ INSTAGRAM_ACCESS_TOKEN: userToken });
+    console.log("[startup] Auto-fixed INSTAGRAM_ACCESS_TOKEN to user token for NPE page");
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
