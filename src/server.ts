@@ -1038,24 +1038,50 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // GET /api/facebook/debug-pages — show raw /me/accounts response for debugging
-  app.get("/api/facebook/debug-pages", async (_req: Request, res: Response) => {
-    const { readFileSync } = require("fs");
-    const readEnvFile = () => {
-      const map: Record<string, string> = {};
-      for (const p of ["/data/.env", require("path").resolve(process.cwd(), ".env")]) {
-        try { for (const line of readFileSync(p, "utf8").split("\n")) { const m = line.match(/^([^#=\s][^=]*)=(.*)$/); if (m) map[m[1].trim()] = m[2].trim(); } } catch {}
+  // GET /api/facebook/debug-ig — full Instagram publishing diagnostics
+  app.get("/api/facebook/debug-ig", async (_req: Request, res: Response) => {
+    const env = readEnv();
+    const g = (k: string) => env[k] || process.env[k] || "";
+    const userToken  = g("FACEBOOK_USER_TOKEN");
+    const pageToken  = g("FACEBOOK_ACCESS_TOKEN");
+    const igToken    = g("INSTAGRAM_ACCESS_TOKEN");
+    const igId       = g("INSTAGRAM_USER_ID");
+    const pageId     = g("FACEBOOK_PAGE_ID");
+    const G = "https://graph.facebook.com/v25.0";
+
+    const out: Record<string, any> = {
+      saved: {
+        igId, pageId,
+        igTokenType: igToken === userToken ? "user_token" : igToken === pageToken ? "page_token" : "other",
+        igTokenFirst20: igToken.slice(0, 20) + "...",
+        userTokenFirst20: userToken.slice(0, 20) + "...",
       }
-      return map;
     };
-    const env = readEnvFile();
-    const token = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN || "";
-    if (!token) return res.json({ error: "No user token saved yet" });
-    const r = await fetch(`https://graph.facebook.com/v25.0/me/accounts?access_token=${token}&fields=id,name`);
-    const data = await r.json();
-    const permR = await fetch(`https://graph.facebook.com/v25.0/me/permissions?access_token=${token}`);
-    const perms = await permR.json();
-    res.json({ accounts: data, permissions: perms });
+
+    if (!userToken) return res.json({ error: "No user token", ...out });
+
+    const [permR, meR, pageIgR] = await Promise.all([
+      fetch(`${G}/me/permissions?access_token=${userToken}`).then(r => r.json()),
+      fetch(`${G}/me?fields=id,name&access_token=${userToken}`).then(r => r.json()),
+      pageId ? fetch(`${G}/${pageId}?fields=instagram_business_account&access_token=${userToken}`).then(r => r.json()) : Promise.resolve(null),
+    ]);
+    out.me = meR;
+    out.permissions = permR?.data?.filter((p: any) => p.status === "granted").map((p: any) => p.permission);
+    out.pageIgAccount = pageIgR;
+
+    if (igId && igToken) {
+      const igMeR = await fetch(`${G}/${igId}?fields=id,username,name&access_token=${igToken}`).then(r => r.json());
+      out.igAccount = igMeR;
+
+      // Try dummy container to see exact error
+      const testR = await fetch(`${G}/${igId}/media`, {
+        method: "POST",
+        body: new URLSearchParams({ image_url: "https://httpbin.org/image/jpeg", caption: "test", access_token: igToken }),
+      }).then(r => r.json());
+      out.testContainerResult = testR;
+    }
+
+    res.json(out);
   });
 
   // POST /api/facebook/verify — test if current tokens actually work
