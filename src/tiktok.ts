@@ -180,14 +180,15 @@ export async function publishTikTokPhotos(imageUrls: string[], caption: string):
   console.log(`[TikTok] Publishing ${photos.length} photo(s) as carousel`);
   const d = await tiktokFetch("/post/publish/content/init/", {
     post_info: {
-      title: caption.slice(0, 2200),
+      description: caption.slice(0, 2200),  // photos use description, videos use title
       privacy_level: "SELF_ONLY",
       disable_comment: false,
+      auto_add_music: true,
     },
     source_info: {
       source: "PULL_FROM_URL",
       photo_images: photos,
-      photo_cover_index: 0,
+      photo_cover_index: 1,  // 1-indexed
     },
     post_mode: "DIRECT_POST",
     media_type: "PHOTO",
