@@ -783,6 +783,21 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       if (formErrors.length) console.log(`[Shafa] Form errors after timeout:`, formErrors);
       console.log(`[Shafa] No redirect after 30s, current url: ${finalUrl}`);
       await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
+
+      // Дамп всього видимого тексту сторінки для діагностики
+      const pageText = await page.evaluate(`(function() {
+        function vis(el) { return el.offsetParent !== null || el.tagName === 'BODY'; }
+        var lines = [];
+        document.querySelectorAll('p,span,div,label,h1,h2,h3,h4,li,button,[role="alert"],[class*="error"],[class*="Error"],[class*="message"],[class*="Message"],[class*="valid"]').forEach(function(el) {
+          if (!vis(el)) return;
+          var t = (el.innerText||el.textContent||'').trim();
+          if (t && t.length > 1 && t.length < 200) lines.push(t);
+        });
+        var unique = lines.filter(function(v,i,a){ return a.indexOf(v)===i; });
+        return unique.slice(0, 60).join(' | ');
+      })()`).catch(() => "");
+      console.log(`[Shafa] Page text dump:`, pageText);
+
       if (finalUrl.includes("/new")) {
         const errMsg = formErrors.length ? formErrors.join("; ") : "Форма не відправилась — URL не змінився після сабміту";
         throw new Error(errMsg);
