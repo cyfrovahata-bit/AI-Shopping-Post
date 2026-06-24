@@ -599,6 +599,48 @@ async function loginToShafa(
   await saveSession(context, sessionPath);
 }
 
+// ─── Логін (окрема публічна функція для UI) ───────────────────────────────
+
+export async function loginShafaAndSaveSession(email: string, password: string): Promise<{ username?: string }> {
+  const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
+      "--disable-gpu", "--no-first-run", "--no-zygote", "--mute-audio",
+    ],
+  });
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.route("**/*", (route) => {
+    const t = route.request().resourceType();
+    if (t === "image" || t === "font" || t === "media") route.abort();
+    else route.continue();
+  });
+  try {
+    await loginToShafa(page, context, sessionPath, email, password);
+    // Verify login succeeded
+    const authorized = await isAuthorized(page);
+    if (!authorized) throw new Error("Не вдалося увійти — перевір email та пароль");
+    // Try to get username
+    let username: string | undefined;
+    try {
+      const urlAfter = page.url();
+      const m = urlAfter.match(/\/([^/?#]+)$/);
+      if (m) username = m[1];
+      // Try reading profile link
+      const profileLink = await page.locator('a[href*="/profile"], a[href*="/seller"]').first().getAttribute("href").catch(() => null);
+      if (profileLink) {
+        const pm = profileLink.match(/\/([^/?#]+)$/);
+        if (pm) username = pm[1];
+      }
+    } catch { /* username is optional */ }
+    return { username };
+  } finally {
+    await browser.close();
+  }
+}
+
 // ─── Публічна функція ─────────────────────────────────────────────────────
 
 export type ShafaPublishResult = {

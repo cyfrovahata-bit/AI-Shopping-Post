@@ -1271,6 +1271,28 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.post("/api/shafa/login", async (req: Request, res: Response) => {
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) return res.status(400).json({ success: false, message: "Потрібні email та пароль" });
+    try {
+      const { loginShafaAndSaveSession } = await import("./shafa/shafa.publisher");
+      const { writeEnvVars } = require("./facebook-auth");
+      writeEnvVars({ SHAFA_EMAIL: email, SHAFA_PASSWORD: password });
+      const result = await loginShafaAndSaveSession(email, password);
+      res.json({ success: true, username: result.username });
+    } catch (err: any) {
+      res.json({ success: false, message: err.message || "Помилка логіну" });
+    }
+  });
+
+  app.post("/api/shafa/disconnect", (_req: Request, res: Response) => {
+    const { writeEnvVars } = require("./facebook-auth");
+    writeEnvVars({ SHAFA_EMAIL: "", SHAFA_PASSWORD: "" });
+    const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
+    try { require("fs").unlinkSync(sessionPath); } catch { /* ok */ }
+    res.json({ success: true });
+  });
+
   app.get("/api/shafa/debug-screenshot", (req: Request, res: Response) => {
     const name = String(req.query.name || "shafa-debug-new-page");
     const candidates = [
