@@ -174,28 +174,49 @@ export async function publishTikTokVideo(videoUrl: string, caption: string): Pro
   return pollPublishStatus(publishId);
 }
 
-export async function publishTikTokPhotos(imageUrls: string[], caption: string): Promise<string> {
-  if (!imageUrls.length) throw new Error("TikTok: no images provided");
-  const photos = imageUrls.slice(0, 35); // TikTok limit
-  console.log(`[TikTok] Publishing ${photos.length} photo(s) as carousel`);
-  const d = await tiktokFetch("/post/publish/content/init/", {
+export async function publishTikTokPhotos(photoPaths: string[], caption: string): Promise<string> {
+  if (!photoPaths.length) throw new Error("TikTok: no images provided");
+  const paths = photoPaths.slice(0, 35);
+  console.log(`[TikTok] Publishing ${paths.length} photo(s) via FILE_UPLOAD`);
+
+  // Step 1: init upload — get upload_urls from TikTok
+  const init = await tiktokFetch("/post/publish/content/init/", {
     post_info: {
-      description: caption.slice(0, 2200),  // photos use description, videos use title
+      description: caption.slice(0, 2200),
       privacy_level: "SELF_ONLY",
       disable_comment: false,
       auto_add_music: true,
     },
     source_info: {
-      source: "PULL_FROM_URL",
-      photo_images: photos,
-      photo_cover_index: 1,  // 1-indexed
+      source: "FILE_UPLOAD",
+      photo_count: paths.length,
     },
     post_mode: "DIRECT_POST",
     media_type: "PHOTO",
   });
-  const publishId = (d as any)?.publish_id as string;
-  if (!publishId) throw new Error(`TikTok: no publish_id in response: ${JSON.stringify(d)}`);
-  console.log(`[TikTok] publish_id: ${publishId}`);
+
+  const publishId = (init as any)?.publish_id as string;
+  const uploadUrls = (init as any)?.upload_urls as Array<{ upload_url: string; content_type: string }>;
+  if (!publishId) throw new Error(`TikTok: no publish_id: ${JSON.stringify(init)}`);
+  if (!uploadUrls?.length) throw new Error(`TikTok: no upload_urls: ${JSON.stringify(init)}`);
+  console.log(`[TikTok] publish_id: ${publishId}, upload slots: ${uploadUrls.length}`);
+
+  // Step 2: upload each photo file to TikTok's pre-signed URL
+  const fsNode = await import("fs");
+  for (let i = 0; i < paths.length; i++) {
+    const slot = uploadUrls[i];
+    if (!slot) { console.log(`[TikTok] No upload slot for photo ${i}`); continue; }
+    const fileBuffer = fsNode.readFileSync(paths[i]);
+    const contentType = slot.content_type || "image/jpeg";
+    const upRes = await fetch(slot.upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": contentType, "Content-Length": String(fileBuffer.length) },
+      body: fileBuffer,
+    });
+    if (!upRes.ok) throw new Error(`TikTok: photo ${i} upload failed: ${upRes.status} ${await upRes.text()}`);
+    console.log(`[TikTok] Photo ${i + 1}/${paths.length} uploaded`);
+  }
+
   return pollPublishStatus(publishId);
 }
 

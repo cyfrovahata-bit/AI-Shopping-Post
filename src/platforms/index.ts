@@ -467,13 +467,15 @@ ${commonRules(product)}
 Поверни ТІЛЬКИ текст підпису, без JSON і без пояснень.
 `.trim();
   },
-  async publish({ product, text, imageUrls, videoUrl }) {
+  async publish({ product, text, photoPaths, imageUrls, videoUrl }) {
     if (videoUrl) {
       const id = await publishTikTokVideo(videoUrl, text);
       return { externalPostId: id };
     }
-    if (imageUrls.length) {
-      const id = await publishTikTokPhotos(imageUrls, text);
+    // Use local file paths for FILE_UPLOAD (no domain verification needed)
+    const files = photoPaths.length ? photoPaths : imageUrls;
+    if (files.length) {
+      const id = await publishTikTokPhotos(files, text);
       return { externalPostId: id };
     }
     throw new Error("TikTok: потрібне відео або хоча б одне фото");
