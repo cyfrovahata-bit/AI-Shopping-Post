@@ -203,14 +203,14 @@ export async function publishToProm(opts: {
   const tokenVal = getToken();
   console.log(`[Prom] token present: ${!!tokenVal}, length: ${tokenVal.length}`);
 
-  // Prom API: { products: [...] } returns 200; log minimal body for debugging
+  // Try minimal product first to isolate which field causes "Ожидается список товаров"
   const minProduct = { name: product.name, price: product.price, currency: product.currency, status: product.status, presence: product.presence };
-  console.log(`[Prom] request body (minimal): ${JSON.stringify({ products: [minProduct] })}`);
+  console.log(`[Prom] sending to /products/edit:`, JSON.stringify({ products: [minProduct] }));
 
-  const r = await fetch(`${API_BASE}/products/edit_list`, {
+  const r = await fetch(`${API_BASE}/products/edit`, {
     method: "POST",
     headers: headers() as any,
-    body: JSON.stringify({ products: [product] }),
+    body: JSON.stringify({ products: [minProduct] }),
   });
 
   const rawText = await r.text();
