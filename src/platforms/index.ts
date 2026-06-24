@@ -2,6 +2,7 @@ import { publishInstagramPost } from "../instagram";
 import { sendTelegramPost } from "../telegram";
 import { publishFacebookPost } from "../facebook";
 import { publishToShafa, mapProductToShafa, ShafaSessionExpiredError } from "../shafa";
+import { publishTikTokVideo, publishTikTokPhotos } from "../tiktok";
 import { publishPromPost } from "../prom";
 import { publishOlxPost } from "../olx";
 import { publishRozetkaPost } from "../rozetka";
@@ -445,10 +446,45 @@ ${commonRules(product)}
   },
 };
 
+const tiktokPlatform: PublishingPlatform = {
+  id: "tiktok",
+  name: "TikTok",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    const { shopLabel, langRule } = shopContext();
+    return `
+${commonRules(product)}
+
+Ти пишеш підпис для TikTok-відео або фото-каруселі для ${shopLabel}.
+
+Правила для TikTok:
+- Текст: 150-300 символів, живий і невимушений стиль.
+- Починай з гачка (питання, факт, або коротка фраза про товар).
+- 3-5 хештегів в кінці: загальні (#мода #стиль) + конкретні (#сукня #льон).
+- ${langRule}
+- Без цін у підписі — ціну підкажи в коментарі.
+
+Поверни ТІЛЬКИ текст підпису, без JSON і без пояснень.
+`.trim();
+  },
+  async publish({ product, text, imageUrls, videoUrl }) {
+    if (videoUrl) {
+      const id = await publishTikTokVideo(videoUrl, text);
+      return { externalPostId: id };
+    }
+    if (imageUrls.length) {
+      const id = await publishTikTokPhotos(imageUrls, text);
+      return { externalPostId: id };
+    }
+    throw new Error("TikTok: потрібне відео або хоча б одне фото");
+  },
+};
+
 export const platforms: Record<PlatformId, PublishingPlatform> = {
   telegram: telegramPlatform,
   instagram: instagramPlatform,
   facebook: facebookPlatform,
+  tiktok: tiktokPlatform,
   shafa: shafaPlatform,
   prom: promPlatform,
   olx: olxPlatform,
@@ -456,7 +492,7 @@ export const platforms: Record<PlatformId, PublishingPlatform> = {
   viber: createFuturePlatform("viber", "Viber"),
 };
 
-export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "shafa", "prom", "olx", "rozetka"];
+export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "tiktok", "shafa", "prom", "olx", "rozetka"];
 
 export function getPlatform(id: PlatformId) {
   const platform = platforms[id];

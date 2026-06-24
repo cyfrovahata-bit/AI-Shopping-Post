@@ -162,6 +162,11 @@
           <span>Instagram</span>
           <span class="conn-dot" id="dot-ig"></span>
         </button>
+        <button class="tab-btn" onclick="switchTab('tiktok')" id="tab-tiktok">
+          <span class="tab-icon">🎵</span>
+          <span>TikTok</span>
+          <span class="conn-dot" id="dot-tiktok"></span>
+        </button>
         <button class="tab-btn" onclick="switchTab('shafa')" id="tab-shafa">
           <span class="tab-icon">🛍️</span>
           <span>Shafa.ua</span>
@@ -551,6 +556,58 @@
 
           </div>
         </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: TIKTOK                                                           -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-tiktok">
+
+        <!-- Status -->
+        <div class="card">
+          <div id="tiktok-status" class="status-panel" style="margin-bottom:0">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+        </div>
+
+        <!-- Credentials -->
+        <div class="card" style="margin-top:12px" id="tiktok-keys-card">
+          <div class="steps">
+            <div class="step">
+              <div class="step-left"><div class="step-num active">1</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🔑 Client Key і Client Secret</div>
+                <div class="step-desc">Знайди на <a href="https://developers.tiktok.com/" target="_blank">developers.tiktok.com</a> → твій додаток → App details → Credentials</div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                  <input id="tiktok-client-key" type="text" class="inp" placeholder="Client Key (awf0yw...)" />
+                  <input id="tiktok-client-secret" type="text" class="inp" placeholder="Client Secret" />
+                  <button class="btn secondary" onclick="tiktokSaveKeys()">Зберегти ключі</button>
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="tiktok-step2-num">2</div></div>
+              <div class="step-body">
+                <div class="step-title">🔐 Авторизація через TikTok</div>
+                <div class="step-desc">Відкриється вікно авторизації TikTok. Підтвердь доступ для акаунту магазину.</div>
+                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn primary" onclick="tiktokConnect()" id="tiktok-connect-btn">Підключити TikTok →</button>
+                </div>
+                <div style="margin-top:6px;font-size:12px;color:var(--text2)">В тестовому режимі пости публікуються як «Тільки я» (SELF_ONLY) — видно тільки тобі.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connected actions -->
+        <div class="card" style="margin-top:12px;display:none" id="tiktok-actions-card">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn secondary" onclick="tiktokConnect()">Оновити сесію</button>
+            <button class="btn ghost" onclick="tiktokDisconnect()">Відключити</button>
+          </div>
+        </div>
+
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -1450,6 +1507,64 @@ async function shafaDisconnect() {
 function shafaChanged() {}
 async function shafaSave() {}
 
+// ── TIKTOK ────────────────────────────────────────────────────────────────
+
+async function loadTiktokStatus() {
+  const s = await fetch("/api/tiktok/status").then(r => r.json());
+  const box = document.getElementById("tiktok-status");
+  const actionsCard = document.getElementById("tiktok-actions-card");
+  const keysCard = document.getElementById("tiktok-keys-card");
+  if (s.connected) {
+    setDot("tiktok", "green");
+    box.className = "status-panel ok";
+    const exp = s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("uk-UA") : "?";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body">
+        <strong>TikTok підключено</strong>
+        <div class="detail" style="color:var(--text2)">open_id: ${s.openId || "—"} · токен до ${exp}</div>
+        <div class="detail" style="color:var(--text2);font-size:12px">Пости в тестовому режимі видні тільки тобі (SELF_ONLY)</div>
+      </div>`;
+    actionsCard.style.display = "";
+    keysCard.style.display = "none";
+  } else {
+    setDot("tiktok", s.hasKeys ? "yellow" : "grey");
+    box.className = "status-panel";
+    box.innerHTML = `<div class="status-icon">${s.hasKeys ? "🔑" : "❌"}</div>
+      <div class="status-body"><strong>${s.hasKeys ? "Ключі збережено — потрібна авторизація" : "TikTok не підключено"}</strong></div>`;
+    actionsCard.style.display = "none";
+    keysCard.style.display = "";
+  }
+}
+
+async function tiktokSaveKeys() {
+  const key = document.getElementById("tiktok-client-key").value.trim();
+  const secret = document.getElementById("tiktok-client-secret").value.trim();
+  if (!key || !secret) return alert("Введи обидва ключі");
+  await fetch("/api/tiktok/setup", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ clientKey: key, clientSecret: secret }) });
+  document.getElementById("tiktok-step2-num").className = "step-num active";
+  showGlobalAlert("✅ Ключі збережено. Тепер авторизуйся.", "ok");
+}
+
+function tiktokConnect() {
+  const win = window.open("/auth/tiktok", "tiktok-auth", "width=600,height=700");
+  window.addEventListener("message", async function handler(e) {
+    if (e.data?.type !== "tiktok-auth") return;
+    window.removeEventListener("message", handler);
+    if (e.data.success) {
+      showGlobalAlert("✅ TikTok підключено!", "ok");
+      await loadTiktokStatus();
+    } else {
+      showGlobalAlert("❌ Помилка авторизації: " + (e.data.error || "невідома"), "error");
+    }
+  });
+}
+
+async function tiktokDisconnect() {
+  if (!confirm("Відключити TikTok?")) return;
+  await fetch("/api/tiktok/disconnect", { method: "POST" });
+  await loadTiktokStatus();
+}
+
 // ── PROM ─────────────────────────────────────────────────────────────────
 
 async function loadPromStatus() {
@@ -1886,7 +2001,7 @@ window.addEventListener("message", (e) => {
 
 (async () => {
   handleUrlParams();
-  await Promise.all([loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadShopInfo(), loadSavedCreds()]);
+  await Promise.all([loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(), loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadShopInfo(), loadSavedCreds()]);
 })();
 </script>
 </body>

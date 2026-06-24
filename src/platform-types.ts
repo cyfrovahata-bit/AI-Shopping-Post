@@ -3,6 +3,7 @@ export type PlatformId =
   | "instagram"
   | "facebook"
   | "viber"
+  | "tiktok"
   | "prom"
   | "rozetka"
   | "olx"

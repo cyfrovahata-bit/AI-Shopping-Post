@@ -1299,6 +1299,53 @@ async function startServer() {
     res.status(404).json({ error: "Скріншот не знайдено", tried: candidates });
   });
 
+  // ── TikTok OAuth ──────────────────────────────────────────────────────────
+
+  function getTikTokRedirectUri(req: Request): string {
+    return `${getBaseUrl(req)}/auth/tiktok/callback`;
+  }
+
+  app.post("/api/tiktok/setup", (req: Request, res: Response) => {
+    const { clientKey, clientSecret } = req.body as { clientKey: string; clientSecret: string };
+    if (!clientKey || !clientSecret) return res.status(400).json({ error: "Потрібні clientKey і clientSecret" });
+    writeEnvVars({ TIKTOK_CLIENT_KEY: clientKey, TIKTOK_CLIENT_SECRET: clientSecret });
+    res.json({ success: true });
+  });
+
+  app.get("/api/tiktok/status", (_req: Request, res: Response) => {
+    const { getTikTokStatus } = require("./tiktok");
+    const env = readEnv();
+    const hasKeys = !!(env.TIKTOK_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY);
+    res.json({ ...getTikTokStatus(), hasKeys });
+  });
+
+  app.get("/auth/tiktok", (req: Request, res: Response) => {
+    const { getTikTokAuthUrl } = require("./tiktok");
+    const redirectUri = getTikTokRedirectUri(req);
+    res.redirect(getTikTokAuthUrl(redirectUri, "tiktok-setup"));
+  });
+
+  app.get("/auth/tiktok/callback", async (req: Request, res: Response) => {
+    const code = req.query.code as string;
+    const error = req.query.error as string;
+    if (error || !code) {
+      return res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',error:'${error||"no_code"}'},'*');window.close();</script>`);
+    }
+    try {
+      const { exchangeTikTokCode } = await import("./tiktok");
+      await exchangeTikTokCode(code, getTikTokRedirectUri(req));
+      res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',success:true},'*');window.close();</script>`);
+    } catch (err: any) {
+      res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',error:${JSON.stringify(err.message||'error')}},'*');window.close();</script>`);
+    }
+  });
+
+  app.post("/api/tiktok/disconnect", (_req: Request, res: Response) => {
+    const { disconnectTikTok } = require("./tiktok");
+    disconnectTikTok();
+    res.json({ success: true });
+  });
+
   // ── Site URL ───────────────────────────────────────────────────────────────
 
   app.get("/api/site-url", (_req: Request, res: Response) => {
