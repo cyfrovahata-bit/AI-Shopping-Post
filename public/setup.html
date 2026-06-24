@@ -191,59 +191,66 @@
 
         <!-- Status -->
         <div class="card">
-          <div id="fb-status" class="status-panel">
+          <div id="fb-status" class="status-panel" style="margin-bottom:0">
             <div class="status-icon">⏳</div>
             <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
         </div>
 
-        <!-- Business Info Card -->
+        <!-- Business Info -->
         <div class="card" id="fb-shop-card" style="margin-top:12px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:14px">🏪 Про ваш магазин</div>
-          <div class="grid-2">
-            <div class="field">
-              <label>Назва магазину</label>
-              <input type="text" id="shop-name" placeholder="Merily Shop" />
-              <div class="hint">Для AI-постів і підписів</div>
+          <div style="font-size:15px;font-weight:700;padding:20px 20px 0">🏪 Про ваш магазин</div>
+          <div class="steps" style="padding-top:0">
+            <div class="step" style="padding-top:16px">
+              <div class="step-left" style="visibility:hidden;width:30px"><div class="step-num">·</div></div>
+              <div class="step-body">
+                <div class="grid-2">
+                  <div class="field">
+                    <label>Назва магазину</label>
+                    <input type="text" id="shop-name" placeholder="Merily Shop" />
+                    <div class="hint">Для AI-постів і підписів</div>
+                  </div>
+                  <div class="field">
+                    <label>Мова постів</label>
+                    <select id="shop-language" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px">
+                      <option value="uk">🇺🇦 Українська</option>
+                      <option value="ru">🇷🇺 Російська</option>
+                      <option value="en">🇬🇧 English</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Що продаєш — для AI</label>
+                  <input type="text" id="shop-description" placeholder="наприклад: магазин жіночого одягу та аксесуарів" />
+                  <div class="hint">AI буде писати тексти постів з урахуванням цього опису</div>
+                </div>
+                <div class="field">
+                  <label>Посилання на Facebook Сторінку</label>
+                  <input type="url" id="shop-fb-page-url" placeholder="https://www.facebook.com/yourpage" oninput="tryExtractPageId(this.value)" />
+                  <div class="hint" id="fb-page-url-hint" style="margin-top:4px">Використовується для автоматичного визначення ID сторінки</div>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <label>Посилання на Instagram</label>
+                  <input type="url" id="shop-ig-url" placeholder="https://www.instagram.com/yourshop" />
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+                  <button class="btn primary" onclick="saveShopInfo()">Зберегти</button>
+                  <span id="shop-save-hint" style="display:none;font-size:12px;color:#3fb950"></span>
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label>Мова постів</label>
-              <select id="shop-language" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-size:13px">
-                <option value="uk">🇺🇦 Українська</option>
-                <option value="ru">🇷🇺 Російська</option>
-                <option value="en">🇬🇧 English</option>
-              </select>
-            </div>
-          </div>
-          <div class="field">
-            <label>Що продаєш — для AI</label>
-            <input type="text" id="shop-description" placeholder="наприклад: магазин жіночого одягу та аксесуарів" />
-            <div class="hint">AI буде писати тексти постів з урахуванням цього опису</div>
-          </div>
-          <div class="field">
-            <label>Посилання на Facebook Сторінку</label>
-            <input type="url" id="shop-fb-page-url" placeholder="https://www.facebook.com/yourpage" oninput="tryExtractPageId(this.value)" />
-            <div class="hint" id="fb-page-url-hint" style="margin-top:4px"></div>
-          </div>
-          <div class="field">
-            <label>Посилання на Instagram</label>
-            <input type="url" id="shop-ig-url" placeholder="https://www.instagram.com/yourshop" />
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
-            <button class="btn primary" onclick="saveShopInfo()">Зберегти</button>
-            <span id="shop-save-hint" style="display:none;font-size:12px;color:#3fb950"></span>
           </div>
         </div>
 
         <!-- Setup Guide (accordion) -->
         <div class="card" style="margin-top:12px">
-          <button id="fb-setup-toggle" onclick="toggleFbSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:0;cursor:pointer;color:var(--text)">
-            <span style="font-size:15px;font-weight:700">⚙️ Налаштування Meta App</span>
+          <button id="fb-setup-toggle" onclick="toggleFbSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:20px 20px 20px;cursor:pointer;color:var(--text)">
+            <span style="font-size:15px;font-weight:700">⚙️ Підключення Meta App</span>
             <span id="fb-setup-chevron" style="font-size:18px;color:var(--text2)">▾</span>
           </button>
 
-          <div id="fb-setup-body">
-            <div class="steps" style="margin-top:16px">
+          <div id="fb-setup-body" style="border-top:1px solid var(--border)">
+            <div class="steps">
 
               <!-- 1. FB Page -->
               <div class="step">
@@ -252,152 +259,113 @@
                   <div class="step-line"></div>
                 </div>
                 <div class="step-body">
-                  <div class="step-title">📄 Створи Facebook Сторінку</div>
-                  <div class="step-desc">Публікувати через API можна тільки на Facebook <b>Сторінку</b> (не особистий профіль). Якщо вже є — пропусти цей крок.</div>
-                  <div class="info-box">
-                    <ol>
-                      <li>Відкрий <a href="https://www.facebook.com/pages/create" target="_blank" style="color:var(--accent)">facebook.com/pages/create</a></li>
-                      <li>Введи назву магазину і вибери категорію: <b>«Інтернет-магазин»</b> або <b>«Одяг»</b></li>
-                      <li>Натисни <b>«Створити сторінку»</b></li>
-                      <li>Скопіюй посилання на сторінку і встав нижче — і в картку «Про магазин» вище</li>
-                    </ol>
-                  </div>
-                  <a href="https://www.facebook.com/pages/create" target="_blank" class="btn primary" style="margin-bottom:10px">Створити Facebook Сторінку →</a>
+                  <div class="step-title">📄 Facebook Сторінка</div>
+                  <div class="step-desc">Публікувати через API можна тільки на Сторінку (не особистий профіль). Якщо вже є — пропусти.</div>
+                  <a href="https://www.facebook.com/pages/create" target="_blank" class="btn secondary">Створити Сторінку →</a>
                 </div>
               </div>
 
-              <!-- 2. Create Meta App -->
+              <!-- 2. Create Meta App + configure -->
               <div class="step">
                 <div class="step-left">
                   <div class="step-num" id="fb-s2">2</div>
                   <div class="step-line"></div>
                 </div>
                 <div class="step-body">
-                  <div class="step-title">🏗 Створи Meta-додаток</div>
-                  <div class="step-desc">Це робиться один раз. Безкоштовно, займає ~5 хвилин.</div>
+                  <div class="step-title">🏗 Створи Meta-додаток <span style="font-size:12px;font-weight:400;color:var(--text2)">(один раз)</span></div>
+                  <div class="step-desc">Безкоштовно, займає ~5 хвилин. Якщо вже є — пропусти.</div>
                   <div class="info-box">
                     <ol>
-                      <li>Відкрий <a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → натисни <b>«Create App»</b></li>
-                      <li><b>App details:</b> введи назву (наприклад <code>My Shop Bot</code>) і свій email → <b>Next</b></li>
-                      <li><b>Use cases:</b> постав галочки на двох пунктах:
-                        <ul style="margin-top:4px">
-                          <li><b>«Manage everything on your Page»</b></li>
-                          <li><b>«Manage messaging &amp; content on Instagram»</b></li>
-                        </ul>
-                        → <b>Next</b>
+                      <li><a href="https://developers.facebook.com/apps/create/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → <b>«Create App»</b></li>
+                      <li>Назва: <code>My Shop Bot</code> → Next</li>
+                      <li>Use cases → постав галочки:<br>
+                        &nbsp;&nbsp;✓ <b>Manage everything on your Page</b><br>
+                        &nbsp;&nbsp;✓ <b>Manage messaging & content on Instagram</b><br>
+                        → Next → Create app
                       </li>
-                      <li><b>Business:</b> вибери бізнес-акаунт → <b>Next</b></li>
-                      <li><b>Requirements → Overview:</b> натисни <b>«Create app»</b> і підтверди пароль</li>
                     </ol>
                   </div>
-                  <a href="https://developers.facebook.com/apps/create/" target="_blank" class="btn primary">Відкрити Meta Developer Portal →</a>
+                  <a href="https://developers.facebook.com/apps/create/" target="_blank" class="btn secondary">Відкрити Meta Developer Portal →</a>
                 </div>
               </div>
 
-              <!-- 3. Customize use cases -->
+              <!-- 3. Redirect URI + App ID/Secret combined -->
               <div class="step">
                 <div class="step-left">
                   <div class="step-num" id="fb-s3">3</div>
                   <div class="step-line"></div>
                 </div>
                 <div class="step-body">
-                  <div class="step-title">⚙️ Активуй дозволи в Use Cases</div>
-                  <div class="step-desc">Після створення додатку на Dashboard треба налаштувати кожен use case.</div>
-                  <div class="info-box">
-                    <b>А — Pages (обов'язково):</b>
+                  <div class="step-title">🔑 App ID, Secret і Redirect URI</div>
+                  <div class="step-desc">В розділі <b>App Settings → Basic</b> знайди App ID і App Secret. Там само додай Redirect URI.</div>
+                  <div class="info-box" style="margin-bottom:10px">
+                    <b>Крок 1 — Redirect URI:</b>
                     <ol>
-                      <li>Dashboard → натисни <b>«Customize»</b> біля <b>«Manage everything on your Page»</b></li>
-                      <li>Додай дозволи: <code>pages_show_list</code>, <code>pages_manage_posts</code>, <code>pages_read_engagement</code></li>
-                      <li>Збережи</li>
+                      <li>Зліва → <b>«Facebook Login for Business»</b> → <b>«Settings»</b></li>
+                      <li>Поле <b>«Valid OAuth Redirect URIs»</b> → додай адресу нижче → <b>Save Changes</b></li>
                     </ol>
-                    <b style="display:block;margin-top:10px">Б — Instagram (якщо потрібен):</b>
+                    <div class="copy-row" style="margin:8px 0 12px">
+                      <span id="fb-redirect-uri" style="word-break:break-all"></span>
+                      <button class="btn ghost" onclick="copy('fb-redirect-uri', this)">Скопіювати</button>
+                    </div>
+                    <b>Крок 2 — App ID і App Secret:</b>
                     <ol>
-                      <li>Dashboard → натисни <b>«Customize»</b> біля <b>«Manage messaging &amp; content on Instagram»</b></li>
-                      <li>Додай дозвіл: <code>instagram_content_publish</code></li>
-                      <li>Збережи</li>
+                      <li>Зліва → <b>App Settings → Basic</b></li>
+                      <li>Скопіюй <b>App ID</b> і <b>App Secret</b> (натисни «Show») у поля нижче</li>
                     </ol>
                   </div>
+                  <div class="grid-2">
+                    <div class="field">
+                      <label>App ID</label>
+                      <input type="text" id="fb-app-id" placeholder="1234567890123456" inputmode="numeric" oninput="fbCredsChanged()" />
+                    </div>
+                    <div class="field">
+                      <label>App Secret</label>
+                      <div class="field-row">
+                        <input type="password" id="fb-app-secret" placeholder="abc1234def..." oninput="fbCredsChanged()" style="flex:1" />
+                        <button class="btn ghost" onclick="togglePassVis('fb-app-secret')" style="flex-shrink:0">👁</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="fb-creds-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="fb-creds-err-text"></span></div>
+                  <button class="btn secondary" id="fb-save-btn" onclick="fbSaveCreds()" disabled>Зберегти</button>
+                  <div id="fb-saved-hint" style="display:none;font-size:12px;color:#3fb950;margin-top:6px"></div>
                 </div>
               </div>
 
-              <!-- 4. Redirect URI -->
+              <!-- 4. Connect -->
               <div class="step">
                 <div class="step-left">
                   <div class="step-num" id="fb-s4">4</div>
                   <div class="step-line"></div>
                 </div>
                 <div class="step-body">
-                  <div class="step-title">🔗 Додай адресу повернення (Redirect URI)</div>
-                  <div class="step-desc">Скопіюй цю адресу і встав у налаштуваннях додатку.</div>
-                  <div class="info-box">
-                    <ol>
-                      <li>Зліва: <b>«Facebook Login for Bus...»</b> → <b>«Settings»</b></li>
-                      <li>Поле <b>«Valid OAuth Redirect URIs»</b> — встав адресу нижче</li>
-                      <li>Натисни <b>«Save Changes»</b></li>
-                    </ol>
-                  </div>
-                  <div class="copy-row">
-                    <span id="fb-redirect-uri"></span>
-                    <button class="btn ghost" onclick="copy('fb-redirect-uri', this)">Скопіювати</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 5. App ID + Secret -->
-              <div class="step">
-                <div class="step-left">
-                  <div class="step-num" id="fb-s5">5</div>
-                  <div class="step-line"></div>
-                </div>
-                <div class="step-body">
-                  <div class="step-title">🔑 Введи App ID та App Secret</div>
-                  <div class="step-desc">Зліва: <b>App settings → Basic</b> — там є App ID і App Secret (натисни «Show» щоб побачити).</div>
-                  <div class="grid-2">
-                    <div class="field">
-                      <label>App ID</label>
-                      <input type="text" id="fb-app-id" placeholder="1234567890123456" inputmode="numeric" oninput="fbCredsChanged()" />
-                      <div class="hint">Тільки цифри</div>
-                    </div>
-                    <div class="field">
-                      <label>App Secret</label>
-                      <input type="password" id="fb-app-secret" placeholder="abc1234def5678..." oninput="fbCredsChanged()" />
-                      <div class="hint">32 символи</div>
-                    </div>
-                  </div>
-                  <div id="fb-creds-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="fb-creds-err-text"></span></div>
-                  <button class="btn secondary" id="fb-save-btn" onclick="fbSaveCreds()" disabled>Зберегти коди</button>
-                  <div id="fb-saved-hint" style="display:none;font-size:12px;color:#3fb950;margin-top:6px"></div>
-                </div>
-              </div>
-
-              <!-- 6. Connect -->
-              <div class="step">
-                <div class="step-left">
-                  <div class="step-num" id="fb-s6">6</div>
-                  <div class="step-line"></div>
-                </div>
-                <div class="step-body">
                   <div class="step-title">🔐 Підключи Facebook</div>
-                  <div class="step-desc">Відкриється вікно Facebook з запитом дозволів. Вибери свою Сторінку і натисни «Дозволити».</div>
-                  <div class="info-box">
-                    <b>Facebook запитає дозвіл на:</b>
-                    <ul>
-                      <li>Перегляд списку твоїх Facebook Сторінок</li>
-                      <li>Публікацію постів на Facebook Сторінку</li>
-                      <li>Публікацію в Instagram (якщо прив'язаний до Сторінки)</li>
-                    </ul>
-                    <div style="margin-top:8px;padding:8px;background:rgba(227,179,65,.1);border-radius:6px;font-size:12px">
-                      ℹ️ Якщо після підключення з'явиться поле для введення Page ID — це нормально. Скопіюй ID зі своєї Facebook Сторінки (Про сторінку → ID сторінки).
-                    </div>
-                  </div>
+                  <div class="step-desc">Натисни кнопку — відкриється вікно Facebook. Підтверди доступи і вибери свою Сторінку. Все інше зробиться автоматично.</div>
                   <button class="btn primary" id="fb-connect-btn" onclick="fbConnect()" style="font-size:14px;padding:11px 20px">📘 Підключити Facebook →</button>
 
                   <div id="fb-page-chooser" style="display:none;margin-top:16px">
-                    <div class="info-box"><b>У тебе кілька Facebook Сторінок.</b> Вибери ту, від якої публікуватимемо:</div>
+                    <div class="info-box"><b>Кілька Facebook Сторінок.</b> Вибери ту, від якої публікуватимемо:</div>
                     <div id="fb-pages-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
                   </div>
 
-                  <div id="fb-verify-result" style="display:none"></div>
+                  <div id="fb-verify-result" style="display:none;margin-top:8px"></div>
+
+                  <!-- NPE fallback: manual page ID/URL entry -->
+                  <div id="fb-manual-page-form" style="display:none;margin-top:16px">
+                    <div class="info-box" style="border-color:#e3b341;background:rgba(227,179,65,.07)">
+                      <b>⚠️ Сторінку не знайдено автоматично</b><br>
+                      <span style="color:var(--text2);font-size:12px">Введи посилання на Facebook Сторінку — ID визначиться автоматично.</span>
+                    </div>
+                    <div class="field" style="margin-top:10px">
+                      <label>Посилання на Facebook Сторінку</label>
+                      <div class="field-row">
+                        <input type="url" id="fb-manual-url" placeholder="https://www.facebook.com/MerilyShop" style="flex:1" oninput="fbManualUrlChanged()" />
+                        <button class="btn secondary" id="fb-manual-submit" onclick="submitManualPageUrl()" disabled style="flex-shrink:0">Знайти</button>
+                      </div>
+                      <div id="fb-manual-result" style="margin-top:8px;font-size:13px"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -515,59 +483,62 @@
         <div class="card" style="margin-top:12px">
           <div class="steps">
 
+            <!-- 1. Professional account -->
             <div class="step">
               <div class="step-left">
                 <div class="step-num active" id="ig-s1">1</div>
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">📲 Professional акаунт Instagram</div>
-                <div class="step-desc">Для публікацій через API потрібен Instagram <b>Business</b> або <b>Creator</b> акаунт.</div>
+                <div class="step-title">📲 Business або Creator акаунт</div>
+                <div class="step-desc">API публікації потребує Professional акаунт. Якщо вже є — пропусти.</div>
                 <div class="info-box">
-                  <b>Як перевірити:</b>
-                  <ol>
-                    <li>Instagram → <b>Профіль → ☰ → Налаштування → Акаунт</b></li>
-                    <li>Якщо бачиш <b>«Переключитися на Professional»</b> — натисни і вибери Business або Creator</li>
-                    <li>Якщо вже Professional — все готово</li>
-                  </ol>
+                  Instagram → <b>Профіль → ☰ → Налаштування → Акаунт → Переключитися на Professional</b> → вибери Business або Creator
                 </div>
               </div>
             </div>
 
+            <!-- 2. Instagram app in Meta Portal -->
             <div class="step">
               <div class="step-left">
                 <div class="step-num" id="ig-s2">2</div>
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">🔑 Налаштуй Instagram Business Login</div>
-                <div class="step-desc">У тебе вже є Instagram API ("My Shop Bot-IG"). Потрібно лише додати Redirect URI і скопіювати App ID/Secret.</div>
-                <div class="info-box">
-                  <b>Крок 1 — Додай Redirect URI:</b>
+                <div class="step-title">🏗 Instagram у Meta Developer Portal <span style="font-size:12px;font-weight:400;color:var(--text2)">(один раз)</span></div>
+                <div class="step-desc">Якщо вже є Instagram додаток — пропусти, одразу введи App ID/Secret нижче.</div>
+                <div class="info-box" style="margin-bottom:10px">
+                  <b>Додай Redirect URI:</b>
                   <ol>
-                    <li>В розділі <b>«API setup with Instagram login»</b> → <b>крок 4 «Set up Instagram business login»</b> → натисни <b>«Set up»</b></li>
-                    <li>У полі <b>«Valid OAuth Redirect URIs»</b> додай адресу:</li>
+                    <li><a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → твій додаток → зліва <b>«Instagram»</b> → <b>«API setup with Instagram login»</b></li>
+                    <li>Крок 4 <b>«Set up Instagram business login»</b> → <b>«Set up»</b></li>
+                    <li>Поле <b>«Valid OAuth Redirect URIs»</b> → додай адресу → Save Changes</li>
                   </ol>
-                  <div class="copy-row" style="margin-top:4px;margin-bottom:12px">
+                  <div class="copy-row" style="margin:8px 0 0">
                     <span id="ig-redirect-uri" style="word-break:break-all"></span>
                     <button class="btn ghost" onclick="copy('ig-redirect-uri', this)">Скопіювати</button>
                   </div>
-                  <b>Крок 2 — Введи Instagram App ID та App Secret:</b>
-                  <div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
+                </div>
+                <div class="grid-2">
+                  <div class="field">
+                    <label>Instagram App ID</label>
+                    <input type="text" id="ig-app-id" placeholder="1541144427499605" inputmode="numeric" />
+                    <div class="hint">Зі сторінки "API setup with Instagram login"</div>
+                  </div>
+                  <div class="field">
+                    <label>Instagram App Secret</label>
                     <div class="field-row">
-                      <input type="text" id="ig-app-id" placeholder="Instagram App ID (напр. 1541144427499605)" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:13px">
-                    </div>
-                    <div class="field-row">
-                      <input type="password" id="ig-app-secret" placeholder="Instagram App Secret" style="flex:1;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text);font-size:13px">
+                      <input type="password" id="ig-app-secret" placeholder="abc1234def..." style="flex:1" />
                       <button class="btn ghost" onclick="togglePassVis('ig-app-secret')" style="flex-shrink:0">👁</button>
                     </div>
-                    <button class="btn secondary" id="ig-save-app-btn" onclick="igSaveApp()" style="align-self:flex-start">Зберегти App ID/Secret</button>
-                    <div id="ig-save-app-result" style="font-size:12px"></div>
                   </div>
                 </div>
+                <button class="btn secondary" id="ig-save-app-btn" onclick="igSaveApp()">Зберегти</button>
+                <div id="ig-save-app-result" style="font-size:12px;margin-top:6px"></div>
               </div>
             </div>
 
+            <!-- 3. Connect -->
             <div class="step">
               <div class="step-left">
                 <div class="step-num" id="ig-s3">3</div>
@@ -575,12 +546,12 @@
               </div>
               <div class="step-body">
                 <div class="step-title">🔐 Підключи Instagram</div>
-                <div class="step-desc">Натисни кнопку — відкриється Instagram з запитом дозволів. Це окремий OAuth, не залежить від Facebook Page.</div>
+                <div class="step-desc">Відкриється вікно Instagram. Підтверди доступи — токен збережеться автоматично на 60 днів.</div>
                 <button class="btn primary" id="ig-connect-btn" onclick="igConnect()" style="font-size:14px;padding:11px 20px;background:#E1306C">📸 Підключити Instagram →</button>
-                <div id="ig-fb-status-inline" style="margin-top:12px"></div>
               </div>
             </div>
 
+            <!-- 4. Site URL -->
             <div class="step">
               <div class="step-left">
                 <div class="step-num" id="ig-s4">4</div>
@@ -588,8 +559,8 @@
               </div>
               <div class="step-body">
                 <div class="step-title">🌐 Публічна адреса сайту</div>
-                <div class="step-desc">Instagram завантажує фото за URL — потрібна публічна HTTPS-адреса.</div>
-                <div class="field">
+                <div class="step-desc">Instagram завантажує фото за URL — потрібна HTTPS-адреса. На Railway — вже є.</div>
+                <div class="field" style="margin-top:8px">
                   <label>SITE_URL</label>
                   <div class="field-row">
                     <input type="url" id="ig-site-url" placeholder="https://ai-shopping-post-production.up.railway.app" />
@@ -970,8 +941,27 @@ async function loadShopInfo() {
     if (d.shopName) document.getElementById("shop-name").value = d.shopName;
     if (d.shopDescription) document.getElementById("shop-description").value = d.shopDescription;
     if (d.shopLanguage) document.getElementById("shop-language").value = d.shopLanguage;
-    if (d.facebookPageUrl) document.getElementById("shop-fb-page-url").value = d.facebookPageUrl;
+    if (d.facebookPageUrl) { document.getElementById("shop-fb-page-url").value = d.facebookPageUrl; tryExtractPageId(d.facebookPageUrl); }
     if (d.instagramUrl) document.getElementById("shop-ig-url").value = d.instagramUrl;
+  } catch(e) {}
+}
+
+async function loadSavedCreds() {
+  try {
+    const d = await fetch("/api/facebook/saved-creds").then(r => r.json());
+    // Pre-fill App ID (not secret — security)
+    const fbId = document.getElementById("fb-app-id");
+    if (fbId && d.appId) { fbId.value = d.appId; }
+    const igId = document.getElementById("ig-app-id");
+    if (igId && d.igAppId) { igId.value = d.igAppId; }
+    // Show placeholder hint for secret if already saved
+    const fbSecret = document.getElementById("fb-app-secret");
+    if (fbSecret && d.hasSecret && !fbSecret.value) { fbSecret.placeholder = "••••••••••••••••••••••••••••••• (збережено)"; }
+    const igSecret = document.getElementById("ig-app-secret");
+    if (igSecret && d.hasIgSecret && !igSecret.value) { igSecret.placeholder = "••••••••••••••••••••••••••••••• (збережено)"; }
+    // Enable connect button if creds already saved
+    if (d.appId && d.hasSecret) { fbCredsChanged(); document.getElementById("fb-save-btn").disabled = false; }
+    if (d.igAppId && d.hasIgSecret) markDone("ig-s2");
   } catch(e) {}
 }
 
@@ -1162,6 +1152,7 @@ function updateIgStatus() { /* legacy no-op — use loadIgStatus() */ }
 function fbCredsChanged() {
   const appId = document.getElementById("fb-app-id").value.trim();
   const appSecret = document.getElementById("fb-app-secret").value.trim();
+  const secretSaved = document.getElementById("fb-app-secret").placeholder.includes("збережено");
   const btn = document.getElementById("fb-save-btn");
   const errBox = document.getElementById("fb-creds-err");
   const errText = document.getElementById("fb-creds-err-text");
@@ -1172,7 +1163,7 @@ function fbCredsChanged() {
   if (appId && appId.length < 10) errs.push("App ID занадто короткий");
   if (appSecret && appSecret.length < 20) errs.push("App Secret занадто короткий");
   if (errs.length) { errBox.style.display = "flex"; errText.textContent = errs.join(". "); return; }
-  if (appId && appSecret) btn.disabled = false;
+  if (appId && (appSecret || secretSaved)) btn.disabled = false;
 }
 
 async function fbSaveCreds() {
@@ -1831,50 +1822,57 @@ function handleUrlParams() {
 
 function showManualPageIdForm() {
   switchTab("fb");
-  if (document.getElementById("fb-manual-page-form")) return;
-  const div = document.createElement("div");
-  div.id = "fb-manual-page-form";
-  div.style.cssText = "background:#fff3cd;border:2px solid #ffc107;border-radius:8px;padding:16px;margin:16px 0;";
-  div.innerHTML = `
-    <p style="margin:0 0 8px"><b>✅ Facebook підключено!</b> Але список сторінок не отримано автоматично (відоме обмеження Facebook).</p>
-    <p style="margin:0 0 10px">Введи <b>ID своєї Facebook Page</b> вручну.<br>
-    Знайди його: <b>Facebook → твоя Сторінка → Про сторінку → ID сторінки</b></p>
-    <div style="display:flex;gap:8px;">
-      <input id="manual-page-id-input" type="text" placeholder="наприклад: 1185522017979527" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:14px;">
-      <button onclick="submitManualPageId()" style="padding:8px 16px;background:#1877f2;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">Зберегти</button>
-    </div>
-    <div id="manual-page-id-result" style="margin-top:8px;"></div>
-  `;
-  const anchor = document.getElementById("fb-connect-btn") || document.getElementById("fb-status");
-  if (anchor) anchor.after(div);
-  else document.body.prepend(div);
+  expandFbSetup();
+  // Pre-fill URL from saved shop info
+  const fbUrl = document.getElementById("shop-fb-page-url")?.value?.trim();
+  const urlField = document.getElementById("fb-manual-url");
+  if (urlField && fbUrl) { urlField.value = fbUrl; fbManualUrlChanged(); }
+  const form = document.getElementById("fb-manual-page-form");
+  if (form) form.style.display = "";
 }
 
-async function submitManualPageId() {
-  const input = document.getElementById("manual-page-id-input");
-  const result = document.getElementById("manual-page-id-result");
-  const pageId = input?.value?.trim();
-  if (!pageId) { if (result) result.innerHTML = '<span style="color:red">Введи ID сторінки</span>'; return; }
-  if (result) result.innerHTML = 'Підключаємо...';
+function fbManualUrlChanged() {
+  const url = document.getElementById("fb-manual-url")?.value?.trim();
+  const btn = document.getElementById("fb-manual-submit");
+  if (btn) btn.disabled = !url;
+}
+
+async function submitManualPageUrl() {
+  const url = document.getElementById("fb-manual-url")?.value?.trim();
+  const result = document.getElementById("fb-manual-result");
+  if (!url) { if (result) result.innerHTML = '<span style="color:var(--err)">Введи посилання</span>'; return; }
+  // Extract page ID from URL
+  const numericMatch = url.match(/(?:profile\.php\?id=|\/|^)(\d{10,20})/);
+  const slugMatch = url.match(/facebook\.com\/([^/?&#]+)/i);
+  const pageId = numericMatch ? numericMatch[1] : (slugMatch ? slugMatch[1] : "");
+  if (!pageId) { if (result) result.innerHTML = '<span style="color:var(--err)">Не вдалося визначити ID зі посилання</span>'; return; }
+  if (result) result.innerHTML = `<span style="color:var(--text2)">Шукаємо сторінку...</span>`;
+  const btn = document.getElementById("fb-manual-submit");
+  if (btn) { btn.disabled = true; btn.textContent = "Шукаємо..."; }
   try {
     const r = await fetch("/api/facebook/select-page-manual", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pageId }),
     });
     const data = await r.json();
+    if (btn) { btn.disabled = false; btn.textContent = "Знайти"; }
     if (data.success) {
-      const form = document.getElementById("fb-manual-page-form");
-      if (form) form.remove();
+      document.getElementById("fb-manual-page-form").style.display = "none";
       await loadFbStatus();
       const igMsg = data.instagram?.username ? ` Instagram @${data.instagram.username} теж підключено!` : "";
       showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${data.page.name}».${igMsg}`, "ok");
     } else {
-      if (result) result.innerHTML = `<span style="color:red">${data.message}</span>`;
+      if (result) result.innerHTML = `<span style="color:var(--err)">${data.message}</span>`;
     }
   } catch(e) {
-    if (result) result.innerHTML = `<span style="color:red">Помилка: ${e.message}</span>`;
+    if (btn) { btn.disabled = false; btn.textContent = "Знайти"; }
+    if (result) result.innerHTML = `<span style="color:var(--err)">Помилка: ${e.message}</span>`;
   }
+}
+
+async function submitManualPageId() {
+  // Legacy compat — redirect to new URL-based flow
+  return submitManualPageUrl();
 }
 
 window.addEventListener("message", (e) => {
@@ -1901,7 +1899,7 @@ window.addEventListener("message", (e) => {
 
 (async () => {
   handleUrlParams();
-  await Promise.all([loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadShopInfo()]);
+  await Promise.all([loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadShopInfo(), loadSavedCreds()]);
 })();
 </script>
 </body>

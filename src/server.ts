@@ -925,6 +925,16 @@ async function startServer() {
     res.json(getFacebookStatus());
   });
 
+  function extractFbPageId(url: string): string {
+    if (!url) return "";
+    // Numeric ID in URL path (e.g. /profile.php?id=123 or /123)
+    const numericMatch = url.match(/(?:profile\.php\?id=|\/|^)(\d{10,20})/);
+    if (numericMatch) return numericMatch[1];
+    // Named page slug (e.g. facebook.com/MerilyShop) — return slug to try as page identifier
+    const slugMatch = url.match(/facebook\.com\/([^/?&#]+)/i);
+    return slugMatch ? slugMatch[1] : "";
+  }
+
   function getBaseUrl(req: Request): string {
     const proto = (req.get("x-forwarded-proto") || req.protocol).split(",")[0].trim();
     const host = req.get("x-forwarded-host") || req.get("host") || `localhost:${PORT}`;
@@ -971,7 +981,17 @@ async function startServer() {
       const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
 
       if (pages.length === 0) {
-        // New Page Experience: /me/accounts returns empty but token is saved — ask for manual page ID
+        // NPE: /me/accounts is empty — try auto-select from saved FACEBOOK_PAGE_URL
+        const env = readEnv();
+        const pageUrl = env.FACEBOOK_PAGE_URL || process.env.FACEBOOK_PAGE_URL || "";
+        const pageId = extractFbPageId(pageUrl);
+        if (pageId) {
+          try {
+            const result = await selectFacebookPageManual(pageId);
+            const igPart = result.instagram ? `&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
+            return res.redirect(`/setup.html?fbSuccess=1&pageName=${encodeURIComponent(result.page.name)}${igPart}`);
+          } catch { /* fall through to manual entry */ }
+        }
         return res.redirect("/setup.html?needsPageId=1");
       }
 
@@ -1030,13 +1050,23 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  // GET /api/facebook/saved-creds — return saved App ID (not secret) for pre-filling form
+  app.get("/api/facebook/saved-creds", (_req: Request, res: Response) => {
+    const env = readEnv();
+    res.json({
+      appId: env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "",
+      hasSecret: !!(env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET),
+      igAppId: env.INSTAGRAM_APP_ID || process.env.INSTAGRAM_APP_ID || "",
+      hasIgSecret: !!(env.INSTAGRAM_APP_SECRET || process.env.INSTAGRAM_APP_SECRET),
+    });
+  });
+
   // POST /api/facebook/save-app — save App ID + App Secret without starting OAuth
   app.post("/api/facebook/save-app", (req: Request, res: Response) => {
     const { appId, appSecret } = req.body as { appId: string; appSecret: string };
     if (!appId || !appSecret) return res.status(400).json({ success: false, message: "Потрібні App ID та App Secret" });
     if (!/^\d+$/.test(appId)) return res.status(400).json({ success: false, message: "App ID повинен містити тільки цифри" });
     if (appSecret.length < 20) return res.status(400).json({ success: false, message: "App Secret занадто короткий" });
-    const { writeEnvVars } = require("./facebook-auth");
     writeEnvVars({ FACEBOOK_APP_ID: appId, FACEBOOK_APP_SECRET: appSecret });
     res.json({ success: true });
   });
