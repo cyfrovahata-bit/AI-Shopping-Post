@@ -1593,26 +1593,23 @@ function handleUrlParams() {
 
 function showManualPageIdForm() {
   switchTab("fb");
-  const fbSection = document.getElementById("fb-section") || document.querySelector(".fb-section");
-  const container = document.getElementById("fb-manual-page-form");
-  if (container) { container.style.display = ""; return; }
+  if (document.getElementById("fb-manual-page-form")) return;
   const div = document.createElement("div");
   div.id = "fb-manual-page-form";
-  div.style.cssText = "background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:16px;margin:16px 0;";
+  div.style.cssText = "background:#fff3cd;border:2px solid #ffc107;border-radius:8px;padding:16px;margin:16px 0;";
   div.innerHTML = `
-    <p><b>Facebook підключено!</b> Але список сторінок не вдалося отримати автоматично.</p>
-    <p>Введи ID своєї Facebook Page вручну. Знайди його:<br>
-    <b>Facebook → Сторінка → Про сторінку → ID сторінки</b><br>
-    або скопіюй з адресного рядка після /</p>
-    <div style="display:flex;gap:8px;margin-top:8px;">
+    <p style="margin:0 0 8px"><b>✅ Facebook підключено!</b> Але список сторінок не отримано автоматично (відоме обмеження Facebook).</p>
+    <p style="margin:0 0 10px">Введи <b>ID своєї Facebook Page</b> вручну.<br>
+    Знайди його: <b>Facebook → твоя Сторінка → Про сторінку → ID сторінки</b></p>
+    <div style="display:flex;gap:8px;">
       <input id="manual-page-id-input" type="text" placeholder="наприклад: 1185522017979527" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:14px;">
       <button onclick="submitManualPageId()" style="padding:8px 16px;background:#1877f2;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">Зберегти</button>
     </div>
     <div id="manual-page-id-result" style="margin-top:8px;"></div>
   `;
-  const statusBlock = document.getElementById("fb-status-block");
-  if (statusBlock) statusBlock.after(div);
-  else document.querySelector(".fb-tab")?.prepend(div);
+  const anchor = document.getElementById("fb-connect-btn") || document.getElementById("fb-status");
+  if (anchor) anchor.after(div);
+  else document.body.prepend(div);
 }
 
 async function submitManualPageId() {
