@@ -67,7 +67,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage, limits: { fileSize: 300 * 1024 * 1024 } }); // 300 MB max
 const uploadPhotos = upload.array("photos", 6);
 const uploadCompat = upload.fields([
   { name: "photos", maxCount: 6 },
@@ -399,34 +399,24 @@ async function startServer() {
         const platformIds = parsePlatforms(req.body.selectedPlatforms);
         const productId = await insertProduct(db, product, images, platformIds);
 
-        const processedVideo = await generateProcessedVideo(product);
-
-        if (processedVideo) {
-          await db.run(
-            `
-            UPDATE products
-            SET processedVideoPath = ?,
-                processedVideoUrl = ?,
-                useProcessedVideo = 1,
-                updatedAt = ?
-            WHERE id = ?
-            `,
-            [
-              processedVideo.processedVideoPath,
-              processedVideo.processedVideoUrl,
-              new Date().toISOString(),
-              productId,
-            ]
-          );
-        }
-
         const details = await getProductDetails(db, productId);
 
-        return res.json({
-          success: true,
-          ...details,
-          productId,
-        });
+        // Return response immediately — don't block on FFmpeg video processing
+        res.json({ success: true, ...details, productId, videoProcessing: !!product.videoPath });
+
+        // Process video in background after response is sent
+        if (product.videoPath) {
+          generateProcessedVideo(product).then(async processedVideo => {
+            if (!processedVideo) return;
+            await db.run(
+              `UPDATE products SET processedVideoPath=?, processedVideoUrl=?, useProcessedVideo=1, updatedAt=? WHERE id=?`,
+              [processedVideo.processedVideoPath, processedVideo.processedVideoUrl, new Date().toISOString(), productId]
+            );
+            console.log(`[Video] Background processing done for product ${productId}: ${processedVideo.processedVideoUrl}`);
+          }).catch(err => {
+            console.error(`[Video] Background processing failed for product ${productId}:`, err);
+          });
+        }
       } catch (error) {
         console.error("Preview error:", error);
         const raw = error instanceof Error ? error.message : String(error);
@@ -630,6 +620,12 @@ async function startServer() {
         message: error instanceof Error ? error.message : "Помилка публікації",
       });
     }
+  });
+
+  app.get("/api/products/:id", async (req: Request, res: Response) => {
+    const details = await getProductDetails(db, Number(req.params.id));
+    if (!details) return res.status(404).json({ error: "Not found" });
+    res.json(details);
   });
 
   app.post("/api/products/:id/publish", async (req: Request, res: Response) => {
@@ -1486,9 +1482,12 @@ async function startServer() {
 
   // ── End Facebook OAuth ──────────────────────────────────────────────────────
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Server started: http://localhost:${PORT}`);
   });
+  // Large video uploads need longer timeout (Railway proxy default is ~300s)
+  server.setTimeout(600_000); // 10 minutes
+  server.keepAliveTimeout = 605_000;
 }
 
 startServer();

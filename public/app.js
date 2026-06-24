@@ -600,7 +600,34 @@ async function createPreview() {
   platformPosts  = data.platformPosts || [];
   activePlatform = platformPosts[0]?.platform || "telegram";
   renderPreview();
-  showMessage("Прев'ю готове");
+
+  if (data.videoProcessing) {
+    showMessage("Прев'ю готове · ⏳ Відео обробляється у фоні...");
+    pollVideoProcessing(data.productId);
+  } else {
+    showMessage("Прев'ю готове");
+  }
+}
+
+function pollVideoProcessing(productId) {
+  let attempts = 0;
+  const interval = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetch(`/api/products/${productId}`);
+      if (!r.ok) return;
+      const d = await r.json();
+      const product = d.product || d;
+      if (product.processedVideoUrl) {
+        clearInterval(interval);
+        currentProduct = { ...currentProduct, ...product };
+        renderPreview();
+        showMessage("✅ Відео готове!");
+      } else if (attempts >= 30) { // 5 min max
+        clearInterval(interval);
+      }
+    } catch { clearInterval(interval); }
+  }, 10_000); // poll every 10s
 }
 
 async function regeneratePlatform(platform = activePlatform) {
