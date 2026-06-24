@@ -1243,13 +1243,9 @@ async function startServer() {
   });
 
   app.post("/api/telegram/save", (req: Request, res: Response) => {
-    const { token, chatId } = req.body as { token?: string; chatId?: string };
-    if (token && !token.includes(":")) return res.status(400).json({ success: false, message: "Невірний формат токена — має бути: 1234567890:ABCdef..." });
-    const { writeEnvVars } = require("./facebook-auth");
-    const vars: Record<string,string> = {};
-    if (token) vars.BOT_TOKEN = token;
-    if (chatId) vars.TELEGRAM_CHAT_ID = chatId;
-    writeEnvVars(vars);
+    const { chatId } = req.body as { chatId?: string };
+    if (!chatId) return res.status(400).json({ success: false, message: "Потрібен chatId" });
+    writeEnvVars({ TELEGRAM_CHAT_ID: chatId.trim() });
     res.json({ success: true });
   });
 

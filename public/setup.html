@@ -388,7 +388,7 @@
           </div>
         </div>
 
-        <!-- Setup -->
+        <!-- Setup — 2 steps only -->
         <div class="card" style="margin-top:12px">
           <div class="steps">
 
@@ -398,30 +398,20 @@
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">🤖 Отримай токен бота</div>
-                <div class="step-desc">Бот вже є — якщо ні, створи його за хвилину через @BotFather. Токен схожий на <code style="color:var(--accent)">123456:ABCdef...</code></div>
-                <div class="info-box" style="margin-bottom:12px">
-                  <b>Якщо бота ще немає:</b>
+                <div class="step-title">➕ Додай бота до свого каналу</div>
+                <div class="step-desc">Відкрий свій Telegram-канал і додай бота як адміністратора з правом публікації.</div>
+                <div class="info-box">
+                  <b>Крок 1 — Додай бота:</b>
                   <ol>
-                    <li>Відкрий <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent)">@BotFather</a> → команда <code>/newbot</code></li>
-                    <li>Дай ім'я і username (закінчується на <code>bot</code>)</li>
-                    <li>Скопіюй отриманий токен нижче</li>
+                    <li>Telegram-канал → <b>Налаштування → Адміністратори → Додати адміністратора</b></li>
+                    <li>Знайди бота — натисни кнопку нижче щоб скопіювати ім'я:</li>
                   </ol>
-                </div>
-                <div class="field">
-                  <label>Bot Token</label>
-                  <div class="field-row">
-                    <input type="password" id="tg-token" placeholder="1234567890:ABCdef..." autocomplete="off" oninput="tgChanged()" style="flex:1" />
-                    <button class="btn ghost" onclick="togglePassVis('tg-token')" style="flex-shrink:0">👁</button>
+                  <div class="copy-row" style="margin:8px 0 0">
+                    <span id="tg-bot-name" style="font-size:15px;font-weight:700">@AI_Shoping_post_bot</span>
+                    <button class="btn ghost" onclick="copy('tg-bot-name', this)">Скопіювати</button>
                   </div>
+                  <div style="margin-top:10px"><b>Крок 2 — Дай права:</b> увімкни <b>«Публікація повідомлень»</b> → Зберегти</div>
                 </div>
-                <div id="tg-token-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="tg-token-err-text"></span></div>
-                <div style="display:flex;gap:8px;margin-top:4px">
-                  <button class="btn secondary" id="tg-save-btn" onclick="tgSave()" disabled>Зберегти токен</button>
-                  <button class="btn ghost" onclick="tgVerify()" id="tg-verify-btn" style="display:none">Перевірити</button>
-                </div>
-                <div id="tg-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
-                <div id="tg-verify-res" style="display:none;margin-top:6px"></div>
               </div>
             </div>
 
@@ -431,32 +421,19 @@
                 <div class="step-line"></div>
               </div>
               <div class="step-body">
-                <div class="step-title">📢 Додай бота в канал як адміністратора</div>
-                <div class="step-desc">Щоб бот публікував пости, він має бути адміністратором каналу з правом публікації.</div>
-                <div class="info-box">
-                  <ol>
-                    <li>Відкрий свій Telegram-канал → <b>Налаштування → Адміністратори</b></li>
-                    <li>Натисни <b>«Додати адміністратора»</b> → введи <b id="tg-bot-username-hint">username бота</b></li>
-                    <li>Дай право <b>«Публікація повідомлень»</b> → Зберегти</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-
-            <div class="step">
-              <div class="step-left">
-                <div class="step-num" id="tg-s3">3</div>
-                <div class="step-line"></div>
-              </div>
-              <div class="step-body">
                 <div class="step-title">🔗 Вкажи свій канал</div>
-                <div class="step-desc">Публічний канал — просто <code>@username</code>. Приватний — перешли будь-яке повідомлення боту <a href="https://t.me/userinfobot" target="_blank" style="color:var(--accent)">@userinfobot</a> щоб дізнатись ID.</div>
+                <div class="step-desc">
+                  Публічний канал — просто <code>@username</code> (знайди в налаштуваннях каналу → Посилання).<br>
+                  Приватний канал — перешли будь-яке повідомлення боту
+                  <a href="https://t.me/username_to_id_bot" target="_blank" style="color:var(--accent)">@username_to_id_bot</a>
+                  щоб дізнатись ID (від'ємне число типу <code>-1001234567890</code>).
+                </div>
                 <div class="field" style="margin-top:12px">
                   <label>Chat ID або @username каналу</label>
-                  <input type="text" id="tg-chat-id" placeholder="@mychannel або -1001234567890" oninput="tgChanged()" />
-                </div>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                  <button class="btn secondary" id="tg-chat-save-btn" onclick="tgSaveChat()" disabled>Зберегти канал</button>
+                  <div class="field-row">
+                    <input type="text" id="tg-chat-id" placeholder="@mychannel або -1001234567890" oninput="tgChanged()" style="flex:1" />
+                    <button class="btn secondary" id="tg-chat-save-btn" onclick="tgSaveChat()" disabled style="flex-shrink:0">Зберегти</button>
+                  </div>
                 </div>
                 <div id="tg-chat-hint" style="display:none;font-size:12px;margin-top:6px"></div>
               </div>
@@ -1273,8 +1250,11 @@ async function fbSelectPage(pageId, pageName, btn) {
 async function loadTgStatus() {
   const s = await fetch("/api/telegram/status").then(r => r.json());
   const box = document.getElementById("tg-status");
-  const botHint = document.getElementById("tg-bot-username-hint");
-  if (s.username && botHint) botHint.textContent = "@" + s.username;
+  // Update bot name display in step 1 from live API
+  if (s.username) {
+    const el = document.getElementById("tg-bot-name");
+    if (el) el.textContent = "@" + s.username;
+  }
   if (s.connected && s.hasChatId) {
     setDot("tg", "green");
     box.className = "status-panel ok";
@@ -1284,70 +1264,40 @@ async function loadTgStatus() {
         <div class="detail">Бот: <b>@${s.username}</b></div>
         <div class="detail">Канал: <b>${s.chatId}</b></div>
         <div class="status-actions" style="margin-top:8px">
-          <button class="btn ghost" onclick="tgVerify()">Перевірити</button>
+          <button class="btn ghost" onclick="tgDisconnect()">Змінити канал</button>
         </div>
       </div>`;
-    ["tg-s1","tg-s2","tg-s3"].forEach(markDone);
+    ["tg-s1","tg-s2"].forEach(markDone);
   } else if (s.connected) {
     setDot("tg", "yellow");
     box.className = "status-panel warn";
     box.innerHTML = `<div class="status-icon">⚠️</div>
-      <div class="status-body"><strong>Бот підключено, канал не вказано</strong>
+      <div class="status-body"><strong>Бот активний, канал не вказано</strong>
       <div class="detail">Бот: <b>@${s.username}</b></div>
-      <div class="detail" style="color:var(--text2)">Вкажи Chat ID на кроці 3</div></div>`;
-    ["tg-s1","tg-s2"].forEach(markDone);
-    document.getElementById("tg-verify-btn").style.display = "";
+      <div class="detail" style="color:var(--text2)">Вкажи Chat ID на кроці 2</div></div>`;
+    markDone("tg-s1");
   } else {
     setDot("tg", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div>
-      <div class="status-body"><strong>Telegram не підключено</strong>
-      <div class="detail" style="color:var(--text2)">Виконай кроки нижче.</div></div>`;
+      <div class="status-body"><strong>Бот не налаштовано</strong>
+      <div class="detail" style="color:var(--text2)">Власник сервісу має встановити BOT_TOKEN у налаштуваннях Railway.</div></div>`;
   }
   if (s.chatId) document.getElementById("tg-chat-id").value = s.chatId;
   return s;
 }
 
 function tgChanged() {
-  const token = document.getElementById("tg-token").value.trim();
   const chatId = document.getElementById("tg-chat-id").value.trim();
-  const saveBtn = document.getElementById("tg-save-btn");
-  const chatBtn = document.getElementById("tg-chat-save-btn");
-  const errBox = document.getElementById("tg-token-err");
-  const errText = document.getElementById("tg-token-err-text");
-  saveBtn.disabled = true; errBox.style.display = "none";
-  if (token && !token.includes(":")) {
-    errBox.style.display = "flex";
-    errText.textContent = "Токен має виглядати як: 1234567890:ABCdef...";
-    return;
-  }
-  if (token && token.includes(":")) { saveBtn.disabled = false; document.getElementById("tg-verify-btn").style.display = ""; }
-  chatBtn.disabled = !chatId;
+  document.getElementById("tg-chat-save-btn").disabled = !chatId;
 }
 
-async function tgSave() {
-  const token = document.getElementById("tg-token").value.trim();
-  const btn = document.getElementById("tg-save-btn");
-  const hint = document.getElementById("tg-save-hint");
-  btn.disabled = true; btn.textContent = "Зберігаємо...";
-  const r = await fetch("/api/telegram/save", {
+async function tgDisconnect() {
+  await fetch("/api/telegram/save", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token }),
-  }).then(r => r.json());
-  btn.disabled = false; btn.textContent = "Зберегти токен";
-  if (r.success) {
-    hint.style.display = "block"; hint.style.color = "#3fb950";
-    hint.textContent = "✓ Токен збережено! Тепер вкажи Chat ID на кроці 3.";
-    markDone("tg-s2"); await loadTgStatus();
-  } else { hint.style.display = "block"; hint.style.color = "#f85149"; hint.textContent = "Помилка: " + r.message; }
-}
-
-async function tgVerify() {
-  const s = await fetch("/api/telegram/status").then(r => r.json());
-  const res = document.getElementById("tg-verify-res");
-  res.style.display = "block";
-  if (s.connected) res.innerHTML = `<div class="verify-badge ok">✅ Бот @${s.username} — ${s.firstName} — активний</div>`;
-  else res.innerHTML = `<div class="verify-badge err">❌ ${s.error || "Токен недійсний"}</div>`;
+    body: JSON.stringify({ chatId: "" }),
+  });
+  await loadTgStatus();
 }
 
 async function tgSaveChat() {
@@ -1362,8 +1312,8 @@ async function tgSaveChat() {
   btn.disabled = false; btn.textContent = "Зберегти";
   if (r.success) {
     hint.style.display = "block"; hint.style.color = "#3fb950";
-    hint.textContent = "✓ Збережено! Тепер Telegram готовий до публікації.";
-    markDone("tg-s3"); await loadTgStatus();
+    hint.textContent = "✓ Збережено!";
+    markDone("tg-s2"); await loadTgStatus();
   } else { hint.style.display = "block"; hint.style.color = "#f85149"; hint.textContent = "Помилка: " + r.message; }
 }
 
