@@ -66,9 +66,7 @@ export function buildAuthUrl(cfg: FacebookAuthConfig, state: string): string {
     "pages_show_list",
     "pages_manage_posts",
     "pages_read_engagement",
-    "business_management",
-    "instagram_basic",
-    "instagram_content_publishing",
+    "instagram_content_publish",
   ].join(",");
 
   const params = new URLSearchParams({
