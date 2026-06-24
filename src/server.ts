@@ -1312,12 +1312,13 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.get("/api/tiktok/status", (_req: Request, res: Response) => {
+  app.get("/api/tiktok/status", (req: Request, res: Response) => {
     const { getTikTokStatus } = require("./tiktok");
     const env = readEnv();
     const clientKey = env.TIKTOK_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY || "";
     const hasKeys = !!clientKey;
-    res.json({ ...getTikTokStatus(), hasKeys, clientKeyHint: clientKey ? clientKey.slice(0, 6) + "…" : "" });
+    const redirectUri = getTikTokRedirectUri(req);
+    res.json({ ...getTikTokStatus(), hasKeys, clientKeyHint: clientKey ? clientKey.slice(0, 6) + "…" : "", redirectUri });
   });
 
   app.get("/auth/tiktok", (req: Request, res: Response) => {
