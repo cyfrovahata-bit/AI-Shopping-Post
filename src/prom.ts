@@ -200,13 +200,21 @@ export async function publishToProm(opts: {
   if (opts.categoryId) product.category_id = opts.categoryId;
   if (opts.sku) product.sku = opts.sku;
 
+  const tokenVal = getToken();
+  console.log(`[Prom] token present: ${!!tokenVal}, length: ${tokenVal.length}, url: ${API_BASE}/products/edit_list`);
+
   const r = await fetch(`${API_BASE}/products/edit_list`, {
     method: "POST",
     headers: headers() as any,
     body: JSON.stringify({ products: [product] }),
   });
 
-  const data = await r.json() as any;
+  const rawText = await r.text();
+  console.log(`[Prom] response status: ${r.status}, body preview: ${rawText.slice(0, 200)}`);
+
+  let data: any;
+  try { data = JSON.parse(rawText); }
+  catch { throw new Error(`Prom API повернув не-JSON (${r.status}): ${rawText.slice(0, 300)}`); }
 
   if (!r.ok || data.errors?.length) {
     const errMsg = data.errors?.[0] || data.error_message || data.message || `HTTP ${r.status}`;
