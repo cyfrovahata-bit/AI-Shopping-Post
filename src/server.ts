@@ -158,6 +158,21 @@ async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   return res.status(403).json({ success: false, message: "Доступ тільки для адміністратора" });
 }
 
+async function requireExistingUser(req: Request, res: Response, next: NextFunction) {
+  const userId = currentUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const db = await initDb();
+    const user = await db.get(`SELECT id FROM users WHERE id = ?`, [userId]);
+    if (user) return next();
+  } catch {
+    // fall through to invalid session
+  }
+  return res.status(401).json({ error: "User no longer exists" });
+}
+
+const requireUser = [authMiddleware, requireExistingUser];
+
 function parsePlatforms(value: unknown): PlatformId[] {
   const rawValues = Array.isArray(value)
     ? value
@@ -501,7 +516,7 @@ async function startServer() {
 
   app.post(
     "/api/posts/preview",
-    authMiddleware,
+    ...requireUser,
     uploadCompat,
     async (req: Request, res: Response) => {
       try {
@@ -555,7 +570,7 @@ async function startServer() {
 
   app.post(
     "/api/posts/:productId/regenerate",
-    authMiddleware,
+    ...requireUser,
     async (req: Request, res: Response) => {
       try {
         const productId = Number(req.params.productId);
@@ -643,7 +658,7 @@ async function startServer() {
     }
   );
 
-  app.put("/api/platform-posts/:id", authMiddleware, async (req: Request, res: Response) => {
+  app.put("/api/platform-posts/:id", ...requireUser, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const post = await getOwnedPlatformPost(db, id, currentUserId(req));
@@ -705,7 +720,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/platform-posts/:id/publish", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/platform-posts/:id/publish", ...requireUser, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       const post = await getOwnedPlatformPost(db, id, currentUserId(req));
@@ -748,13 +763,13 @@ async function startServer() {
     }
   });
 
-  app.get("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/api/products/:id", ...requireUser, async (req: Request, res: Response) => {
     const details = await getOwnedProductDetails(db, Number(req.params.id), currentUserId(req));
     if (!details) return res.status(404).json({ success: false, message: "Товар не знайдено" });
     res.json({ success: true, ...details });
   });
 
-  app.post("/api/products/:id/publish", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/products/:id/publish", ...requireUser, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
       const details = await getOwnedProductDetails(db, productId, currentUserId(req));
@@ -793,7 +808,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/products", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/api/products", ...requireUser, async (req: Request, res: Response) => {
     const where: string[] = [];
     const params: unknown[] = [];
     const query = toText(req.query.query);
@@ -846,7 +861,7 @@ async function startServer() {
     });
   });
 
-  app.get("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/api/products/:id", ...requireUser, async (req: Request, res: Response) => {
     const productId = Number(req.params.id);
     const details = await getOwnedProductDetails(db, productId, currentUserId(req));
 
@@ -863,7 +878,7 @@ async function startServer() {
     });
   });
 
-  app.put("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
+  app.put("/api/products/:id", ...requireUser, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
       const details = await getOwnedProductDetails(db, productId, currentUserId(req));
@@ -894,7 +909,7 @@ async function startServer() {
     }
   });
 
-  app.post("/preview-post", authMiddleware, uploadCompat, async (req: Request, res: Response) => {
+  app.post("/preview-post", ...requireUser, uploadCompat, async (req: Request, res: Response) => {
     try {
       const files = getUploadedFiles(req);
       const video = fileToVideo(getUploadedVideo(req));
@@ -932,7 +947,7 @@ async function startServer() {
     }
   });
 
-  app.post("/publish-preview", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/publish-preview", ...requireUser, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.body.productId);
       const text = toText(req.body.text);
@@ -981,7 +996,7 @@ async function startServer() {
     }
   });
 
-  app.get("/products-api", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/products-api", ...requireUser, async (req: Request, res: Response) => {
     const products = await db.all(`
       SELECT *
       FROM products
@@ -995,7 +1010,7 @@ async function startServer() {
     });
   });
 
-  app.put("/products-api/:id", authMiddleware, async (req: Request, res: Response) => {
+  app.put("/products-api/:id", ...requireUser, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
       const details = await getOwnedProductDetails(db, productId, currentUserId(req));
@@ -1061,13 +1076,13 @@ async function startServer() {
 
   // ── Per-user social token endpoints ────────────────────────────────────────
 
-  app.get("/api/user/social-status", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/api/user/social-status", ...requireUser, async (req: Request, res: Response) => {
     const userId = (req as any).userId as number;
     const status = await getUserSocialStatus(db, userId);
     res.json(status);
   });
 
-  app.delete("/api/user/social/:platform", authMiddleware, async (req: Request, res: Response) => {
+  app.delete("/api/user/social/:platform", ...requireUser, async (req: Request, res: Response) => {
     const userId = (req as any).userId as number;
     await deleteUserToken(db, userId, String(req.params.platform));
     res.json({ success: true });
@@ -1189,7 +1204,7 @@ async function startServer() {
   });
 
   // POST /api/facebook/select-page — user picks a page from dropdown
-  app.post("/api/facebook/select-page", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/facebook/select-page", ...requireUser, async (req: Request, res: Response) => {
     const { pageId } = req.body as { pageId: string };
     try {
       const pending = pendingFacebookOAuth.get(currentUserId(req));
@@ -1218,7 +1233,7 @@ async function startServer() {
     }
   });
 
-  app.put("/api/products/:id/video-choice", authMiddleware, async (req: Request, res: Response) => {
+  app.put("/api/products/:id/video-choice", ...requireUser, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
       const details = await getOwnedProductDetails(db, productId, currentUserId(req));
@@ -1235,7 +1250,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/account", authMiddleware, async (req: Request, res: Response) => {
+  app.delete("/api/account", ...requireUser, async (req: Request, res: Response) => {
     const userId = currentUserId(req);
     const files = await db.all(
       `
@@ -1281,6 +1296,10 @@ async function startServer() {
     if (!pageId) return res.status(400).json({ success: false, message: "Потрібен Page ID" });
     try {
       const userId = extractOptionalAuth(req);
+      if (userId) {
+        const user = await db.get(`SELECT id FROM users WHERE id = ?`, [userId]);
+        if (!user) return res.status(401).json({ error: "User no longer exists" });
+      }
       const pending = userId ? pendingFacebookOAuth.get(userId) : null;
       const result = await selectFacebookPageManual(pageId.trim(), pending?.userToken, !userId);
       // If caller provided a JWT (from new multi-tenant flow), save per-user token too
@@ -1309,7 +1328,7 @@ async function startServer() {
   });
 
   // POST /api/facebook/set-instagram — manually save Instagram Business Account ID
-  app.post("/api/facebook/set-instagram", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/facebook/set-instagram", ...requireUser, async (req: Request, res: Response) => {
     const { instagramId, instagramUsername } = req.body as { instagramId: string; instagramUsername?: string };
     if (!instagramId) return res.status(400).json({ success: false, message: "Потрібен Instagram ID" });
     const tokens = await import("./user-tokens").then(m => m.getUserTokens(db, currentUserId(req)));
@@ -1324,7 +1343,7 @@ async function startServer() {
   });
 
   // GET /api/facebook/saved-creds — return saved App ID (not secret) for pre-filling form
-  app.get("/api/facebook/saved-creds", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/api/facebook/saved-creds", ...requireUser, async (req: Request, res: Response) => {
     const env = readEnv();
     const adminEmail = toText(process.env.ADMIN_EMAIL).toLowerCase();
     const user = await db.get(`SELECT email FROM users WHERE id = ?`, [currentUserId(req)]);
@@ -1339,7 +1358,7 @@ async function startServer() {
   });
 
   // POST /api/facebook/save-app — save App ID + App Secret without starting OAuth
-  app.post("/api/facebook/save-app", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/facebook/save-app", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { appId, appSecret } = req.body as { appId: string; appSecret: string };
     if (!appId || !appSecret) return res.status(400).json({ success: false, message: "Потрібні App ID та App Secret" });
     if (!/^\d+$/.test(appId)) return res.status(400).json({ success: false, message: "App ID повинен містити тільки цифри" });
@@ -1356,7 +1375,7 @@ async function startServer() {
   });
 
   // POST /api/facebook/disconnect — clear all Facebook/Instagram tokens
-  app.post("/api/facebook/disconnect", authMiddleware, requireAdmin, (_req: Request, res: Response) => {
+  app.post("/api/facebook/disconnect", ...requireUser, requireAdmin, (_req: Request, res: Response) => {
     writeEnvVars({
       FACEBOOK_USER_TOKEN: "", FACEBOOK_USER_TOKEN_EXPIRES: "",
       FACEBOOK_PAGE_ID: "", FACEBOOK_PAGE_NAME: "", FACEBOOK_ACCESS_TOKEN: "",
@@ -1421,7 +1440,7 @@ async function startServer() {
   });
 
   // POST /api/facebook/verify — test if current tokens actually work
-  app.post("/api/facebook/verify", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/facebook/verify", ...requireUser, async (req: Request, res: Response) => {
     const userTokens = await getUserSocialStatus(db, currentUserId(req));
     if (userTokens.facebook) {
       const tokens = await import("./user-tokens").then(m => m.getUserTokens(db, currentUserId(req)));
@@ -1452,7 +1471,7 @@ async function startServer() {
 
   // ── Instagram Login OAuth (new flow — does not require Facebook Page) ──────
 
-  app.post("/api/instagram/save-app", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/instagram/save-app", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { appId, appSecret } = req.body as { appId?: string; appSecret?: string };
     if (!appId || !appSecret) return res.json({ success: false, message: "Потрібні appId та appSecret" });
     writeEnvVars({ INSTAGRAM_APP_ID: appId.trim(), INSTAGRAM_APP_SECRET: appSecret.trim() });
@@ -1504,18 +1523,18 @@ async function startServer() {
     res.json(getInstagramStatus());
   });
 
-  app.post("/api/instagram/disconnect", authMiddleware, requireAdmin, (_req: Request, res: Response) => {
+  app.post("/api/instagram/disconnect", ...requireUser, requireAdmin, (_req: Request, res: Response) => {
     writeEnvVars({ INSTAGRAM_USER_ID: "", INSTAGRAM_USERNAME: "", INSTAGRAM_ACCESS_TOKEN: "", INSTAGRAM_TOKEN_EXPIRES: "" });
     res.json({ success: true });
   });
 
   // ── Shop settings ──────────────────────────────────────────────────────────
 
-  app.get("/api/settings/shop", authMiddleware, async (req: Request, res: Response) => {
+  app.get("/api/settings/shop", ...requireUser, async (req: Request, res: Response) => {
     res.json(await getUserSettings(db, currentUserId(req)));
   });
 
-  app.post("/api/settings/shop", authMiddleware, async (req: Request, res: Response) => {
+  app.post("/api/settings/shop", ...requireUser, async (req: Request, res: Response) => {
     const { shopName, shopDescription, shopLanguage, facebookPageUrl, instagramUrl } = req.body as Record<string, string>;
     const now = new Date().toISOString();
     await db.run(
@@ -1617,7 +1636,7 @@ async function startServer() {
     return `${getBaseUrl(req)}/auth/tiktok/callback`;
   }
 
-  app.post("/api/tiktok/setup", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/tiktok/setup", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { clientKey, clientSecret } = req.body as { clientKey: string; clientSecret: string };
     if (!clientKey || !clientSecret) return res.status(400).json({ error: "Потрібні clientKey і clientSecret" });
     writeEnvVars({ TIKTOK_CLIENT_KEY: clientKey, TIKTOK_CLIENT_SECRET: clientSecret });
@@ -1692,7 +1711,7 @@ async function startServer() {
     res.json({ url: publicSiteUrl() });
   });
 
-  app.post("/api/site-url", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/site-url", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { url } = req.body as { url: string };
     const { writeEnvVars } = require("./facebook-auth");
     writeEnvVars({ SITE_URL: url || "" });
@@ -1709,7 +1728,7 @@ async function startServer() {
     res.json({ connected: result.ok, hasToken, shopName: result.shopName, error: result.error });
   });
 
-  app.post("/api/prom/save", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/prom/save", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { token } = req.body as { token: string };
     if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
     const { writeEnvVars } = require("./facebook-auth");
@@ -1731,7 +1750,7 @@ async function startServer() {
     res.json({ categories: cats });
   });
 
-  app.post("/api/prom/set-default-category", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/prom/set-default-category", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { categoryId, categoryName } = req.body as { categoryId: number; categoryName: string };
     if (!categoryId) return res.status(400).json({ success: false, message: "categoryId required" });
     const { writeEnvVars } = require("./facebook-auth");
@@ -1750,7 +1769,7 @@ async function startServer() {
     res.json({ connected: result.ok, hasToken, hasCredentials, name: result.name, error: result.error });
   });
 
-  app.post("/api/olx/save-credentials", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/olx/save-credentials", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { clientId, clientSecret } = req.body as { clientId: string; clientSecret: string };
     if (!clientId || !clientSecret) return res.status(400).json({ success: false, message: "Потрібні Client ID і Client Secret" });
     const { writeEnvVars } = require("./facebook-auth");
@@ -1794,7 +1813,7 @@ async function startServer() {
     res.json({ connected: result.ok, hasToken, hasCredentials, shopName: result.shopName, error: result.error });
   });
 
-  app.post("/api/rozetka/save", authMiddleware, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/rozetka/save", ...requireUser, requireAdmin, (req: Request, res: Response) => {
     const { login, password } = req.body as { login: string; password: string };
     if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін і пароль" });
     const { writeEnvVars } = require("./facebook-auth");

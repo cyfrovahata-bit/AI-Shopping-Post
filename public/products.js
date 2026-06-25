@@ -3,6 +3,18 @@ const productsSearch = document.getElementById("productsSearch");
 const platformFilter = document.getElementById("platformFilter");
 const statusFilter = document.getElementById("statusFilter");
 
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const response = await nativeFetch(...args);
+  const target = String(args[0] || "");
+  if (response.status === 401 && target.startsWith("/api/")) {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userEmail");
+    window.location.replace("/login.html");
+  }
+  return response;
+};
+
 function authHeaders() {
   const token = localStorage.getItem("authToken");
   return token ? { Authorization: "Bearer " + token } : {};
