@@ -83,6 +83,7 @@ export function buildAuthUrl(cfg: FacebookAuthConfig, state: string): string {
     redirect_uri: cfg.redirectUri,
     scope: scopes,
     response_type: "code",
+    auth_type: "rerequest",
     state,
   });
   return `https://www.facebook.com/dialog/oauth?${params}`;

@@ -458,13 +458,13 @@
         <!-- Connect card (for every user) -->
         <div class="card" style="margin-top:12px">
           <div style="padding:20px">
-            <div style="font-size:15px;font-weight:700;margin-bottom:6px">📸 Підключи свій Instagram</div>
-            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Потрібен <b>Business або Creator</b> акаунт Instagram, прив'язаний до Facebook Сторінки. Якщо підключив Facebook — Instagram, скоріш за все, підключиться автоматично. Якщо ні — підключи тут окремо.</div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">📸 Підключи Instagram через Facebook</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Потрібен <b>Business або Creator</b> акаунт Instagram, прив'язаний до Facebook Сторінки. Натисни кнопку — відкриється Facebook-підключення, після вибору сторінки Instagram підтягнеться автоматично.</div>
             <div id="ig-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
               <span class="aico">⚠️</span><span>Адміністратор ще не налаштував Instagram App. Розгорни налаштування нижче.</span>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn primary" id="ig-connect-btn" onclick="igConnect()" style="font-size:14px;padding:11px 20px;background:#E1306C">📸 Підключити Instagram →</button>
+              <button class="btn primary" id="ig-connect-btn" onclick="igConnect()" style="font-size:14px;padding:11px 20px;background:#E1306C">📸 Підключити через Facebook →</button>
               <button class="btn ghost" id="ig-disconnect-btn" style="display:none" onclick="igUserDisconnect()">Відключити</button>
             </div>
           </div>
@@ -1184,14 +1184,7 @@ async function igDisconnect() {
 }
 
 function igConnect() {
-  const token = localStorage.getItem('authToken');
-  if (!token) { window.location.replace('/login.html'); return; }
-  const url = `/auth/instagram?token=${encodeURIComponent(token)}`;
-  const popup = window.open(url, "ig_oauth", "width=560,height=720,scrollbars=yes,resizable=yes");
-  if (!popup) { window.location.href = url; return; }
-  const timer = setInterval(() => {
-    if (popup.closed) { clearInterval(timer); loadIgUserStatus(); loadIgStatus(); }
-  }, 800);
+  fbConnect();
 }
 
 async function igSaveApp() {
@@ -1207,7 +1200,7 @@ async function igSaveApp() {
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти App ID/Secret";
   if (r.success) {
-    result.innerHTML = '<span style="color:var(--ok)">✓ Збережено! Тепер натисни «Підключити Instagram».</span>';
+    result.innerHTML = '<span style="color:var(--ok)">✓ Збережено! Тепер натисни «Підключити через Facebook».</span>';
     markDone("ig-s2");
   } else {
     result.innerHTML = `<span style="color:var(--err)">${r.message}</span>`;
