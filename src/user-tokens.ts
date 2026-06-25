@@ -3,11 +3,13 @@ import crypto from "crypto";
 export interface FbCreds { pageId: string; accessToken: string; pageName: string }
 export interface IgCreds { userId: string; accessToken: string }
 export interface TtCreds { accessToken: string; refreshToken: string; openId: string; expiresAt: number; refreshExpiresAt: number }
+export interface TelegramCreds { chatId: string }
 
 export interface SocialTokens {
   facebook?: FbCreds;
   instagram?: IgCreds;
   tiktok?: TtCreds;
+  telegram?: TelegramCreds;
 }
 
 const ENC_PREFIX = "enc:v1:";

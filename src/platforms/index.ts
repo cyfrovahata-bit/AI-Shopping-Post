@@ -97,12 +97,14 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, photoPaths, videoPath }) {
+  async publish({ text, photoPaths, videoPath, extras }) {
+    const creds = (extras?.userTokens as any)?.telegram;
     const result = await sendTelegramPost(
       text,
       photoPaths[0],
       videoPath,
-      photoPaths
+      photoPaths,
+      creds
     );
 
     return {

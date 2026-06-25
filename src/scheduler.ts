@@ -87,6 +87,12 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
   const numericUserId = productRow?.userId && /^\d+$/.test(String(productRow.userId))
     ? parseInt(productRow.userId, 10) : null;
   const userTokens = numericUserId ? await getUserTokens(db, numericUserId) : null;
+  if (numericUserId && userTokens) {
+    const settings = await db.get(`SELECT telegram_chat_id FROM user_settings WHERE user_id = ?`, [numericUserId]);
+    if (settings?.telegram_chat_id) {
+      userTokens.telegram = { chatId: settings.telegram_chat_id };
+    }
+  }
   const now = new Date().toISOString();
 
   await db.run(

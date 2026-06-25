@@ -4,6 +4,10 @@ import fetch from "node-fetch";
 
 const defaultOrderUrl = "";
 
+type TelegramCredentials = {
+  chatId?: string;
+};
+
 type TelegramApiResponse = {
   ok: boolean;
   description?: string;
@@ -59,10 +63,11 @@ async function sendOrderButtonMessage(botToken: string, chatId: string) {
 
 export async function sendTelegramMediaGroup(
   text: string,
-  photoPaths: string[]
+  photoPaths: string[],
+  creds?: TelegramCredentials
 ) {
   const botToken = process.env.BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const chatId = creds?.chatId || process.env.TELEGRAM_CHAT_ID;
 
   if (!botToken || !chatId) {
     throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
@@ -119,10 +124,11 @@ export async function sendTelegramMediaGroup(
 export async function sendTelegramMixedMediaGroup(
   text: string,
   videoPath: string,
-  photoPaths: string[]
+  photoPaths: string[],
+  creds?: TelegramCredentials
 ) {
   const botToken = process.env.BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const chatId = creds?.chatId || process.env.TELEGRAM_CHAT_ID;
 
   if (!botToken || !chatId) {
     throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
@@ -180,10 +186,11 @@ export async function sendTelegramPost(
   text: string,
   photoPath?: string,
   videoPath?: string,
-  photoPaths?: string[]
+  photoPaths?: string[],
+  creds?: TelegramCredentials
 ) {
   const botToken = process.env.BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const chatId = creds?.chatId || process.env.TELEGRAM_CHAT_ID;
   const replyMarkup = getReplyMarkup();
 
   if (!botToken || !chatId) {
@@ -197,7 +204,7 @@ export async function sendTelegramPost(
       : [];
 
   if (videoPath && allPhotos.length > 0) {
-    return sendTelegramMixedMediaGroup(text, videoPath, allPhotos);
+    return sendTelegramMixedMediaGroup(text, videoPath, allPhotos, creds);
   }
 
   if (videoPath) {
@@ -227,7 +234,7 @@ export async function sendTelegramPost(
   }
 
   if (allPhotos.length > 1) {
-    return sendTelegramMediaGroup(text, allPhotos);
+    return sendTelegramMediaGroup(text, allPhotos, creds);
   }
 
   if (allPhotos.length === 1) {

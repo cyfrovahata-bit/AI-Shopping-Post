@@ -1108,7 +1108,6 @@ async function loadFbStatus() {
   const box = document.getElementById("fb-status");
 
   if (s.connected) {
-    setDot("fb", "green");
     const dWarn = s.userTokenDaysLeft !== null && s.userTokenDaysLeft < 10;
     box.className = "status-panel " + (dWarn ? "warn" : "ok");
     box.innerHTML = `
@@ -1137,7 +1136,6 @@ async function loadFbStatus() {
     const igUrlEl = document.getElementById("shop-ig-url");
     if (igUrlEl && !igUrlEl.value && s.instagramUsername) igUrlEl.value = `https://www.instagram.com/${s.instagramUsername}`;
   } else {
-    setDot("fb", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div>
       <div class="status-body"><strong>Facebook не підключено</strong>
@@ -1159,7 +1157,6 @@ async function loadIgStatus() {
   const s = await fetch("/api/instagram/status").then(r => r.json());
   const box = document.getElementById("ig-status");
   if (s.connected) {
-    setDot("ig", "green");
     box.className = "status-panel ok";
     const daysInfo = s.daysLeft != null ? ` · токен діє ще <b>${s.daysLeft} днів</b>` : "";
     box.innerHTML = `<div class="status-icon">✅</div>
@@ -1172,7 +1169,6 @@ async function loadIgStatus() {
       </div>`;
     ["ig-s1","ig-s2","ig-s3","ig-s4"].forEach(markDone);
   } else {
-    setDot("ig", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div>
       <div class="status-body"><strong>Instagram не підключено</strong>
@@ -1341,6 +1337,8 @@ async function fbSelectPage(pageId, pageName, btn) {
   if (d.success) {
     showGlobalAlert(`✅ Сторінку «${pageName}» підключено! ${d.instagram ? "Instagram @"+(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram не знайдено — прив'яжи Business акаунт."}`, "ok");
     document.getElementById("fb-page-chooser").style.display = "none";
+    await loadFbUserStatus();
+    await loadIgUserStatus();
     await loadFbStatus();
   } else { showGlobalAlert("Помилка: " + d.message, "err"); btn.disabled = false; btn.textContent = pageName; }
 }
@@ -1348,7 +1346,7 @@ async function fbSelectPage(pageId, pageName, btn) {
 // ── TELEGRAM ──────────────────────────────────────────────────────────────
 
 async function loadTgStatus() {
-  const s = await fetch("/api/telegram/status").then(r => r.json());
+  const s = await fetch("/api/telegram/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("tg-status");
   // Update bot name display in step 1 from live API
   if (s.username) {
@@ -1459,18 +1457,17 @@ async function loadShafaStatus() {
   const box = document.getElementById("shafa-status");
   const card = document.getElementById("shafa-connect-card");
   if (s.sessionValid) {
-    setDot("shafa", "green");
-    box.className = "status-panel ok";
-    box.innerHTML = `<div class="status-icon">✅</div>
+    setDot("shafa", "red");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
       <div class="status-body">
-        <strong>Shafa.ua підключено</strong>
-        <div class="detail" style="color:var(--text2)">Сесія активна — публікація працює</div>
+        <strong>Shafa.ua не підключено для цього користувача</strong>
+        <div class="detail" style="color:var(--text2)">На сервері може бути стара глобальна сесія, але вона не вважається твоїм підключенням.</div>
         <div class="status-actions" style="margin-top:8px">
-          <button class="btn ghost" onclick="openShafaLogin()">Оновити сесію</button>
-          <button class="btn ghost" onclick="shafaDisconnect()" style="color:#f85149">Відключити</button>
+          <button class="btn ghost" onclick="openShafaLogin()">Підключити заново</button>
         </div>
       </div>`;
-    if (card) card.style.display = "none";
+    if (card) card.style.display = "";
   } else {
     setDot("shafa", "red");
     box.className = "status-panel error";
@@ -1546,7 +1543,6 @@ async function loadTiktokStatus() {
   const box = document.getElementById("tiktok-status");
   if (!box) return;
   if (s.connected) {
-    setDot("tiktok", "green");
     box.className = "status-panel ok";
     const exp = s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("uk-UA") : "?";
     box.innerHTML = `<div class="status-icon">✅</div>
@@ -1556,7 +1552,7 @@ async function loadTiktokStatus() {
         <div class="detail" style="color:var(--text2);font-size:12px">Пости в тестовому режимі видні тільки тобі (SELF_ONLY)</div>
       </div>`;
   } else {
-    setDot("tiktok", s.hasKeys ? "yellow" : "grey");
+    setDot("tiktok", "red");
     box.className = "status-panel" + (s.hasKeys ? " warn" : " error");
     box.innerHTML = `<div class="status-icon">${s.hasKeys ? "🔑" : "❌"}</div>
       <div class="status-body"><strong>${s.hasKeys ? `Ключі збережено (${s.clientKeyHint}) — потрібна авторизація` : "TikTok не підключено"}</strong></div>`;
@@ -1605,21 +1601,17 @@ async function loadPromStatus() {
   const s = await fetch("/api/prom/status").then(r => r.json());
   const box = document.getElementById("prom-status");
   if (s.connected) {
-    setDot("prom", "green");
-    box.className = "status-panel ok";
-    box.innerHTML = `<div class="status-icon">✅</div>
+    setDot("prom", "red");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
       <div class="status-body">
-        <strong>Prom.ua підключено</strong>
-        <div class="detail" style="color:var(--text2)">API-токен дійсний, публікація доступна</div>
-        <div class="status-actions">
-          <button class="btn ghost" onclick="promVerify()">Перевірити</button>
-        </div>
+        <strong>Prom.ua не підключено для цього користувача</strong>
+        <div class="detail" style="color:var(--text2)">На сервері є глобальний API-токен, але він не показується як особисте підключення нового акаунта.</div>
         <div id="prom-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
       </div>`;
-    ["prom-s1","prom-s2","prom-s3"].forEach(markDone);
-    document.getElementById("prom-verify-btn").style.display = "";
+    document.getElementById("prom-verify-btn").style.display = "none";
   } else if (s.hasToken) {
-    setDot("prom", "yellow");
+    setDot("prom", "red");
     box.className = "status-panel warn";
     box.innerHTML = `<div class="status-icon">⚠️</div>
       <div class="status-body">
@@ -1734,7 +1726,7 @@ async function promVerify() {
   if (d.ok) {
     target.innerHTML = `<div class="verify-badge ok">✅ З'єднання працює! Prom.ua API активне.</div>`;
     markDone("prom-s2"); markDone("prom-s3");
-    setDot("prom", "green");
+    setDot("prom", "red");
   } else {
     target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
   }
@@ -1751,16 +1743,15 @@ async function loadOlxStatus() {
   if (uriEl) uriEl.textContent = redirectUri;
 
   if (s.connected) {
-    setDot("olx", "green");
-    box.className = "status-panel ok";
-    box.innerHTML = `<div class="status-icon">✅</div>
-      <div class="status-body"><strong>OLX підключено</strong>
-        ${s.name ? `<div class="detail" style="color:var(--text2)">Акаунт: ${s.name}</div>` : ""}
-        <div class="status-actions"><button class="btn ghost" onclick="olxReconnect()">Переп'єднати</button></div>
+    setDot("olx", "red");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body"><strong>OLX не підключено для цього користувача</strong>
+        <div class="detail" style="color:var(--text2)">На сервері можуть бути глобальні дані, але вони не вважаються твоїм підключенням.</div>
+        <div class="status-actions"><button class="btn ghost" onclick="olxReconnect()">Підключити OLX</button></div>
       </div>`;
-    ["olx-s1","olx-s2","olx-s3"].forEach(markDone);
   } else if (s.hasCredentials) {
-    setDot("olx", "yellow");
+    setDot("olx", "red");
     box.className = "status-panel warn";
     box.innerHTML = `<div class="status-icon">⚠️</div>
       <div class="status-body"><strong>Є дані але не підключено</strong>
@@ -1810,18 +1801,16 @@ async function loadRozetkaStatus() {
   const s = await fetch("/api/rozetka/status").then(r => r.json());
   const box = document.getElementById("rozetka-status");
   if (s.connected) {
-    setDot("rozetka", "green");
-    box.className = "status-panel ok";
-    box.innerHTML = `<div class="status-icon">✅</div>
-      <div class="status-body"><strong>Rozetka підключено</strong>
-        ${s.shopName ? `<div class="detail" style="color:var(--text2)">Магазин: ${s.shopName}</div>` : ""}
-        <div class="status-actions"><button class="btn ghost" onclick="rozetkaVerify()">Перевірити</button></div>
+    setDot("rozetka", "red");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body"><strong>Rozetka не підключено для цього користувача</strong>
+        <div class="detail" style="color:var(--text2)">На сервері можуть бути глобальні дані, але вони не вважаються твоїм підключенням.</div>
         <div id="rozetka-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
       </div>`;
-    ["rozetka-s1","rozetka-s2","rozetka-s3"].forEach(markDone);
-    document.getElementById("rozetka-verify-btn").style.display = "";
+    document.getElementById("rozetka-verify-btn").style.display = "none";
   } else if (s.hasCredentials) {
-    setDot("rozetka", "yellow");
+    setDot("rozetka", "red");
     box.className = "status-panel warn";
     box.innerHTML = `<div class="status-icon">⚠️</div>
       <div class="status-body"><strong>Дані збережено, але не авторизовано</strong>
@@ -1878,7 +1867,7 @@ async function rozetkaVerify() {
     if (d.ok) {
       target.innerHTML = `<div class="verify-badge ok">✅ Підключено! ${d.shopName ? "Магазин: " + d.shopName : ""}</div>`;
       markDone("rozetka-s2"); markDone("rozetka-s3");
-      setDot("rozetka", "green");
+      setDot("rozetka", "red");
     } else {
       target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
       setDot("rozetka", "red");
@@ -2080,11 +2069,13 @@ async function loadFbUserStatus() {
   const disconnectBtn = document.getElementById("fb-disconnect-btn");
   if (!box) return;
   if (s.facebook) {
+    setDot("fb", "green");
     box.className = "status-panel ok";
     box.innerHTML = `<div class="status-icon">✅</div><div class="status-body"><strong>Facebook підключено</strong>${s.facebookPageName ? `<div class="detail">Сторінка: <b>${s.facebookPageName}</b></div>` : ''}</div>`;
     if (connectBtn) connectBtn.style.display = "none";
     if (disconnectBtn) disconnectBtn.style.display = "";
   } else {
+    setDot("fb", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div><div class="status-body"><strong>Facebook не підключено</strong><div class="detail" style="color:var(--text2)">Натисни кнопку нижче щоб підключити.</div></div>`;
     if (connectBtn) connectBtn.style.display = "";
@@ -2099,11 +2090,13 @@ async function loadIgUserStatus() {
   const disconnectBtn = document.getElementById("ig-disconnect-btn");
   if (!box) return;
   if (s.instagram) {
+    setDot("ig", "green");
     box.className = "status-panel ok";
     box.innerHTML = `<div class="status-icon">✅</div><div class="status-body"><strong>Instagram підключено</strong></div>`;
     if (connectBtn) connectBtn.style.display = "none";
     if (disconnectBtn) disconnectBtn.style.display = "";
   } else {
+    setDot("ig", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div><div class="status-body"><strong>Instagram не підключено</strong><div class="detail" style="color:var(--text2)">Натисни кнопку нижче щоб підключити.</div></div>`;
     if (connectBtn) connectBtn.style.display = "";
@@ -2118,11 +2111,13 @@ async function loadTiktokUserStatus() {
   const disconnectBtn = document.getElementById("tiktok-disconnect-btn");
   if (!box) return;
   if (s.tiktok) {
+    setDot("tiktok", "green");
     box.className = "status-panel ok";
     box.innerHTML = `<div class="status-icon">✅</div><div class="status-body"><strong>TikTok підключено</strong></div>`;
     if (connectBtn) connectBtn.style.display = "none";
     if (disconnectBtn) disconnectBtn.style.display = "";
   } else {
+    setDot("tiktok", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div><div class="status-body"><strong>TikTok не підключено</strong><div class="detail" style="color:var(--text2)">Натисни кнопку нижче щоб підключити.</div></div>`;
     if (connectBtn) connectBtn.style.display = "";

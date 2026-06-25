@@ -332,6 +332,7 @@ async function getUserSettings(db: any, userId: number) {
     shopLanguage: settings?.shop_language || g("SHOP_LANGUAGE") || "uk",
     facebookPageUrl: settings?.facebook_page_url || g("FACEBOOK_PAGE_URL"),
     instagramUrl: settings?.instagram_url || g("INSTAGRAM_URL"),
+    telegramChatId: settings?.telegram_chat_id || "",
   };
 }
 
@@ -1079,7 +1080,12 @@ async function startServer() {
   app.get("/api/user/social-status", ...requireUser, async (req: Request, res: Response) => {
     const userId = (req as any).userId as number;
     const status = await getUserSocialStatus(db, userId);
-    res.json(status);
+    const settings = await getUserSettings(db, userId);
+    res.json({
+      ...status,
+      telegram: !!settings.telegramChatId,
+      telegramChatId: settings.telegramChatId || null,
+    });
   });
 
   app.delete("/api/user/social/:platform", ...requireUser, async (req: Request, res: Response) => {
@@ -1540,14 +1546,15 @@ async function startServer() {
     await db.run(
       `
       INSERT INTO user_settings (
-        user_id, shop_name, shop_description, shop_language, facebook_page_url, instagram_url, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        user_id, shop_name, shop_description, shop_language, facebook_page_url, instagram_url, telegram_chat_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET
         shop_name = excluded.shop_name,
         shop_description = excluded.shop_description,
         shop_language = excluded.shop_language,
         facebook_page_url = excluded.facebook_page_url,
         instagram_url = excluded.instagram_url,
+        telegram_chat_id = COALESCE(user_settings.telegram_chat_id, excluded.telegram_chat_id),
         updated_at = excluded.updated_at
       `,
       [
@@ -1557,6 +1564,7 @@ async function startServer() {
         toText(shopLanguage) || "uk",
         toText(facebookPageUrl),
         toText(instagramUrl),
+        "",
         now,
         now,
       ]
@@ -1566,9 +1574,10 @@ async function startServer() {
 
   // ── Telegram setup ─────────────────────────────────────────────────────────
 
-  app.get("/api/telegram/status", async (_req: Request, res: Response) => {
+  app.get("/api/telegram/status", ...requireUser, async (req: Request, res: Response) => {
     const token = process.env.BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const settings = await getUserSettings(db, currentUserId(req));
+    const chatId = settings.telegramChatId || "";
     if (!token) return res.json({ connected: false, hasChatId: !!chatId });
     try {
       const r = await fetch(`https://api.telegram.org/bot${token}/getMe`);
@@ -1578,10 +1587,19 @@ async function startServer() {
     } catch (e) { res.json({ connected: false, hasChatId: !!chatId }); }
   });
 
-  app.post("/api/telegram/save", (req: Request, res: Response) => {
+  app.post("/api/telegram/save", ...requireUser, async (req: Request, res: Response) => {
     const { chatId } = req.body as { chatId?: string };
-    if (!chatId) return res.status(400).json({ success: false, message: "Потрібен chatId" });
-    writeEnvVars({ TELEGRAM_CHAT_ID: chatId.trim() });
+    const now = new Date().toISOString();
+    await db.run(
+      `
+      INSERT INTO user_settings (user_id, telegram_chat_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        telegram_chat_id = excluded.telegram_chat_id,
+        updated_at = excluded.updated_at
+      `,
+      [currentUserId(req), toText(chatId), now, now]
+    );
     res.json({ success: true });
   });
 
