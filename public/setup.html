@@ -138,6 +138,8 @@
       <span class="badge">Налаштування</span>
     </div>
     <a href="/" class="btn secondary">← Головна</a>
+    <span id="setupUserEmail" style="font-size:13px;color:#666"></span>
+    <button class="btn ghost" onclick="setupLogout()" id="setupLogoutBtn" style="display:none">Вийти</button>
   </header>
 
   <div class="page-body">
@@ -194,15 +196,49 @@
       <!-- ══════════════════════════════════════════════════════════════════════ -->
       <div class="tab-panel active" id="panel-fb">
 
-        <!-- Status -->
+        <!-- Per-user status -->
         <div class="card">
-          <div id="fb-status" class="status-panel" style="margin-bottom:0">
+          <div id="fb-user-status" class="status-panel" style="margin-bottom:0">
             <div class="status-icon">⏳</div>
             <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
         </div>
 
-        <!-- Business Info -->
+        <!-- Connect card (for every user) -->
+        <div class="card" style="margin-top:12px">
+          <div style="padding:20px">
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">📘 Підключи свою Facebook Сторінку</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Натисни кнопку — відкриється вікно Facebook де ти вибереш свою Бізнес-сторінку і підтвердиш доступи. Токен збережеться на твій акаунт. <b>Facebook Сторінку потрібно створити заздалегідь</b> — особистий профіль не підходить.</div>
+            <div id="fb-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
+              <span class="aico">⚠️</span><span>Адміністратор ще не налаштував Meta App. Розгорни налаштування нижче.</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn primary" id="fb-connect-btn" onclick="fbConnect()" style="font-size:14px;padding:11px 20px">📘 Підключити Facebook →</button>
+              <button class="btn ghost" id="fb-disconnect-btn" style="display:none" onclick="fbUserDisconnect()">Відключити</button>
+            </div>
+            <div id="fb-page-chooser" style="display:none;margin-top:16px">
+              <div class="info-box"><b>Кілька Facebook Сторінок.</b> Вибери ту, від якої публікуватимемо:</div>
+              <div id="fb-pages-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
+            </div>
+            <div id="fb-verify-result" style="display:none;margin-top:8px"></div>
+            <div id="fb-manual-page-form" style="display:none;margin-top:16px">
+              <div class="info-box" style="border-color:#e3b341;background:rgba(227,179,65,.07)">
+                <b>⚠️ Сторінку не знайдено автоматично</b><br>
+                <span style="color:var(--text2);font-size:12px">Введи посилання на Facebook Сторінку — ID визначиться автоматично.</span>
+              </div>
+              <div class="field" style="margin-top:10px">
+                <label>Посилання на Facebook Сторінку</label>
+                <div class="field-row">
+                  <input type="url" id="fb-manual-url" placeholder="https://www.facebook.com/MerilyShop" style="flex:1" oninput="fbManualUrlChanged()" />
+                  <button class="btn secondary" id="fb-manual-submit" onclick="submitManualPageUrl()" disabled style="flex-shrink:0">Знайти</button>
+                </div>
+                <div id="fb-manual-result" style="margin-top:8px;font-size:13px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shop info card -->
         <div class="card" id="fb-shop-card" style="margin-top:12px">
           <div style="font-size:15px;font-weight:700;padding:20px 20px 0">🏪 Про ваш магазин</div>
           <div class="steps" style="padding-top:0">
@@ -232,7 +268,7 @@
                 <div class="field">
                   <label>Посилання на Facebook Сторінку</label>
                   <input type="url" id="shop-fb-page-url" placeholder="https://www.facebook.com/yourpage" oninput="tryExtractPageId(this.value)" />
-                  <div class="hint" id="fb-page-url-hint" style="margin-top:4px">Використовується для автоматичного визначення ID сторінки</div>
+                  <div class="hint" id="fb-page-url-hint">Використовується для автоматичного визначення ID сторінки</div>
                 </div>
                 <div class="field" style="margin-bottom:0">
                   <label>Посилання на Instagram</label>
@@ -247,46 +283,37 @@
           </div>
         </div>
 
-        <!-- Setup Guide (accordion) -->
+        <!-- Admin setup accordion -->
         <div class="card" style="margin-top:12px">
-          <button id="fb-setup-toggle" onclick="toggleFbSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:20px 20px 20px;cursor:pointer;color:var(--text)">
-            <span style="font-size:15px;font-weight:700">⚙️ Підключення Meta App</span>
+          <button onclick="toggleFbSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:20px;cursor:pointer;color:var(--text)">
+            <span style="font-size:14px;font-weight:700;color:var(--text2)">⚙️ Налаштування Meta App — тільки для адміністратора</span>
             <span id="fb-setup-chevron" style="font-size:18px;color:var(--text2)">▾</span>
           </button>
-
-          <div id="fb-setup-body" style="border-top:1px solid var(--border)">
+          <div id="fb-setup-body" style="display:none;border-top:1px solid var(--border)">
+            <div style="padding:16px 20px 4px">
+              <div id="fb-status" class="status-panel">
+                <div class="status-icon">⏳</div>
+                <div class="status-body"><strong>Перевіряємо...</strong></div>
+              </div>
+              <div class="info-box" style="margin-top:12px;border-color:var(--accent)">
+                <b>Це налаштовується один раз для всієї платформи.</b> Після того як адміністратор введе App ID та App Secret — всі клієнти зможуть підключати свої Facebook Сторінки через кнопку вище, без жодних додаткових налаштувань.
+              </div>
+            </div>
             <div class="steps">
 
-              <!-- 1. FB Page -->
               <div class="step">
-                <div class="step-left">
-                  <div class="step-num active" id="fb-s1">1</div>
-                  <div class="step-line"></div>
-                </div>
+                <div class="step-left"><div class="step-num active" id="fb-s1">1</div><div class="step-line"></div></div>
                 <div class="step-body">
-                  <div class="step-title">📄 Facebook Сторінка</div>
-                  <div class="step-desc">Публікувати через API можна тільки на Сторінку (не особистий профіль). Якщо вже є — пропусти.</div>
-                  <a href="https://www.facebook.com/pages/create" target="_blank" class="btn secondary">Створити Сторінку →</a>
-                </div>
-              </div>
-
-              <!-- 2. Create Meta App + configure -->
-              <div class="step">
-                <div class="step-left">
-                  <div class="step-num" id="fb-s2">2</div>
-                  <div class="step-line"></div>
-                </div>
-                <div class="step-body">
-                  <div class="step-title">🏗 Створи Meta-додаток <span style="font-size:12px;font-weight:400;color:var(--text2)">(один раз)</span></div>
-                  <div class="step-desc">Безкоштовно, займає ~5 хвилин. Якщо вже є — пропусти.</div>
+                  <div class="step-title">🏗 Створи Meta-додаток</div>
+                  <div class="step-desc">Безкоштовно на <a href="https://developers.facebook.com/" target="_blank" style="color:var(--accent)">developers.facebook.com</a>. Займає ~5 хвилин. Якщо вже є — пропусти.</div>
                   <div class="info-box">
                     <ol>
                       <li><a href="https://developers.facebook.com/apps/create/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → <b>«Create App»</b></li>
-                      <li>Назва: <code>My Shop Bot</code> → Next</li>
-                      <li>Use cases → постав галочки:<br>
-                        &nbsp;&nbsp;✓ <b>Manage everything on your Page</b><br>
-                        &nbsp;&nbsp;✓ <b>Manage messaging & content on Instagram</b><br>
-                        → Next → Create app
+                      <li>Тип: <b>«Business»</b></li>
+                      <li>Use cases → постав обидві галочки:<br>
+                        &nbsp;✓ <b>Manage everything on your Page</b><br>
+                        &nbsp;✓ <b>Manage messaging & content on Instagram</b><br>
+                        → <b>Create app</b>
                       </li>
                     </ol>
                   </div>
@@ -294,31 +321,29 @@
                 </div>
               </div>
 
-              <!-- 3. Redirect URI + App ID/Secret combined -->
               <div class="step">
-                <div class="step-left">
-                  <div class="step-num" id="fb-s3">3</div>
-                  <div class="step-line"></div>
-                </div>
+                <div class="step-left"><div class="step-num" id="fb-s2">2</div><div class="step-line"></div></div>
                 <div class="step-body">
-                  <div class="step-title">🔑 App ID, Secret і Redirect URI</div>
-                  <div class="step-desc">В розділі <b>App Settings → Basic</b> знайди App ID і App Secret. Там само додай Redirect URI.</div>
+                  <div class="step-title">🔗 Додай Redirect URI</div>
+                  <div class="step-desc">Це адреса на яку Facebook повертає токен після авторизації. Без неї OAuth не працює.</div>
                   <div class="info-box" style="margin-bottom:10px">
-                    <b>Крок 1 — Redirect URI:</b>
                     <ol>
-                      <li>Зліва → <b>«Facebook Login for Business»</b> → <b>«Settings»</b></li>
-                      <li>Поле <b>«Valid OAuth Redirect URIs»</b> → додай адресу нижче → <b>Save Changes</b></li>
+                      <li>В лівому меню додатку → <b>«Facebook Login for Business»</b> → <b>«Settings»</b></li>
+                      <li>Поле <b>«Valid OAuth Redirect URIs»</b> → встав адресу нижче → <b>Save Changes</b></li>
                     </ol>
-                    <div class="copy-row" style="margin:8px 0 12px">
-                      <span id="fb-redirect-uri" style="word-break:break-all"></span>
+                    <div class="copy-row" style="margin:8px 0 0">
+                      <span id="fb-redirect-uri" style="word-break:break-all;font-size:12px"></span>
                       <button class="btn ghost" onclick="copy('fb-redirect-uri', this)">Скопіювати</button>
                     </div>
-                    <b>Крок 2 — App ID і App Secret:</b>
-                    <ol>
-                      <li>Зліва → <b>App Settings → Basic</b></li>
-                      <li>Скопіюй <b>App ID</b> і <b>App Secret</b> (натисни «Show») у поля нижче</li>
-                    </ol>
                   </div>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-left"><div class="step-num" id="fb-s3">3</div><div class="step-line"></div></div>
+                <div class="step-body">
+                  <div class="step-title">🔑 App ID і App Secret</div>
+                  <div class="step-desc">В розділі <b>App Settings → Basic</b> знайди і скопіюй обидва значення.</div>
                   <div class="grid-2">
                     <div class="field">
                       <label>App ID</label>
@@ -335,42 +360,6 @@
                   <div id="fb-creds-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="fb-creds-err-text"></span></div>
                   <button class="btn secondary" id="fb-save-btn" onclick="fbSaveCreds()" disabled>Зберегти</button>
                   <div id="fb-saved-hint" style="display:none;font-size:12px;color:#3fb950;margin-top:6px"></div>
-                </div>
-              </div>
-
-              <!-- 4. Connect -->
-              <div class="step">
-                <div class="step-left">
-                  <div class="step-num" id="fb-s4">4</div>
-                  <div class="step-line"></div>
-                </div>
-                <div class="step-body">
-                  <div class="step-title">🔐 Підключи Facebook</div>
-                  <div class="step-desc">Натисни кнопку — відкриється вікно Facebook. Підтверди доступи і вибери свою Сторінку. Все інше зробиться автоматично.</div>
-                  <button class="btn primary" id="fb-connect-btn" onclick="fbConnect()" style="font-size:14px;padding:11px 20px">📘 Підключити Facebook →</button>
-
-                  <div id="fb-page-chooser" style="display:none;margin-top:16px">
-                    <div class="info-box"><b>Кілька Facebook Сторінок.</b> Вибери ту, від якої публікуватимемо:</div>
-                    <div id="fb-pages-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>
-                  </div>
-
-                  <div id="fb-verify-result" style="display:none;margin-top:8px"></div>
-
-                  <!-- NPE fallback: manual page ID/URL entry -->
-                  <div id="fb-manual-page-form" style="display:none;margin-top:16px">
-                    <div class="info-box" style="border-color:#e3b341;background:rgba(227,179,65,.07)">
-                      <b>⚠️ Сторінку не знайдено автоматично</b><br>
-                      <span style="color:var(--text2);font-size:12px">Введи посилання на Facebook Сторінку — ID визначиться автоматично.</span>
-                    </div>
-                    <div class="field" style="margin-top:10px">
-                      <label>Посилання на Facebook Сторінку</label>
-                      <div class="field-row">
-                        <input type="url" id="fb-manual-url" placeholder="https://www.facebook.com/MerilyShop" style="flex:1" oninput="fbManualUrlChanged()" />
-                        <button class="btn secondary" id="fb-manual-submit" onclick="submitManualPageUrl()" disabled style="flex-shrink:0">Знайти</button>
-                      </div>
-                      <div id="fb-manual-result" style="margin-top:8px;font-size:13px"></div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -453,109 +442,109 @@
       <!-- ══════════════════════════════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-ig">
 
-        <!-- Status -->
+        <!-- Per-user status -->
         <div class="card">
-          <div id="ig-status" class="status-panel" style="margin-bottom:0">
+          <div id="ig-user-status" class="status-panel" style="margin-bottom:0">
             <div class="status-icon">⏳</div>
             <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
         </div>
 
-        <!-- Setup -->
+        <!-- Connect card (for every user) -->
         <div class="card" style="margin-top:12px">
-          <div class="steps">
+          <div style="padding:20px">
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">📸 Підключи свій Instagram</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Потрібен <b>Business або Creator</b> акаунт Instagram, прив'язаний до Facebook Сторінки. Якщо підключив Facebook — Instagram, скоріш за все, підключиться автоматично. Якщо ні — підключи тут окремо.</div>
+            <div id="ig-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
+              <span class="aico">⚠️</span><span>Адміністратор ще не налаштував Instagram App. Розгорни налаштування нижче.</span>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn primary" id="ig-connect-btn" onclick="igConnect()" style="font-size:14px;padding:11px 20px;background:#E1306C">📸 Підключити Instagram →</button>
+              <button class="btn ghost" id="ig-disconnect-btn" style="display:none" onclick="igUserDisconnect()">Відключити</button>
+            </div>
+          </div>
+        </div>
 
-            <!-- 1. Professional account -->
-            <div class="step">
-              <div class="step-left">
-                <div class="step-num active" id="ig-s1">1</div>
-                <div class="step-line"></div>
+        <!-- Admin setup accordion -->
+        <div class="card" style="margin-top:12px">
+          <button onclick="toggleIgSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:20px;cursor:pointer;color:var(--text)">
+            <span style="font-size:14px;font-weight:700;color:var(--text2)">⚙️ Налаштування Instagram App — тільки для адміністратора</span>
+            <span id="ig-setup-chevron" style="font-size:18px;color:var(--text2)">▾</span>
+          </button>
+          <div id="ig-setup-body" style="display:none;border-top:1px solid var(--border)">
+            <div style="padding:16px 20px 4px">
+              <div id="ig-status" class="status-panel">
+                <div class="status-icon">⏳</div>
+                <div class="status-body"><strong>Перевіряємо...</strong></div>
               </div>
-              <div class="step-body">
-                <div class="step-title">📲 Business або Creator акаунт</div>
-                <div class="step-desc">API публікації потребує Professional акаунт. Якщо вже є — пропусти.</div>
-                <div class="info-box">
-                  Instagram → <b>Профіль → ☰ → Налаштування → Акаунт → Переключитися на Professional</b> → вибери Business або Creator
-                </div>
+              <div class="info-box" style="margin-top:12px;border-color:var(--accent)">
+                <b>Це налаштовується один раз для всієї платформи.</b> Зазвичай Instagram і Facebook використовують <b>один і той самий</b> Meta-додаток — App ID та Secret ті ж самі. Якщо Facebook вже налаштовано — просто введи ті самі значення.
               </div>
             </div>
+            <div class="steps">
 
-            <!-- 2. Instagram app in Meta Portal -->
-            <div class="step">
-              <div class="step-left">
-                <div class="step-num" id="ig-s2">2</div>
-                <div class="step-line"></div>
-              </div>
-              <div class="step-body">
-                <div class="step-title">🏗 Instagram у Meta Developer Portal <span style="font-size:12px;font-weight:400;color:var(--text2)">(один раз)</span></div>
-                <div class="step-desc">Якщо вже є Instagram додаток — пропусти, одразу введи App ID/Secret нижче.</div>
-                <div class="info-box" style="margin-bottom:10px">
-                  <b>Додай Redirect URI:</b>
-                  <ol>
-                    <li><a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → твій додаток → зліва <b>«Instagram»</b> → <b>«API setup with Instagram login»</b></li>
-                    <li>Крок 4 <b>«Set up Instagram business login»</b> → <b>«Set up»</b></li>
-                    <li>Поле <b>«Valid OAuth Redirect URIs»</b> → додай адресу → Save Changes</li>
-                  </ol>
-                  <div class="copy-row" style="margin:8px 0 0">
-                    <span id="ig-redirect-uri" style="word-break:break-all"></span>
-                    <button class="btn ghost" onclick="copy('ig-redirect-uri', this)">Скопіювати</button>
-                  </div>
-                </div>
-                <div class="grid-2">
-                  <div class="field">
-                    <label>Instagram App ID</label>
-                    <input type="text" id="ig-app-id" placeholder="1541144427499605" inputmode="numeric" />
-                    <div class="hint">Зі сторінки "API setup with Instagram login"</div>
-                  </div>
-                  <div class="field">
-                    <label>Instagram App Secret</label>
-                    <div class="field-row">
-                      <input type="password" id="ig-app-secret" placeholder="abc1234def..." style="flex:1" />
-                      <button class="btn ghost" onclick="togglePassVis('ig-app-secret')" style="flex-shrink:0">👁</button>
+              <div class="step">
+                <div class="step-left"><div class="step-num active" id="ig-s1">1</div><div class="step-line"></div></div>
+                <div class="step-body">
+                  <div class="step-title">🔗 Додай Redirect URI для Instagram</div>
+                  <div class="step-desc">Окремий Redirect URI для Instagram OAuth — навіть якщо використовуєш той самий Meta-додаток.</div>
+                  <div class="info-box" style="margin-bottom:10px">
+                    <ol>
+                      <li><a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → твій додаток → <b>«Instagram»</b> → <b>«API setup with Instagram login»</b></li>
+                      <li>Крок 4 → <b>«Set up»</b> → поле <b>«Valid OAuth Redirect URIs»</b> → встав адресу → <b>Save Changes</b></li>
+                    </ol>
+                    <div class="copy-row" style="margin:8px 0 0">
+                      <span id="ig-redirect-uri" style="word-break:break-all;font-size:12px"></span>
+                      <button class="btn ghost" onclick="copy('ig-redirect-uri', this)">Скопіювати</button>
                     </div>
                   </div>
                 </div>
-                <button class="btn secondary" id="ig-save-app-btn" onclick="igSaveApp()">Зберегти</button>
-                <div id="ig-save-app-result" style="font-size:12px;margin-top:6px"></div>
               </div>
-            </div>
 
-            <!-- 3. Connect -->
-            <div class="step">
-              <div class="step-left">
-                <div class="step-num" id="ig-s3">3</div>
-                <div class="step-line"></div>
-              </div>
-              <div class="step-body">
-                <div class="step-title">🔐 Підключи Instagram</div>
-                <div class="step-desc">Відкриється вікно Instagram. Підтверди доступи — токен збережеться автоматично на 60 днів.</div>
-                <button class="btn primary" id="ig-connect-btn" onclick="igConnect()" style="font-size:14px;padding:11px 20px;background:#E1306C">📸 Підключити Instagram →</button>
-              </div>
-            </div>
-
-            <!-- 4. Site URL -->
-            <div class="step">
-              <div class="step-left">
-                <div class="step-num" id="ig-s4">4</div>
-                <div class="step-line"></div>
-              </div>
-              <div class="step-body">
-                <div class="step-title">🌐 Публічна адреса сайту</div>
-                <div class="step-desc">Instagram завантажує фото за URL — потрібна HTTPS-адреса. На Railway — вже є.</div>
-                <div class="field" style="margin-top:8px">
-                  <label>SITE_URL</label>
-                  <div class="field-row">
-                    <input type="url" id="ig-site-url" placeholder="https://ai-shopping-post-production.up.railway.app" />
-                    <button class="btn secondary" onclick="igSaveSiteUrl()" style="flex-shrink:0">Зберегти</button>
+              <div class="step">
+                <div class="step-left"><div class="step-num" id="ig-s2">2</div><div class="step-line"></div></div>
+                <div class="step-body">
+                  <div class="step-title">🔑 App ID і App Secret</div>
+                  <div class="step-desc">Ті самі що й для Facebook (App Settings → Basic). Якщо вже введено вище — просто скопіюй звідти.</div>
+                  <div class="grid-2">
+                    <div class="field">
+                      <label>App ID</label>
+                      <input type="text" id="ig-app-id" placeholder="1234567890123456" inputmode="numeric" />
+                    </div>
+                    <div class="field">
+                      <label>App Secret</label>
+                      <div class="field-row">
+                        <input type="password" id="ig-app-secret" placeholder="abc1234def..." style="flex:1" />
+                        <button class="btn ghost" onclick="togglePassVis('ig-app-secret')" style="flex-shrink:0">👁</button>
+                      </div>
+                    </div>
                   </div>
-                  <div class="hint" id="ig-url-hint">Поточна: <b id="ig-current-url">перевіряємо...</b></div>
+                  <button class="btn secondary" id="ig-save-app-btn" onclick="igSaveApp()">Зберегти</button>
+                  <div id="ig-save-app-result" style="font-size:12px;margin-top:6px"></div>
                 </div>
-                <div id="ig-url-result" style="display:none"></div>
               </div>
-            </div>
 
-          </div>
-        </div>
+              <div class="step">
+                <div class="step-left"><div class="step-num" id="ig-s3">3</div><div class="step-line"></div></div>
+                <div class="step-body">
+                  <div class="step-title">🌐 Публічна адреса сайту</div>
+                  <div class="step-desc">Instagram завантажує фото за URL — потрібна HTTPS-адреса. На Railway вже є автоматично.</div>
+                  <div class="field" style="margin-top:8px">
+                    <label>SITE_URL</label>
+                    <div class="field-row">
+                      <input type="url" id="ig-site-url" placeholder="https://ai-shopping-post-production.up.railway.app" />
+                      <button class="btn secondary" onclick="igSaveSiteUrl()" style="flex-shrink:0">Зберегти</button>
+                    </div>
+                    <div class="hint" id="ig-url-hint">Поточна: <b id="ig-current-url">перевіряємо...</b></div>
+                  </div>
+                  <div id="ig-url-result" style="display:none"></div>
+                </div>
+              </div>
+
+            </div><!-- /steps -->
+          </div><!-- /ig-setup-body -->
+        </div><!-- /card -->
+
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -563,52 +552,73 @@
       <!-- ══════════════════════════════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-tiktok">
 
-        <!-- Status -->
+        <!-- Per-user status -->
         <div class="card">
-          <div id="tiktok-status" class="status-panel" style="margin-bottom:0">
+          <div id="tiktok-user-status" class="status-panel" style="margin-bottom:0">
             <div class="status-icon">⏳</div>
             <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
         </div>
 
-        <!-- Credentials -->
-        <div class="card" style="margin-top:12px" id="tiktok-keys-card">
-          <div class="steps">
-            <div class="step">
-              <div class="step-left"><div class="step-num active">1</div><div class="step-line"></div></div>
-              <div class="step-body">
-                <div class="step-title">🔑 Client Key і Client Secret</div>
-                <div class="step-desc">Знайди на <a href="https://developers.tiktok.com/" target="_blank">developers.tiktok.com</a> → твій додаток → App details → Credentials</div>
-                <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-                  <input id="tiktok-client-key" type="text" class="inp" placeholder="Client Key (awf0yw...)" />
-                  <input id="tiktok-client-secret" type="text" class="inp" placeholder="Client Secret" />
-                  <button class="btn secondary" onclick="tiktokSaveKeys()">Зберегти ключі</button>
-                </div>
-              </div>
+        <!-- Connect card (for every user) -->
+        <div class="card" style="margin-top:12px">
+          <div style="padding:20px">
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">🎵 Підключи свій TikTok</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Натисни кнопку — відкриється вікно авторизації TikTok. Підтвердь доступ для акаунту магазину. У тестовому режимі пости будуть видимі тільки тобі (налаштування приватності SELF_ONLY).</div>
+            <div id="tiktok-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
+              <span class="aico">⚠️</span><span>Адміністратор ще не налаштував TikTok App. Розгорни налаштування нижче.</span>
             </div>
-            <div class="step">
-              <div class="step-left"><div class="step-num" id="tiktok-step2-num">2</div></div>
-              <div class="step-body">
-                <div class="step-title">🔐 Авторизація через TikTok</div>
-                <div class="step-desc">Відкриється вікно авторизації TikTok. Підтвердь доступ для акаунту магазину.</div>
-                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-                  <button class="btn primary" onclick="tiktokConnect()" id="tiktok-connect-btn">Підключити TikTok →</button>
-                </div>
-                <div style="margin-top:8px;font-size:12px;color:var(--text2)">Додай цей Redirect URI в TikTok Developer Portal → Products → Login Kit:</div>
-                <div id="tiktok-redirect-uri" style="margin-top:4px;font-family:monospace;font-size:12px;background:var(--bg3,#f5f5f5);border:1px solid var(--border);border-radius:6px;padding:6px 10px;word-break:break-all;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);this.style.opacity='.5';setTimeout(()=>this.style.opacity='',700)">завантаження...</div>
-                <div style="margin-top:4px;font-size:11px;color:var(--text2)">Клікни щоб скопіювати · В тестовому режимі пости видні тільки тобі (SELF_ONLY)</div>
-              </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn primary" id="tiktok-connect-btn" onclick="tiktokConnect()" style="font-size:14px;padding:11px 20px">🎵 Підключити TikTok →</button>
+              <button class="btn ghost" id="tiktok-disconnect-btn" style="display:none" onclick="tiktokUserDisconnect()">Відключити</button>
             </div>
           </div>
         </div>
 
-        <!-- Connected actions -->
-        <div class="card" style="margin-top:12px;display:none" id="tiktok-actions-card">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn secondary" onclick="tiktokConnect()">Оновити сесію</button>
-            <button class="btn ghost" onclick="tiktokDisconnect()">Відключити</button>
-          </div>
-        </div>
+        <!-- Admin setup accordion -->
+        <div class="card" style="margin-top:12px">
+          <button onclick="toggleTiktokSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:20px;cursor:pointer;color:var(--text)">
+            <span style="font-size:14px;font-weight:700;color:var(--text2)">⚙️ Налаштування TikTok App — тільки для адміністратора</span>
+            <span id="tiktok-setup-chevron" style="font-size:18px;color:var(--text2)">▾</span>
+          </button>
+          <div id="tiktok-setup-body" style="display:none;border-top:1px solid var(--border)">
+            <div style="padding:16px 20px 4px">
+              <div id="tiktok-status" class="status-panel">
+                <div class="status-icon">⏳</div>
+                <div class="status-body"><strong>Перевіряємо...</strong></div>
+              </div>
+              <div class="info-box" style="margin-top:12px;border-color:var(--accent)">
+                <b>Це налаштовується один раз для всієї платформи.</b> Після введення ключів — всі клієнти зможуть підключати свої TikTok-акаунти через кнопку вище.
+              </div>
+            </div>
+            <div class="steps">
+
+              <div class="step">
+                <div class="step-left"><div class="step-num active">1</div><div class="step-line"></div></div>
+                <div class="step-body">
+                  <div class="step-title">🔗 Додай Redirect URI в TikTok Developer Portal</div>
+                  <div class="step-desc"><a href="https://developers.tiktok.com/" target="_blank" style="color:var(--accent)">developers.tiktok.com</a> → твій додаток → <b>Products → Login Kit → Add platform</b> → Web → встав адресу нижче.</div>
+                  <div id="tiktok-redirect-uri" style="margin:8px 0 4px;font-family:monospace;font-size:12px;background:var(--bg3,#f5f5f5);border:1px solid var(--border);border-radius:6px;padding:8px 12px;word-break:break-all;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent);this.style.opacity='.5';setTimeout(()=>this.style.opacity='',700)">завантаження...</div>
+                  <div style="font-size:11px;color:var(--text2);margin-bottom:12px">Клікни щоб скопіювати</div>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-left"><div class="step-num">2</div><div class="step-line"></div></div>
+                <div class="step-body">
+                  <div class="step-title">🔑 Client Key і Client Secret</div>
+                  <div class="step-desc"><a href="https://developers.tiktok.com/" target="_blank" style="color:var(--accent)">developers.tiktok.com</a> → твій додаток → <b>App details → Credentials</b> → скопіюй обидва значення.</div>
+                  <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+                    <input id="tiktok-client-key" type="text" class="inp" placeholder="Client Key (awf0yw...)" />
+                    <input id="tiktok-client-secret" type="text" class="inp" placeholder="Client Secret" />
+                    <button class="btn secondary" onclick="tiktokSaveKeys()">Зберегти ключі</button>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /steps -->
+          </div><!-- /tiktok-setup-body -->
+        </div><!-- /card -->
 
       </div>
 
@@ -1155,10 +1165,13 @@ async function igDisconnect() {
 }
 
 function igConnect() {
-  const popup = window.open("/auth/instagram", "ig_oauth", "width=560,height=720,scrollbars=yes,resizable=yes");
-  if (!popup) { window.location.href = "/auth/instagram"; return; }
+  const token = localStorage.getItem('authToken');
+  if (!token) { window.location.replace('/login.html'); return; }
+  const url = `/auth/instagram?token=${encodeURIComponent(token)}`;
+  const popup = window.open(url, "ig_oauth", "width=560,height=720,scrollbars=yes,resizable=yes");
+  if (!popup) { window.location.href = url; return; }
   const timer = setInterval(() => {
-    if (popup.closed) { clearInterval(timer); loadIgStatus(); }
+    if (popup.closed) { clearInterval(timer); loadIgUserStatus(); loadIgStatus(); }
   }, 800);
 }
 
@@ -1235,24 +1248,18 @@ async function fbSaveCreds() {
 }
 
 function fbConnect() {
-  const appId = document.getElementById("fb-app-id").value.trim();
-  const appSecret = document.getElementById("fb-app-secret").value.trim();
-  if (!appId || !appSecret) {
-    showGlobalAlert("Спочатку введи App ID та App Secret на кроці 5 і збережи їх.", "warn"); return;
-  }
-  const url = `/auth/facebook?appId=${encodeURIComponent(appId)}&appSecret=${encodeURIComponent(appSecret)}`;
+  const token = localStorage.getItem('authToken');
+  if (!token) { window.location.replace('/login.html'); return; }
+  const url = `/auth/facebook?token=${encodeURIComponent(token)}`;
   const popup = window.open(url, "fb_oauth", "width=620,height=680,scrollbars=yes,resizable=yes");
   if (!popup) { window.location.href = url; return; }
   const timer = setInterval(() => {
-    if (popup.closed) { clearInterval(timer); loadFbStatus(); }
+    if (popup.closed) { clearInterval(timer); loadFbUserStatus(); loadFbStatus(); }
   }, 800);
 }
 
 function fbReconnect() {
-  const appId = document.getElementById("fb-app-id").value.trim();
-  const appSecret = document.getElementById("fb-app-secret").value.trim();
-  if (appId && appSecret) { fbConnect(); return; }
-  showGlobalAlert("Введи App ID та App Secret на кроці 5 і натисни «Підключити Facebook».", "warn");
+  fbConnect();
 }
 
 async function saveInstagramManual() {
@@ -1514,37 +1521,22 @@ async function shafaSave() {}
 async function loadTiktokStatus() {
   const s = await fetch("/api/tiktok/status").then(r => r.json());
   const box = document.getElementById("tiktok-status");
-  const actionsCard = document.getElementById("tiktok-actions-card");
-  const keysCard = document.getElementById("tiktok-keys-card");
-  const connectBtn = document.getElementById("tiktok-connect-btn");
+  if (!box) return;
   if (s.connected) {
     setDot("tiktok", "green");
     box.className = "status-panel ok";
     const exp = s.expiresAt ? new Date(s.expiresAt).toLocaleDateString("uk-UA") : "?";
     box.innerHTML = `<div class="status-icon">✅</div>
       <div class="status-body">
-        <strong>TikTok підключено</strong>
+        <strong>TikTok підключено (глобально)</strong>
         <div class="detail" style="color:var(--text2)">open_id: ${s.openId || "—"} · токен до ${exp}</div>
         <div class="detail" style="color:var(--text2);font-size:12px">Пости в тестовому режимі видні тільки тобі (SELF_ONLY)</div>
       </div>`;
-    actionsCard.style.display = "";
-    keysCard.style.display = "none";
   } else {
     setDot("tiktok", s.hasKeys ? "yellow" : "grey");
-    box.className = "status-panel";
+    box.className = "status-panel" + (s.hasKeys ? " warn" : " error");
     box.innerHTML = `<div class="status-icon">${s.hasKeys ? "🔑" : "❌"}</div>
       <div class="status-body"><strong>${s.hasKeys ? `Ключі збережено (${s.clientKeyHint}) — потрібна авторизація` : "TikTok не підключено"}</strong></div>`;
-    actionsCard.style.display = "none";
-    keysCard.style.display = "";
-    // Enable connect button only when keys are saved
-    if (connectBtn) {
-      connectBtn.disabled = !s.hasKeys;
-      connectBtn.title = s.hasKeys ? "" : "Спочатку збережи Client Key і Client Secret";
-    }
-    // Pre-fill hint if keys saved
-    if (s.hasKeys) {
-      document.getElementById("tiktok-step2-num").className = "step-num active";
-    }
   }
   // Always show redirect URI
   const uriEl = document.getElementById("tiktok-redirect-uri");
@@ -1556,17 +1548,21 @@ async function tiktokSaveKeys() {
   const secret = document.getElementById("tiktok-client-secret").value.trim();
   if (!key || !secret) return alert("Введи обидва ключі");
   await fetch("/api/tiktok/setup", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ clientKey: key, clientSecret: secret }) });
-  document.getElementById("tiktok-step2-num").className = "step-num active";
-  showGlobalAlert("✅ Ключі збережено. Тепер авторизуйся.", "ok");
+  showGlobalAlert("✅ Ключі збережено. Тепер натисни «Підключити TikTok».", "ok");
+  await loadTiktokStatus();
 }
 
 function tiktokConnect() {
-  const win = window.open("/auth/tiktok", "tiktok-auth", "width=600,height=700");
+  const token = localStorage.getItem('authToken');
+  if (!token) { window.location.replace('/login.html'); return; }
+  const url = `/auth/tiktok?token=${encodeURIComponent(token)}`;
+  const win = window.open(url, "tiktok-auth", "width=600,height=700");
   window.addEventListener("message", async function handler(e) {
     if (e.data?.type !== "tiktok-auth") return;
     window.removeEventListener("message", handler);
     if (e.data.success) {
       showGlobalAlert("✅ TikTok підключено!", "ok");
+      await loadTiktokUserStatus();
       await loadTiktokStatus();
     } else {
       showGlobalAlert("❌ Помилка авторизації: " + (e.data.error || "невідома"), "error");
@@ -1994,18 +1990,18 @@ async function submitManualPageId() {
 
 window.addEventListener("message", (e) => {
   if (e.data?.type === "fbDone") {
-    loadFbStatus();
+    loadFbUserStatus(); loadFbStatus();
     showGlobalAlert("✅ <b>Facebook підключено!</b>", "ok");
   }
   if (e.data?.type === "fbNeedsPageId") {
-    loadFbStatus();
+    loadFbUserStatus(); loadFbStatus();
     showManualPageIdForm();
   }
   if (e.data?.type === "fbError") {
     showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${e.data.msg}`, "err");
   }
   if (e.data?.type === "igDone") {
-    loadIgStatus();
+    loadIgUserStatus(); loadIgStatus();
     showGlobalAlert(`✅ <b>Instagram підключено!</b>${e.data.username ? " @" + e.data.username : ""}`, "ok");
     switchTab("ig");
   }
@@ -2014,9 +2010,137 @@ window.addEventListener("message", (e) => {
   }
 });
 
+// ── AUTH HELPERS ──────────────────────────────────────────────────────────
+
+function setupLogout() {
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('userEmail');
+  window.location.replace('/login.html');
+}
+
+function authHeaders() {
+  const token = localStorage.getItem('authToken');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+// ── ACCORDION TOGGLES ─────────────────────────────────────────────────────
+
+function toggleIgSetup() {
+  const body = document.getElementById("ig-setup-body");
+  const chevron = document.getElementById("ig-setup-chevron");
+  const collapsed = body.style.display === "none";
+  body.style.display = collapsed ? "" : "none";
+  chevron.textContent = collapsed ? "▾" : "▸";
+}
+
+function toggleTiktokSetup() {
+  const body = document.getElementById("tiktok-setup-body");
+  const chevron = document.getElementById("tiktok-setup-chevron");
+  const collapsed = body.style.display === "none";
+  body.style.display = collapsed ? "" : "none";
+  chevron.textContent = collapsed ? "▾" : "▸";
+}
+
+// ── PER-USER STATUS LOADERS ───────────────────────────────────────────────
+
+async function loadFbUserStatus() {
+  const s = await fetch("/api/user/social-status", { headers: authHeaders() }).then(r => r.json()).catch(() => ({}));
+  const box = document.getElementById("fb-user-status");
+  const connectBtn = document.getElementById("fb-connect-btn");
+  const disconnectBtn = document.getElementById("fb-disconnect-btn");
+  if (!box) return;
+  if (s.facebook) {
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div><div class="status-body"><strong>Facebook підключено</strong>${s.facebookPageName ? `<div class="detail">Сторінка: <b>${s.facebookPageName}</b></div>` : ''}</div>`;
+    if (connectBtn) connectBtn.style.display = "none";
+    if (disconnectBtn) disconnectBtn.style.display = "";
+  } else {
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div><div class="status-body"><strong>Facebook не підключено</strong><div class="detail" style="color:var(--text2)">Натисни кнопку нижче щоб підключити.</div></div>`;
+    if (connectBtn) connectBtn.style.display = "";
+    if (disconnectBtn) disconnectBtn.style.display = "none";
+  }
+}
+
+async function loadIgUserStatus() {
+  const s = await fetch("/api/user/social-status", { headers: authHeaders() }).then(r => r.json()).catch(() => ({}));
+  const box = document.getElementById("ig-user-status");
+  const connectBtn = document.getElementById("ig-connect-btn");
+  const disconnectBtn = document.getElementById("ig-disconnect-btn");
+  if (!box) return;
+  if (s.instagram) {
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div><div class="status-body"><strong>Instagram підключено</strong></div>`;
+    if (connectBtn) connectBtn.style.display = "none";
+    if (disconnectBtn) disconnectBtn.style.display = "";
+  } else {
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div><div class="status-body"><strong>Instagram не підключено</strong><div class="detail" style="color:var(--text2)">Натисни кнопку нижче щоб підключити.</div></div>`;
+    if (connectBtn) connectBtn.style.display = "";
+    if (disconnectBtn) disconnectBtn.style.display = "none";
+  }
+}
+
+async function loadTiktokUserStatus() {
+  const s = await fetch("/api/user/social-status", { headers: authHeaders() }).then(r => r.json()).catch(() => ({}));
+  const box = document.getElementById("tiktok-user-status");
+  const connectBtn = document.getElementById("tiktok-connect-btn");
+  const disconnectBtn = document.getElementById("tiktok-disconnect-btn");
+  if (!box) return;
+  if (s.tiktok) {
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div><div class="status-body"><strong>TikTok підключено</strong></div>`;
+    if (connectBtn) connectBtn.style.display = "none";
+    if (disconnectBtn) disconnectBtn.style.display = "";
+  } else {
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div><div class="status-body"><strong>TikTok не підключено</strong><div class="detail" style="color:var(--text2)">Натисни кнопку нижче щоб підключити.</div></div>`;
+    if (connectBtn) connectBtn.style.display = "";
+    if (disconnectBtn) disconnectBtn.style.display = "none";
+  }
+}
+
+// ── PER-USER DISCONNECT ───────────────────────────────────────────────────
+
+async function fbUserDisconnect() {
+  if (!confirm("Відключити Facebook з вашого акаунту?")) return;
+  await fetch("/api/user/social/facebook", { method: "DELETE", headers: authHeaders() });
+  await loadFbUserStatus();
+}
+
+async function igUserDisconnect() {
+  if (!confirm("Відключити Instagram з вашого акаунту?")) return;
+  await fetch("/api/user/social/instagram", { method: "DELETE", headers: authHeaders() });
+  await loadIgUserStatus();
+}
+
+async function tiktokUserDisconnect() {
+  if (!confirm("Відключити TikTok з вашого акаунту?")) return;
+  await fetch("/api/user/social/tiktok", { method: "DELETE", headers: authHeaders() });
+  await loadTiktokUserStatus();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+
 (async () => {
+  // Auth check — redirect to login if no token
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) { window.location.replace('/login.html'); return; }
+
+  // Show email + logout button
+  const email = localStorage.getItem('userEmail') || '';
+  const emailEl = document.getElementById('setupUserEmail');
+  const logoutBtn = document.getElementById('setupLogoutBtn');
+  if (emailEl) emailEl.textContent = email;
+  if (logoutBtn) logoutBtn.style.display = '';
+
   handleUrlParams();
-  await Promise.all([loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(), loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadShopInfo(), loadSavedCreds()]);
+  await Promise.all([
+    loadFbUserStatus(), loadIgUserStatus(), loadTiktokUserStatus(),
+    loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(),
+    loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(),
+    loadShopInfo(), loadSavedCreds(),
+  ]);
 })();
 </script>
 </body>
