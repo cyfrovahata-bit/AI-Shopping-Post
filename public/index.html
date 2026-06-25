@@ -28,6 +28,8 @@
       </div>
       <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
       <a href="/products" class="btn secondary">Історія</a>
+      <span id="userEmailLabel" style="font-size:13px;color:#666;margin-left:4px"></span>
+      <button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Вийти</button>
     </header>
 
     <div class="page-body">
@@ -313,5 +315,22 @@
   .size-btn:hover { border-color: #aaa; }
   .size-btn.selected { border-color: var(--accent, #3b82f6); background: var(--accent, #3b82f6); color: #fff; }
   </style>
+  <script>
+  // Auth check
+  (function() {
+    const token = localStorage.getItem('authToken');
+    if (!token) { window.location.replace('/login.html'); return; }
+    const email = localStorage.getItem('userEmail') || '';
+    const emailEl = document.getElementById('userEmailLabel');
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (emailEl) emailEl.textContent = email;
+    if (logoutBtn) logoutBtn.style.display = '';
+  })();
+  function logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
+    window.location.replace('/login.html');
+  }
+  </script>
 </body>
 </html>

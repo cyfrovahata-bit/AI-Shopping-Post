@@ -21,10 +21,11 @@ export async function publishFacebookPost(
   caption: string,
   videoUrl?: string,
   videoPath?: string,
-  imageUrls: string[] = []
+  imageUrls: string[] = [],
+  creds?: { pageId: string; accessToken: string }
 ) {
-  const pageId = process.env.FACEBOOK_PAGE_ID;
-  const accessToken = process.env.FACEBOOK_ACCESS_TOKEN;
+  const pageId = creds?.pageId || process.env.FACEBOOK_PAGE_ID;
+  const accessToken = creds?.accessToken || process.env.FACEBOOK_ACCESS_TOKEN;
 
   if (!pageId || !accessToken) {
     throw new Error("Facebook credentials missing");

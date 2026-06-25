@@ -58,49 +58,26 @@ function assertPublicHttpsUrl(fileUrl: string) {
   return absoluteFileUrl;
 }
 
-async function createInstagramMediaContainer(params: URLSearchParams) {
-  const userId = process.env.INSTAGRAM_USER_ID;
-
-  const createRes = await fetch(
-    `${GRAPH_API}/${userId}/media`,
-    {
-      method: "POST",
-      body: params,
-    }
-  );
-
+async function createInstagramMediaContainer(params: URLSearchParams, igUserId: string) {
+  const createRes = await fetch(`${GRAPH_API}/${igUserId}/media`, { method: "POST", body: params });
   const data: any = await createRes.json();
-
   if (!createRes.ok || !data.id) {
     console.error("Instagram create error:", data);
     throw new Error(data.error?.message || "Instagram media create failed");
   }
-
   return data.id as string;
 }
 
-async function publishInstagramContainer(creationId: string) {
-  const userId = process.env.INSTAGRAM_USER_ID;
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
-
-  const publishRes = await fetch(
-    `${GRAPH_API}/${userId}/media_publish`,
-    {
-      method: "POST",
-      body: new URLSearchParams({
-        creation_id: creationId,
-        access_token: accessToken || "",
-      }),
-    }
-  );
-
+async function publishInstagramContainer(creationId: string, igUserId: string, accessToken: string) {
+  const publishRes = await fetch(`${GRAPH_API}/${igUserId}/media_publish`, {
+    method: "POST",
+    body: new URLSearchParams({ creation_id: creationId, access_token: accessToken }),
+  });
   const publishData: any = await publishRes.json();
-
   if (!publishRes.ok || !publishData.id) {
     console.error("Instagram publish error:", publishData);
     throw new Error(publishData.error?.message || "Instagram publish failed");
   }
-
   return publishData as { id: string };
 }
 
@@ -108,10 +85,11 @@ export async function publishInstagramPost(
   imageUrl: string | undefined,
   caption: string,
   videoUrl?: string,
-  imageUrls: string[] = []
+  imageUrls: string[] = [],
+  creds?: { userId: string; accessToken: string }
 ) {
-  const userId = process.env.INSTAGRAM_USER_ID;
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+  const userId = creds?.userId || process.env.INSTAGRAM_USER_ID;
+  const accessToken = creds?.accessToken || process.env.INSTAGRAM_ACCESS_TOKEN;
 
   if (!userId || !accessToken) {
     throw new Error("Instagram credentials missing");
@@ -141,121 +119,73 @@ export async function publishInstagramPost(
     console.log("Instagram carousel video URL:", publicVideoUrl);
 
     const videoChildId = await createInstagramMediaContainer(
-      new URLSearchParams({
-        media_type: "VIDEO",
-        video_url: publicVideoUrl,
-        is_carousel_item: "true",
-        access_token: accessToken,
-      })
+      new URLSearchParams({ media_type: "VIDEO", video_url: publicVideoUrl, is_carousel_item: "true", access_token: accessToken }),
+      userId
     );
-
     children.push(videoChildId);
 
-    const imagesForCarousel = allImages.slice(0, 9);
-
-    for (const img of imagesForCarousel) {
+    for (const img of allImages.slice(0, 9)) {
       const publicImageUrl = assertPublicHttpsUrl(img);
-
       console.log("Instagram carousel image URL:", publicImageUrl);
-
       const childId = await createInstagramMediaContainer(
-        new URLSearchParams({
-          image_url: publicImageUrl,
-          is_carousel_item: "true",
-          access_token: accessToken,
-        })
+        new URLSearchParams({ image_url: publicImageUrl, is_carousel_item: "true", access_token: accessToken }),
+        userId
       );
-
       children.push(childId);
     }
 
     await new Promise((resolve) => setTimeout(resolve, 30000));
 
     const carouselId = await createInstagramMediaContainer(
-      new URLSearchParams({
-        media_type: "CAROUSEL",
-        children: children.join(","),
-        caption: cleanCaption,
-        access_token: accessToken,
-      })
+      new URLSearchParams({ media_type: "CAROUSEL", children: children.join(","), caption: cleanCaption, access_token: accessToken }),
+      userId
     );
 
     await new Promise((resolve) => setTimeout(resolve, 10000));
 
-    return publishInstagramContainer(carouselId);
+    return publishInstagramContainer(carouselId, userId, accessToken);
   }
 
   if (videoUrl) {
     const publicVideoUrl = assertPublicHttpsUrl(videoUrl);
-
     console.log("Instagram video URL:", publicVideoUrl);
-
     const creationId = await createInstagramMediaContainer(
-      new URLSearchParams({
-        media_type: "REELS",
-        video_url: publicVideoUrl,
-        caption: cleanCaption,
-        access_token: accessToken,
-      })
+      new URLSearchParams({ media_type: "REELS", video_url: publicVideoUrl, caption: cleanCaption, access_token: accessToken }),
+      userId
     );
-
     await new Promise((resolve) => setTimeout(resolve, 60000));
-
-    return publishInstagramContainer(creationId);
+    return publishInstagramContainer(creationId, userId, accessToken);
   }
 
   if (allImages.length > 1) {
-    const imagesForCarousel = allImages.slice(0, 10);
     const children: string[] = [];
-
-    for (const img of imagesForCarousel) {
+    for (const img of allImages.slice(0, 10)) {
       const publicImageUrl = assertPublicHttpsUrl(img);
-
       console.log("Instagram carousel image URL:", publicImageUrl);
-
       const childId = await createInstagramMediaContainer(
-        new URLSearchParams({
-          image_url: publicImageUrl,
-          is_carousel_item: "true",
-          access_token: accessToken,
-        })
+        new URLSearchParams({ image_url: publicImageUrl, is_carousel_item: "true", access_token: accessToken }),
+        userId
       );
-
       children.push(childId);
     }
-
     await new Promise((resolve) => setTimeout(resolve, 5000));
-
     const carouselId = await createInstagramMediaContainer(
-      new URLSearchParams({
-        media_type: "CAROUSEL",
-        children: children.join(","),
-        caption: cleanCaption,
-        access_token: accessToken,
-      })
+      new URLSearchParams({ media_type: "CAROUSEL", children: children.join(","), caption: cleanCaption, access_token: accessToken }),
+      userId
     );
-
     await new Promise((resolve) => setTimeout(resolve, 5000));
-
-    return publishInstagramContainer(carouselId);
+    return publishInstagramContainer(carouselId, userId, accessToken);
   }
 
   if (allImages.length === 1) {
     const publicImageUrl = assertPublicHttpsUrl(allImages[0]);
-
     console.log("Instagram image URL:", publicImageUrl);
-
     const creationId = await createInstagramMediaContainer(
-      new URLSearchParams({
-        image_url: publicImageUrl,
-        caption: cleanCaption,
-        access_token: accessToken,
-      })
+      new URLSearchParams({ image_url: publicImageUrl, caption: cleanCaption, access_token: accessToken }),
+      userId
     );
-
     await new Promise((resolve) => setTimeout(resolve, 5000));
-
-    return publishInstagramContainer(creationId);
+    return publishInstagramContainer(creationId, userId, accessToken);
   }
 
   throw new Error("Instagram потребує фото або відео товару для публікації");

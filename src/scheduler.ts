@@ -1,5 +1,6 @@
 import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
+import { getUserTokens } from "./user-tokens";
 
 type Db = any;
 
@@ -77,6 +78,12 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
 
   const product = await getProductInput(db, post.productId);
   const platform = getPlatform(post.platform as PlatformId);
+
+  // Fetch per-user social tokens (numeric userId only; 'default' uses .env fallback)
+  const productRow = await db.get(`SELECT userId FROM products WHERE id = ?`, [post.productId]);
+  const numericUserId = productRow?.userId && /^\d+$/.test(String(productRow.userId))
+    ? parseInt(productRow.userId, 10) : null;
+  const userTokens = numericUserId ? await getUserTokens(db, numericUserId) : null;
   const now = new Date().toISOString();
 
   await db.run(
@@ -106,7 +113,7 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
           imageUrls: product.imageUrls,
           videoPath: preparedVideo.videoPath,
           videoUrl: preparedVideo.videoUrl,
-          extras,
+          extras: { ...extras, userTokens },
         }),
       maxAttempts,
       4000

@@ -1,3 +1,9 @@
+// ── Auth helper ─────────────────────────────────────────
+function authHeaders() {
+  const token = localStorage.getItem('authToken');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
 // ── DOM refs ────────────────────────────────────────────
 const form                = document.getElementById("productForm");
 const photosInput         = document.getElementById("photos");
@@ -568,7 +574,7 @@ function renderPreview() {
 async function savePost(post, status, scheduledAt = null) {
   const response = await fetch(`/api/platform-posts/${post.id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ text: post.text, status, scheduledAt }),
   });
   const data = await response.json();
@@ -591,7 +597,7 @@ async function createPreview() {
 
   setLoading(true, "Генеруємо прев'ю...");
 
-  const response = await fetch("/api/posts/preview", { method: "POST", body: formData });
+  const response = await fetch("/api/posts/preview", { method: "POST", body: formData, headers: authHeaders() });
   const data = await response.json();
   if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося згенерувати прев'ю");
 
@@ -614,7 +620,7 @@ function pollVideoProcessing(productId) {
   const interval = setInterval(async () => {
     attempts++;
     try {
-      const r = await fetch(`/api/products/${productId}`);
+      const r = await fetch(`/api/products/${productId}`, { headers: authHeaders() });
       if (!r.ok) return;
       const d = await r.json();
       const product = d.product || d;
@@ -636,7 +642,7 @@ async function regeneratePlatform(platform = activePlatform) {
 
   const response = await fetch(`/api/posts/${currentProduct.id}/regenerate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ ...getFormPayload(), platform }),
   });
   const data = await response.json();
@@ -669,7 +675,7 @@ async function publishPost(post) {
   try {
     response = await fetch(`/api/platform-posts/${post.id}/publish`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         text: post.text,
         ...(isShafa ? { extras: shafaExtras } : {}),
@@ -793,7 +799,7 @@ platformEditor.addEventListener("change", async e => {
   currentProduct.useProcessedVideo = checkbox.checked;
   await fetch(`/api/products/${currentProduct.id}/video-choice`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ useProcessedVideo: checkbox.checked }),
   });
 });

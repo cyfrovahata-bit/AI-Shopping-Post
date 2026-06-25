@@ -134,22 +134,13 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, imageUrls, videoUrl }) {
+  async publish({ text, imageUrls, videoUrl, extras }) {
     if (!videoUrl && !imageUrls[0]) {
       throw new Error("Instagram потребує фото або відео товару для публікації");
     }
-
-    const result = await publishInstagramPost(
-      imageUrls[0],
-      text,
-      videoUrl,
-      imageUrls
-    );
-
-    return {
-      externalPostId: result.id,
-      raw: result,
-    };
+    const creds = (extras?.userTokens as any)?.instagram;
+    const result = await publishInstagramPost(imageUrls[0], text, videoUrl, imageUrls, creds);
+    return { externalPostId: result.id, raw: result };
   },
 };
 
@@ -175,18 +166,12 @@ ${commonRules(product)}
 Поверни тільки готовий текст поста.
 `.trim();
   },
-  async publish({ text, imageUrls, videoUrl, videoPath }) {
+  async publish({ text, imageUrls, videoUrl, videoPath, extras }) {
     if (!videoUrl && !imageUrls[0]) {
       throw new Error("Facebook потребує фото або відео товару для публікації");
     }
-
-    const result = await publishFacebookPost(
-      imageUrls[0],
-      text,
-      videoUrl,
-      videoPath,
-      imageUrls
-    );
+    const creds = (extras?.userTokens as any)?.facebook;
+    const result = await publishFacebookPost(imageUrls[0], text, videoUrl, videoPath, imageUrls, creds);
 
     return {
       externalPostId: result.id || result.post_id,
@@ -467,10 +452,10 @@ ${commonRules(product)}
 Поверни ТІЛЬКИ текст підпису, без JSON і без пояснень.
 `.trim();
   },
-  async publish({ product, text, videoUrl }) {
-    // Photo carousel requires production TikTok approval — video only for now
+  async publish({ product, text, videoUrl, extras }) {
     if (!videoUrl) throw new Error("TikTok: для публікації потрібне відео (фото-карусель доступна після production approval)");
-    const id = await publishTikTokVideo(videoUrl, text);
+    const ttCreds = (extras?.userTokens as any)?.tiktok;
+    const id = await publishTikTokVideo(videoUrl, text, ttCreds);
     return { externalPostId: id };
   },
 };

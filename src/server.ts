@@ -32,6 +32,8 @@ import {
   completeInstagramOAuth,
   getInstagramStatus,
 } from "./instagram-auth";
+import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery } from "./auth";
+import { saveUserToken, deleteUserToken, getUserSocialStatus } from "./user-tokens";
 
 dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
@@ -78,6 +80,45 @@ const uploadCompat = upload.fields([
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/uploads", express.static(uploadsDir));
+
+// ── Auth routes (public) ────────────────────────────────────────────────────
+
+app.post("/api/auth/register", async (req: Request, res: Response) => {
+  const { email, password } = req.body as { email: string; password: string };
+  if (!email || !password || password.length < 6) {
+    return res.status(400).json({ error: "Email і пароль (мін. 6 символів) обовʼязкові" });
+  }
+  try {
+    const db = await initDb();
+    const existing = await db.get("SELECT id FROM users WHERE email = ?", [email.toLowerCase()]);
+    if (existing) return res.status(400).json({ error: "Email вже зареєстрований" });
+    const hash = await hashPassword(password);
+    const result = await db.run(
+      "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+      [email.toLowerCase(), hash, new Date().toISOString()]
+    );
+    const token = signToken(result.lastID as number);
+    res.json({ token, userId: result.lastID, email: email.toLowerCase() });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  }
+});
+
+app.post("/api/auth/login", async (req: Request, res: Response) => {
+  const { email, password } = req.body as { email: string; password: string };
+  if (!email || !password) return res.status(400).json({ error: "Email і пароль обовʼязкові" });
+  try {
+    const db = await initDb();
+    const user = await db.get("SELECT * FROM users WHERE email = ?", [email.toLowerCase()]);
+    if (!user) return res.status(401).json({ error: "Невірний email або пароль" });
+    const valid = await verifyPassword(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: "Невірний email або пароль" });
+    const token = signToken(user.id);
+    res.json({ token, userId: user.id, email: user.email });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : "Server error" });
+  }
+});
 app.get("/products", (_req: Request, res: Response) => {
   res.redirect("/products.html");
 });
@@ -921,6 +962,20 @@ async function startServer() {
 
   // ── Facebook OAuth ─────────────────────────────────────────────────────────
 
+  // ── Per-user social token endpoints ────────────────────────────────────────
+
+  app.get("/api/user/social-status", authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).userId as number;
+    const status = await getUserSocialStatus(db, userId);
+    res.json(status);
+  });
+
+  app.delete("/api/user/social/:platform", authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).userId as number;
+    await deleteUserToken(db, userId, String(req.params.platform));
+    res.json({ success: true });
+  });
+
   // GET /api/facebook/status — current token info
   app.get("/api/facebook/status", (_req: Request, res: Response) => {
     res.json(getFacebookStatus());
@@ -958,7 +1013,8 @@ async function startServer() {
       return res.status(400).send("Потрібні App ID та App Secret. Введи їх на сторінці налаштувань.");
     }
     const redirectUri = getFbRedirectUri(req);
-    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri })).toString("base64");
+    const userId = extractTokenFromQuery(req);
+    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri, userId })).toString("base64");
     const url = buildAuthUrl({ appId, appSecret, redirectUri }, state);
     res.redirect(url);
   });
@@ -977,18 +1033,35 @@ async function startServer() {
     }
 
     try {
-      const { appId, appSecret, redirectUri: savedRedirectUri } = JSON.parse(Buffer.from(state, "base64").toString());
+      const parsed = JSON.parse(Buffer.from(state, "base64").toString());
+      const { appId, appSecret, redirectUri: savedRedirectUri, userId: stateUserId } = parsed;
       const redirectUri = savedRedirectUri || getFbRedirectUri(req);
       const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
 
+      const savePerUser = async (pageResult: any) => {
+        if (!stateUserId) return;
+        await saveUserToken(db, stateUserId, "facebook", {
+          access_token: pageResult.page.token,
+          page_id: pageResult.page.id,
+          page_name: pageResult.page.name,
+        });
+        if (pageResult.instagram) {
+          await saveUserToken(db, stateUserId, "instagram", {
+            access_token: pageResult.instagram.accessToken || readEnv().INSTAGRAM_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || "",
+            instagram_user_id: pageResult.instagram.id,
+            instagram_username: pageResult.instagram.username || "",
+          });
+        }
+      };
+
       if (pages.length === 0) {
-        // NPE: /me/accounts is empty — try auto-select from saved FACEBOOK_PAGE_URL
         const env = readEnv();
         const pageUrl = env.FACEBOOK_PAGE_URL || process.env.FACEBOOK_PAGE_URL || "";
         const pageId = extractFbPageId(pageUrl);
         if (pageId) {
           try {
             const result = await selectFacebookPageManual(pageId);
+            await savePerUser(result);
             const igPart = result.instagram ? `&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
             return res.redirect(`/setup.html?fbSuccess=1&pageName=${encodeURIComponent(result.page.name)}${igPart}`);
           } catch { /* fall through to manual entry */ }
@@ -998,11 +1071,12 @@ async function startServer() {
 
       if (pages.length === 1) {
         const result = await selectFacebookPage(pages[0].id);
+        await savePerUser(result);
         const igPart = result.instagram ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
         return res.redirect(`/setup.html?fbSuccess=1&pageId=${pages[0].id}&pageName=${encodeURIComponent(pages[0].name)}${igPart}`);
       }
 
-      const pagesParam = encodeURIComponent(JSON.stringify(pages));
+      const pagesParam = encodeURIComponent(JSON.stringify(pages.map((p: any) => ({ ...p, _userId: stateUserId }))));
       res.redirect(`/setup.html?choosePage=1&pages=${pagesParam}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1164,7 +1238,6 @@ async function startServer() {
 
   app.get("/auth/instagram", (req: Request, res: Response) => {
     const env = readEnv();
-    // Use Instagram-specific app credentials if set, otherwise fall back to Facebook ones
     const appId = (req.query.appId as string)
       || env.INSTAGRAM_APP_ID || process.env.INSTAGRAM_APP_ID
       || env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "";
@@ -1173,7 +1246,8 @@ async function startServer() {
       || env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
     if (!appId || !appSecret) return res.redirect("/setup.html?igError=" + encodeURIComponent("Спочатку збережи Instagram App ID та App Secret"));
     const redirectUri = getIgRedirectUri(req);
-    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri })).toString("base64");
+    const userId = extractTokenFromQuery(req);
+    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri, userId })).toString("base64");
     res.redirect(buildInstagramAuthUrl({ appId, appSecret, redirectUri }, state));
   });
 
@@ -1184,9 +1258,17 @@ async function startServer() {
     if (error) return res.redirect(`/setup.html?igError=${encodeURIComponent(req.query.error_description as string || error)}`);
     if (!code || !state) return res.redirect("/setup.html?igError=missing_code");
     try {
-      const { appId, appSecret, redirectUri: savedRedirectUri } = JSON.parse(Buffer.from(state, "base64").toString());
+      const { appId, appSecret, redirectUri: savedRedirectUri, userId: stateUserId } = JSON.parse(Buffer.from(state, "base64").toString());
       const redirectUri = savedRedirectUri || getIgRedirectUri(req);
       const ig = await completeInstagramOAuth({ appId, appSecret, redirectUri }, code);
+      if (stateUserId) {
+        const igToken = readEnv().INSTAGRAM_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || "";
+        await saveUserToken(db, stateUserId, "instagram", {
+          access_token: igToken,
+          instagram_user_id: ig.id,
+          instagram_username: ig.username || "",
+        });
+      }
       res.redirect(`/setup.html?igSuccess=1&igUsername=${encodeURIComponent(ig.username || ig.id)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -1329,18 +1411,35 @@ async function startServer() {
       </body></html>`);
     }
     const redirectUri = getTikTokRedirectUri(req);
-    res.redirect(getTikTokAuthUrl(redirectUri, "tiktok-setup"));
+    const userId = extractTokenFromQuery(req);
+    // encode userId in state so callback knows which user to save tokens for
+    const stateData = Buffer.from(JSON.stringify({ userId })).toString("base64");
+    res.redirect(getTikTokAuthUrl(redirectUri, stateData));
   });
 
   app.get("/auth/tiktok/callback", async (req: Request, res: Response) => {
     const code = req.query.code as string;
     const error = req.query.error as string;
+    const stateRaw = req.query.state as string;
     if (error || !code) {
       return res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',error:'${error||"no_code"}'},'*');window.close();</script>`);
     }
     try {
       const { exchangeTikTokCode } = await import("./tiktok");
-      await exchangeTikTokCode(code, getTikTokRedirectUri(req));
+      const tokens = await exchangeTikTokCode(code, getTikTokRedirectUri(req));
+      // Save per-user token if userId was in state
+      try {
+        const { userId: stateUserId } = JSON.parse(Buffer.from(stateRaw || "", "base64").toString());
+        if (stateUserId) {
+          await saveUserToken(db, stateUserId, "tiktok", {
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+            open_id: tokens.openId,
+            expires_at: tokens.expiresAt,
+            refresh_expires_at: tokens.refreshExpiresAt,
+          });
+        }
+      } catch { /* state parse error — ignore, token still saved to .env */ }
       res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',success:true},'*');window.close();</script>`);
     } catch (err: any) {
       res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',error:${JSON.stringify(err.message||'error')}},'*');window.close();</script>`);

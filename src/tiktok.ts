@@ -152,8 +152,23 @@ async function pollPublishStatus(publishId: string, maxWaitMs = 120_000): Promis
   throw new Error("TikTok: timeout waiting for publish");
 }
 
-export async function publishTikTokVideo(videoUrl: string, caption: string): Promise<string> {
+export async function publishTikTokVideo(videoUrl: string, caption: string, forcedTokens?: TikTokTokens): Promise<string> {
   console.log("[TikTok] Publishing video via PULL_FROM_URL");
+  if (forcedTokens) {
+    // Use provided tokens directly (per-user flow)
+    const res = await fetch(`${API}/post/publish/video/init/`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${forcedTokens.accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify({
+        post_info: { title: caption.slice(0, 2200), privacy_level: "SELF_ONLY", disable_duet: false, disable_comment: false, disable_stitch: false, video_cover_timestamp_ms: 1000 },
+        source_info: { source: "PULL_FROM_URL", video_url: videoUrl },
+      }),
+    });
+    const data = await res.json() as any;
+    const publishId = data?.data?.publish_id as string;
+    if (!publishId) throw new Error(`TikTok: no publish_id: ${JSON.stringify(data)}`);
+    return pollPublishStatus(publishId);
+  }
   const d = await tiktokFetch("/post/publish/video/init/", {
     post_info: {
       title: caption.slice(0, 2200),
