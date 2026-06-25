@@ -44,3 +44,14 @@ export function extractTokenFromQuery(req: Request): number | null {
     return null;
   }
 }
+
+// Optional auth: reads Bearer header without failing if absent
+export function extractOptionalAuth(req: Request): number | null {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) return null;
+  try {
+    return verifyToken(auth.slice(7)).userId;
+  } catch {
+    return null;
+  }
+}

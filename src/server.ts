@@ -32,7 +32,7 @@ import {
   completeInstagramOAuth,
   getInstagramStatus,
 } from "./instagram-auth";
-import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery } from "./auth";
+import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, extractOptionalAuth } from "./auth";
 import { saveUserToken, deleteUserToken, getUserSocialStatus } from "./user-tokens";
 
 dotenv.config();
@@ -1040,14 +1040,17 @@ async function startServer() {
 
       const savePerUser = async (pageResult: any) => {
         if (!stateUserId) return;
+        const fbToken = pageResult.page.token || readEnv().FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
         await saveUserToken(db, stateUserId, "facebook", {
-          access_token: pageResult.page.token,
+          access_token: fbToken,
           page_id: pageResult.page.id,
           page_name: pageResult.page.name,
         });
         if (pageResult.instagram) {
+          // For NPE pages the user token (not page token) is needed for Instagram Graph API
+          const igToken = readEnv().INSTAGRAM_ACCESS_TOKEN || readEnv().FACEBOOK_USER_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || fbToken;
           await saveUserToken(db, stateUserId, "instagram", {
-            access_token: pageResult.instagram.accessToken || readEnv().INSTAGRAM_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || "",
+            access_token: igToken,
             instagram_user_id: pageResult.instagram.id,
             instagram_username: pageResult.instagram.username || "",
           });
@@ -1101,6 +1104,23 @@ async function startServer() {
     if (!pageId) return res.status(400).json({ success: false, message: "Потрібен Page ID" });
     try {
       const result = await selectFacebookPageManual(pageId.trim());
+      // If caller provided a JWT (from new multi-tenant flow), save per-user token too
+      const userId = extractOptionalAuth(req);
+      if (userId && result.page.token) {
+        await saveUserToken(db, userId, "facebook", {
+          access_token: result.page.token,
+          page_id: result.page.id,
+          page_name: result.page.name,
+        });
+        if (result.instagram) {
+          const igToken = readEnv().INSTAGRAM_ACCESS_TOKEN || readEnv().FACEBOOK_USER_TOKEN || result.page.token;
+          await saveUserToken(db, userId, "instagram", {
+            access_token: igToken,
+            instagram_user_id: result.instagram.id,
+            instagram_username: result.instagram.username || "",
+          });
+        }
+      }
       res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ success: false, message: err instanceof Error ? err.message : String(err) });

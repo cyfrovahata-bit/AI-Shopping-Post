@@ -163,33 +163,51 @@ export async function completeFacebookOAuth(
 }
 
 // Fetch a specific page directly by ID (fallback for New Page Experience when /me/accounts returns empty)
-export async function selectFacebookPageManual(pageId: string) {
+export async function selectFacebookPageManual(pageId: string, userTokenOverride?: string) {
   const env = readEnv();
-  const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
+  const userToken = userTokenOverride || env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
   if (!userToken) throw new Error("Немає user token. Спершу підключи Facebook.");
 
+  // Try standard: get page + page token
   const res = await fetch(`${GRAPH}/${pageId}?fields=id,name,access_token&access_token=${userToken}`);
   const page: any = await res.json();
 
-  if (page.error) throw new Error(`Помилка Facebook: ${page.error.message}`);
-  if (!page.access_token) throw new Error("Не вдалося отримати токен сторінки. Переконайся, що ти адміністратор цієї сторінки.");
+  let pageId2 = pageId;
+  let pageName = "";
+  let pageToken = "";
 
-  const ig = await getInstagramAccount(page.id, page.access_token);
+  if (page.error) {
+    // NPE (New Page Experience) pages can't be fetched with access_token field via user token.
+    // Try basic info without access_token field.
+    const basicRes = await fetch(`${GRAPH}/${pageId}?fields=id,name&access_token=${userToken}`);
+    const basic: any = await basicRes.json();
+    if (basic.error) throw new Error(`Помилка Facebook: ${basic.error.message}`);
+    pageId2 = basic.id;
+    pageName = basic.name;
+    // NPE: use user token directly — page tokens aren't available for these pages
+    pageToken = userToken;
+  } else {
+    pageId2 = page.id;
+    pageName = page.name;
+    // Standard page: use page token if available, otherwise fall back to user token (NPE)
+    pageToken = page.access_token || userToken;
+  }
+
+  const ig = await getInstagramAccount(pageId2, pageToken).catch(() => null);
 
   const vars: Record<string, string> = {
-    FACEBOOK_PAGE_ID: page.id,
-    FACEBOOK_PAGE_NAME: page.name,
-    FACEBOOK_ACCESS_TOKEN: page.access_token,
+    FACEBOOK_PAGE_ID: pageId2,
+    FACEBOOK_PAGE_NAME: pageName,
+    FACEBOOK_ACCESS_TOKEN: pageToken,
   };
   if (ig) {
     vars.INSTAGRAM_USER_ID = ig.id;
     if (ig.username) vars.INSTAGRAM_USERNAME = ig.username;
-    // NPE pages: user token works for Instagram Graph API; page token gives #10 error
     vars.INSTAGRAM_ACCESS_TOKEN = userToken;
   }
 
   writeEnvVars(vars);
-  return { page: { id: page.id, name: page.name }, instagram: ig };
+  return { page: { id: pageId2, name: pageName, token: pageToken }, instagram: ig };
 }
 
 // User selects a page → save page token + instagram info
@@ -202,7 +220,7 @@ export async function selectFacebookPage(pageId: string) {
   const page = pages.find(p => p.id === pageId);
   if (!page) throw new Error(`Сторінка ${pageId} не знайдена`);
 
-  const ig = await getInstagramAccount(page.id, page.access_token);
+  const ig = await getInstagramAccount(page.id, page.access_token).catch(() => null);
 
   const vars: Record<string, string> = {
     FACEBOOK_PAGE_ID: page.id,
@@ -213,12 +231,11 @@ export async function selectFacebookPage(pageId: string) {
   if (ig) {
     vars.INSTAGRAM_USER_ID = ig.id;
     if (ig.username) vars.INSTAGRAM_USERNAME = ig.username;
-    // Use user token for Instagram (NPE page tokens don't work with Instagram Graph API)
     vars.INSTAGRAM_ACCESS_TOKEN = userToken;
   }
 
   writeEnvVars(vars);
-  return { page: { id: page.id, name: page.name }, instagram: ig };
+  return { page: { id: page.id, name: page.name, token: page.access_token }, instagram: ig };
 }
 
 // Check current token status

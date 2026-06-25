@@ -1964,7 +1964,7 @@ async function submitManualPageUrl() {
   if (btn) { btn.disabled = true; btn.textContent = "Шукаємо..."; }
   try {
     const r = await fetch("/api/facebook/select-page-manual", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({ pageId }),
     });
     const data = await r.json();
