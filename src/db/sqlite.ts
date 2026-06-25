@@ -23,6 +23,8 @@ export async function initDb() {
     driver: sqlite3.Database,
   });
 
+  await db.exec(`PRAGMA foreign_keys = ON`);
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +49,18 @@ export async function initDb() {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       UNIQUE(user_id, platform),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS user_settings (
+      user_id INTEGER PRIMARY KEY,
+      shop_name TEXT,
+      shop_description TEXT,
+      shop_language TEXT DEFAULT 'uk',
+      facebook_page_url TEXT,
+      instagram_url TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
   `);
@@ -82,6 +96,9 @@ export async function initDb() {
   await ensureColumn(db, "products", "useProcessedVideo", "INTEGER DEFAULT 1");
   await ensureColumn(db, "products", "generateVideo", "INTEGER DEFAULT 1");
   await ensureColumn(db, "products", "sizeSystem", "TEXT");
+  await ensureColumn(db, "products", "shopName", "TEXT");
+  await ensureColumn(db, "products", "shopDescription", "TEXT");
+  await ensureColumn(db, "products", "shopLanguage", "TEXT");
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS product_images (

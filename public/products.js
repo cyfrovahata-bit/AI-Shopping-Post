@@ -3,6 +3,15 @@ const productsSearch = document.getElementById("productsSearch");
 const platformFilter = document.getElementById("platformFilter");
 const statusFilter = document.getElementById("statusFilter");
 
+function authHeaders() {
+  const token = localStorage.getItem("authToken");
+  return token ? { Authorization: "Bearer " + token } : {};
+}
+
+if (!localStorage.getItem("authToken")) {
+  window.location.replace("/login.html");
+}
+
 const platformNames = {
   telegram: "Telegram",
   instagram: "Instagram",
@@ -37,7 +46,7 @@ function getFilters() {
 
 async function loadProducts() {
   productsList.textContent = "Завантаження...";
-  const response = await fetch(`/api/products?${getFilters().toString()}`);
+  const response = await fetch(`/api/products?${getFilters().toString()}`, { headers: authHeaders() });
   const data = await response.json();
 
   if (!data.success) {
@@ -196,6 +205,7 @@ async function updatePlatformPost(details, status) {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
+      ...authHeaders(),
     },
     body: JSON.stringify({ text, status, scheduledAt }),
   });
@@ -237,6 +247,7 @@ productsList.addEventListener("click", async (event) => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders(),
         },
         body: JSON.stringify(productPayload(card)),
       });
@@ -267,6 +278,7 @@ productsList.addEventListener("click", async (event) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...authHeaders(),
         },
         body: JSON.stringify({ text }),
       });

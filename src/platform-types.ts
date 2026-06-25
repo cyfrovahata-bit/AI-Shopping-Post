@@ -35,6 +35,9 @@ export type ProductInput = {
   processedVideoPath?: string;
   useProcessedVideo?: boolean;
   generateVideo?: boolean;
+  shopName?: string;
+  shopDescription?: string;
+  shopLanguage?: string;
 };
 
 export type GeneratedPlatformPost = {

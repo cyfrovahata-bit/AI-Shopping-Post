@@ -967,6 +967,25 @@ textarea {
   font-size: 13px;
 }
 
+.legal-footer {
+  max-width: 1180px;
+  margin: 18px auto 0;
+  padding: 14px 20px 30px;
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.legal-footer a {
+  color: var(--text2);
+  text-decoration: none;
+}
+
+.legal-footer a:hover { color: var(--accent); }
+
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 1024px) {
   .layout { grid-template-columns: 1fr; }

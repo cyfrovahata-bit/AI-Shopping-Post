@@ -233,9 +233,14 @@
                   <button class="btn secondary" id="fb-manual-submit" onclick="submitManualPageUrl()" disabled style="flex-shrink:0">Знайти</button>
                 </div>
                 <div id="fb-manual-result" style="margin-top:8px;font-size:13px"></div>
-              </div>
-            </div>
-          </div>
+    </div>
+    <footer class="legal-footer">
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/data-deletion.html">Data Deletion</a>
+    </footer>
+  </div>
+</div>
         </div>
 
         <!-- Shop info card -->
@@ -994,7 +999,7 @@ function switchTab(name) {
 
 async function loadShopInfo() {
   try {
-    const d = await fetch("/api/settings/shop").then(r => r.json());
+    const d = await fetch("/api/settings/shop", { headers: authHeaders() }).then(r => r.json());
     if (d.shopName) document.getElementById("shop-name").value = d.shopName;
     if (d.shopDescription) document.getElementById("shop-description").value = d.shopDescription;
     if (d.shopLanguage) document.getElementById("shop-language").value = d.shopLanguage;
@@ -1005,7 +1010,13 @@ async function loadShopInfo() {
 
 async function loadSavedCreds() {
   try {
-    const d = await fetch("/api/facebook/saved-creds").then(r => r.json());
+    const d = await fetch("/api/facebook/saved-creds", { headers: authHeaders() }).then(r => r.json());
+    const fbAdminCard = document.getElementById("fb-setup-body")?.closest(".card");
+    const igAdminCard = document.getElementById("ig-setup-body")?.closest(".card");
+    if (d.isAdmin === false) {
+      if (fbAdminCard) fbAdminCard.style.display = "none";
+      if (igAdminCard) igAdminCard.style.display = "none";
+    }
     // Pre-fill App ID (not secret — security)
     const fbId = document.getElementById("fb-app-id");
     if (fbId && d.appId) { fbId.value = d.appId; }
@@ -1033,7 +1044,7 @@ async function saveShopInfo() {
     instagramUrl: document.getElementById("shop-ig-url").value.trim(),
   };
   const r = await fetch("/api/settings/shop", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(body),
   }).then(r => r.json());
   hint.style.display = "inline";
@@ -1127,7 +1138,7 @@ async function loadFbStatus() {
 
 async function fbDisconnect() {
   if (!confirm("Відключити Facebook та Instagram? Токени будуть видалені.")) return;
-  await fetch("/api/facebook/disconnect", { method: "POST" });
+  await fetch("/api/facebook/disconnect", { method: "POST", headers: authHeaders() });
   await loadFbStatus();
   showGlobalAlert("Facebook відключено. Виконай кроки щоб підключити знову.", "warn");
 }
@@ -1160,7 +1171,7 @@ async function loadIgStatus() {
 
 async function igDisconnect() {
   if (!confirm("Відключити Instagram? Токен буде видалено.")) return;
-  await fetch("/api/instagram/disconnect", { method: "POST" });
+  await fetch("/api/instagram/disconnect", { method: "POST", headers: authHeaders() });
   await loadIgStatus();
 }
 
@@ -1183,7 +1194,7 @@ async function igSaveApp() {
   const btn = document.getElementById("ig-save-app-btn");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/instagram/save-app", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ appId, appSecret }),
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти App ID/Secret";
@@ -1233,7 +1244,7 @@ async function fbSaveCreds() {
   const hint = document.getElementById("fb-saved-hint");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/facebook/save-app", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ appId, appSecret }),
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти коди";
@@ -1270,7 +1281,7 @@ async function saveInstagramManual() {
   if (!instagramId) { if (resultEl) resultEl.innerHTML = '<span style="color:#f85149">Введи Instagram ID</span>'; return; }
   if (resultEl) resultEl.textContent = "Зберігаємо...";
   const r = await fetch("/api/facebook/set-instagram", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ instagramId, instagramUsername: usernameEl?.value?.trim() }),
   }).then(r => r.json());
   if (r.success) {
@@ -1285,7 +1296,7 @@ async function fbVerify() {
   const panel = document.getElementById("fb-verify-panel");
   if (!panel) return;
   panel.style.display = "block"; panel.textContent = "Перевіряємо...";
-  const d = await fetch("/api/facebook/verify", { method: "POST" }).then(r => r.json());
+  const d = await fetch("/api/facebook/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
   if (d.ok) panel.innerHTML = `<span style="color:#3fb950">✅ З'єднання працює! Сторінка «${d.pageName}»${d.fans ? ", підписників: "+d.fans : ""}</span>`;
   else panel.innerHTML = `<span style="color:#f85149">❌ ${d.reason === "not_connected" ? "Не підключено" : d.reason}</span>`;
 }
@@ -1312,7 +1323,7 @@ function handleFbPageChoose() {
 async function fbSelectPage(pageId, pageName, btn) {
   btn.textContent = "Підключаємо..."; btn.disabled = true;
   const d = await fetch("/api/facebook/select-page", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ pageId }),
   }).then(r => r.json());
   if (d.success) {
@@ -1371,7 +1382,7 @@ function tgChanged() {
 
 async function tgDisconnect() {
   await fetch("/api/telegram/save", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ chatId: "" }),
   });
   await loadTgStatus();
@@ -1383,7 +1394,7 @@ async function tgSaveChat() {
   const hint = document.getElementById("tg-chat-hint");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/telegram/save", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ chatId }),
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти";
@@ -1417,7 +1428,7 @@ async function igSaveSiteUrl() {
     return;
   }
   const r = await fetch("/api/site-url", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ url }),
   }).then(r => r.json());
   const res = document.getElementById("ig-url-result");
@@ -1547,7 +1558,7 @@ async function tiktokSaveKeys() {
   const key = document.getElementById("tiktok-client-key").value.trim();
   const secret = document.getElementById("tiktok-client-secret").value.trim();
   if (!key || !secret) return alert("Введи обидва ключі");
-  await fetch("/api/tiktok/setup", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ clientKey: key, clientSecret: secret }) });
+  await fetch("/api/tiktok/setup", { method: "POST", headers: {"Content-Type":"application/json", ...authHeaders()}, body: JSON.stringify({ clientKey: key, clientSecret: secret }) });
   showGlobalAlert("✅ Ключі збережено. Тепер натисни «Підключити TikTok».", "ok");
   await loadTiktokStatus();
 }
@@ -1637,7 +1648,7 @@ async function promSave() {
   const hint = document.getElementById("prom-save-hint");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/prom/save", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ token }),
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти токен";
@@ -1683,7 +1694,7 @@ async function promSelectCategory(id, fullName, name) {
   selectedDiv.style.display = "block";
   selectedDiv.innerHTML = `<b>Категорія:</b> ${fullName} <button class="btn ghost" style="padding:2px 8px;margin-left:8px;font-size:11px" onclick="promClearCategory()">✕</button>`;
   const r = await fetch("/api/prom/set-default-category", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ categoryId: id, categoryName: fullName }),
   }).then(r => r.json());
   if (r.success) {
@@ -1694,7 +1705,7 @@ async function promSelectCategory(id, fullName, name) {
 
 function promClearCategory() {
   fetch("/api/prom/set-default-category", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ categoryId: 0, categoryName: "" }),
   });
   document.getElementById("prom-cat-selected").style.display = "none";

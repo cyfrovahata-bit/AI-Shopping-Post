@@ -48,6 +48,9 @@ async function getProductInput(db: Db, productId: number): Promise<ProductInput>
     processedVideoPath: product.processedVideoPath || undefined,
     useProcessedVideo: product.useProcessedVideo === 1,
     generateVideo: product.generateVideo !== 0,
+    shopName: product.shopName || undefined,
+    shopDescription: product.shopDescription || undefined,
+    shopLanguage: product.shopLanguage || undefined,
   };
 }
 

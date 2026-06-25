@@ -144,26 +144,22 @@ async function getInstagramAccount(pageId: string, pageToken: string) {
 export async function completeFacebookOAuth(
   cfg: FacebookAuthConfig,
   code: string
-): Promise<{ pages: { id: string; name: string }[] }> {
+): Promise<{ pages: { id: string; name: string }[]; userToken: string; userTokenExpiresAt: number }> {
   const shortToken = await exchangeCode(cfg, code);
   const { token: longToken, expiresIn } = await getLongLivedToken(cfg, shortToken);
-
-  // Save user token FIRST so it's available for debugging even if pages call fails
-  writeEnvVars({
-    FACEBOOK_APP_ID: cfg.appId,
-    FACEBOOK_APP_SECRET: cfg.appSecret,
-    FACEBOOK_USER_TOKEN: longToken,
-    FACEBOOK_USER_TOKEN_EXPIRES: String(Date.now() + expiresIn * 1000),
-  });
 
   const pages = await getPages(longToken);
 
   // Empty accounts is OK — user will enter page ID manually (New Page Experience issue)
-  return { pages: pages.map(p => ({ id: p.id, name: p.name })) };
+  return {
+    pages: pages.map(p => ({ id: p.id, name: p.name })),
+    userToken: longToken,
+    userTokenExpiresAt: Date.now() + expiresIn * 1000,
+  };
 }
 
 // Fetch a specific page directly by ID (fallback for New Page Experience when /me/accounts returns empty)
-export async function selectFacebookPageManual(pageId: string, userTokenOverride?: string) {
+export async function selectFacebookPageManual(pageId: string, userTokenOverride?: string, saveGlobal = true) {
   const env = readEnv();
   const userToken = userTokenOverride || env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
   if (!userToken) throw new Error("Немає user token. Спершу підключи Facebook.");
@@ -207,14 +203,14 @@ export async function selectFacebookPageManual(pageId: string, userTokenOverride
     vars.INSTAGRAM_ACCESS_TOKEN = userToken;
   }
 
-  writeEnvVars(vars);
+  if (saveGlobal) writeEnvVars(vars);
   return { page: { id: resolvedId, name: resolvedName || resolvedId, token: pageToken }, instagram: ig };
 }
 
 // User selects a page → save page token + instagram info
-export async function selectFacebookPage(pageId: string) {
+export async function selectFacebookPage(pageId: string, userTokenOverride?: string, saveGlobal = true) {
   const env = readEnv();
-  const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
+  const userToken = userTokenOverride || env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
   if (!userToken) throw new Error("Немає user token. Спершу підключи Facebook.");
 
   const pages = await getPages(userToken);
@@ -235,7 +231,7 @@ export async function selectFacebookPage(pageId: string) {
     vars.INSTAGRAM_ACCESS_TOKEN = userToken;
   }
 
-  writeEnvVars(vars);
+  if (saveGlobal) writeEnvVars(vars);
   return { page: { id: page.id, name: page.name, token: page.access_token }, instagram: ig };
 }
 

@@ -61,14 +61,12 @@ export async function completeInstagramOAuth(cfg: InstagramAuthConfig, code: str
   const me: any = await meRes.json();
   if (me.error) throw new Error(`Instagram me failed: ${me.error.message}`);
 
-  writeEnvVars({
-    INSTAGRAM_USER_ID: me.id,
-    INSTAGRAM_USERNAME: me.username || "",
-    INSTAGRAM_ACCESS_TOKEN: longToken,
-    INSTAGRAM_TOKEN_EXPIRES: String(Date.now() + expiresIn * 1000),
-  });
-
-  return { id: me.id as string, username: me.username as string };
+  return {
+    id: me.id as string,
+    username: me.username as string,
+    accessToken: longToken,
+    expiresAt: Date.now() + expiresIn * 1000,
+  };
 }
 
 export async function refreshInstagramToken() {

@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
+import { NextFunction } from "express";
 import fs from "fs";
 import multer from "multer";
 import path from "path";
@@ -55,6 +56,9 @@ if (fs.existsSync("/data/.env")) dotenv.config({ path: "/data/.env", override: t
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_SITE_URL = "https://postly.pp.ua";
+process.env.SITE_URL ||= DEFAULT_SITE_URL;
+process.env.PUBLIC_BASE_URL ||= process.env.SITE_URL;
 const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
 
 if (!fs.existsSync(uploadsDir)) {
@@ -76,6 +80,8 @@ const uploadCompat = upload.fields([
   { name: "photo", maxCount: 1 },
   { name: "video", maxCount: 1 },
 ]);
+
+const pendingFacebookOAuth = new Map<number, { userToken: string; expiresAt: number }>();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -129,6 +135,27 @@ app.use(express.static(path.join(__dirname, "../public")));
 
 function toText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function currentUserId(req: Request) {
+  return (req as any).userId as number;
+}
+
+function publicSiteUrl() {
+  return (process.env.SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, "");
+}
+
+async function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  const adminEmail = toText(process.env.ADMIN_EMAIL).toLowerCase();
+  if (!adminEmail) return next();
+  try {
+    const db = await initDb();
+    const user = await db.get(`SELECT email FROM users WHERE id = ?`, [currentUserId(req)]);
+    if (String(user?.email || "").toLowerCase() === adminEmail) return next();
+  } catch {
+    // fall through to forbidden
+  }
+  return res.status(403).json({ success: false, message: "Доступ тільки для адміністратора" });
 }
 
 function parsePlatforms(value: unknown): PlatformId[] {
@@ -218,6 +245,9 @@ function productInputFromBody(
     processedVideoPath: toText(body.processedVideoPath) || undefined,
     generateVideo: body.generateVideo !== "off" && body.generateVideo !== "0",
     useProcessedVideo: body.useProcessedVideo !== "0" && body.useProcessedVideo !== false,
+    shopName: toText(body.shopName) || undefined,
+    shopDescription: toText(body.shopDescription) || undefined,
+    shopLanguage: toText(body.shopLanguage) || undefined,
   };
 }
 
@@ -259,14 +289,57 @@ async function getProductDetails(db: any, productId: number) {
   };
 }
 
+async function getOwnedProductDetails(db: any, productId: number, userId: number) {
+  const details = await getProductDetails(db, productId);
+  if (!details || String(details.product.userId) !== String(userId)) return null;
+  return details;
+}
+
+async function getOwnedPlatformPost(db: any, postId: number, userId: number) {
+  return db.get(
+    `
+    SELECT pp.*
+    FROM platform_posts pp
+    JOIN products p ON p.id = pp.productId
+    WHERE pp.id = ? AND p.userId = ?
+    `,
+    [postId, String(userId)]
+  );
+}
+
+async function getUserSettings(db: any, userId: number) {
+  const settings = await db.get(`SELECT * FROM user_settings WHERE user_id = ?`, [userId]);
+  const env = readEnv();
+  const g = (k: string) => env[k] || process.env[k] || "";
+  return {
+    shopName: settings?.shop_name || g("SHOP_NAME"),
+    shopDescription: settings?.shop_description || g("SHOP_DESCRIPTION"),
+    shopLanguage: settings?.shop_language || g("SHOP_LANGUAGE") || "uk",
+    facebookPageUrl: settings?.facebook_page_url || g("FACEBOOK_PAGE_URL"),
+    instagramUrl: settings?.instagram_url || g("INSTAGRAM_URL"),
+  };
+}
+
+async function withUserSettings(db: any, userId: number, product: ProductInput): Promise<ProductInput> {
+  const settings = await getUserSettings(db, userId);
+  return {
+    ...product,
+    shopName: settings.shopName || product.shopName,
+    shopDescription: settings.shopDescription || product.shopDescription,
+    shopLanguage: settings.shopLanguage || product.shopLanguage,
+  };
+}
+
 async function insertProduct(
   db: any,
+  userId: number,
   product: ProductInput,
   images: { imageUrl: string; photoPath: string; sortOrder: number }[],
   platformIds: PlatformId[]
 ) {
   const now = new Date().toISOString();
-  const generatedPosts = await generatePostsForPlatforms(product, platformIds);
+  const productWithSettings = await withUserSettings(db, userId, product);
+  const generatedPosts = await generatePostsForPlatforms(productWithSettings, platformIds);
   const telegramDraft = generatedPosts.find((post) => post.platform === "telegram");
   const firstImage = images[0];
   const result = await db.run(
@@ -293,34 +366,40 @@ async function insertProduct(
       processedVideoPath,
       useProcessedVideo,
       generateVideo,
+      shopName,
+      shopDescription,
+      shopLanguage,
       generatedPost,
       telegramPublished,
       telegramChatId,
       telegramMessageId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL)
     `,
     [
-      "default",
+      String(userId),
       now,
       now,
-      product.title,
-      product.model,
-      product.price,
-      product.dropPrice,
-      product.sizes,
-      product.sizeSystem || null,
-      product.colors,
-      product.fabric,
-      product.description,
+      productWithSettings.title,
+      productWithSettings.model,
+      productWithSettings.price,
+      productWithSettings.dropPrice,
+      productWithSettings.sizes,
+      productWithSettings.sizeSystem || null,
+      productWithSettings.colors,
+      productWithSettings.fabric,
+      productWithSettings.description,
       firstImage?.imageUrl || null,
       firstImage?.photoPath || null,
-      product.videoUrl || null,
-      product.videoPath || null,
-      product.videoStyle || "fashion",
-      product.processedVideoUrl || null,
-      product.processedVideoPath || null,
-      product.useProcessedVideo === false ? 0 : 1,
-      product.generateVideo === false ? 0 : 1,
+      productWithSettings.videoUrl || null,
+      productWithSettings.videoPath || null,
+      productWithSettings.videoStyle || "fashion",
+      productWithSettings.processedVideoUrl || null,
+      productWithSettings.processedVideoPath || null,
+      productWithSettings.useProcessedVideo === false ? 0 : 1,
+      productWithSettings.generateVideo === false ? 0 : 1,
+      productWithSettings.shopName || null,
+      productWithSettings.shopDescription || null,
+      productWithSettings.shopLanguage || "uk",
       telegramDraft?.text || null,
     ]
   );
@@ -422,6 +501,7 @@ async function startServer() {
 
   app.post(
     "/api/posts/preview",
+    authMiddleware,
     uploadCompat,
     async (req: Request, res: Response) => {
       try {
@@ -438,7 +518,7 @@ async function startServer() {
         const images = filesToImages(files);
         const product = productInputFromBody(req.body, images, video);
         const platformIds = parsePlatforms(req.body.selectedPlatforms);
-        const productId = await insertProduct(db, product, images, platformIds);
+        const productId = await insertProduct(db, currentUserId(req), product, images, platformIds);
 
         const details = await getProductDetails(db, productId);
 
@@ -475,10 +555,11 @@ async function startServer() {
 
   app.post(
     "/api/posts/:productId/regenerate",
+    authMiddleware,
     async (req: Request, res: Response) => {
       try {
         const productId = Number(req.params.productId);
-        const details = await getProductDetails(db, productId);
+        const details = await getOwnedProductDetails(db, productId, currentUserId(req));
 
         if (!details) {
           return res.status(404).json({
@@ -496,14 +577,14 @@ async function startServer() {
         const platformIds = parsePlatforms(
           req.body.platforms || req.body.platform || req.body.selectedPlatforms
         );
-        const product = productInputFromBody(
+        const product = await withUserSettings(db, currentUserId(req), productInputFromBody(
           nextDetails!.product,
           nextDetails!.images,
           {
             videoUrl: nextDetails!.product.videoUrl,
             videoPath: nextDetails!.product.videoPath,
           }
-        );
+        ));
         const now = new Date().toISOString();
         const updatedPosts = [];
 
@@ -562,10 +643,10 @@ async function startServer() {
     }
   );
 
-  app.put("/api/platform-posts/:id", async (req: Request, res: Response) => {
+  app.put("/api/platform-posts/:id", authMiddleware, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
-      const post = await db.get(`SELECT * FROM platform_posts WHERE id = ?`, [id]);
+      const post = await getOwnedPlatformPost(db, id, currentUserId(req));
 
       if (!post) {
         return res.status(404).json({
@@ -624,9 +705,13 @@ async function startServer() {
     }
   });
 
-  app.post("/api/platform-posts/:id/publish", async (req: Request, res: Response) => {
+  app.post("/api/platform-posts/:id/publish", authMiddleware, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
+      const post = await getOwnedPlatformPost(db, id, currentUserId(req));
+      if (!post) {
+        return res.status(404).json({ success: false, message: "Пост платформи не знайдено" });
+      }
 
       if (req.body.text) {
         await db.run(
@@ -663,17 +748,21 @@ async function startServer() {
     }
   });
 
-  app.get("/api/products/:id", async (req: Request, res: Response) => {
-    const details = await getProductDetails(db, Number(req.params.id));
-    if (!details) return res.status(404).json({ error: "Not found" });
-    res.json(details);
+  app.get("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
+    const details = await getOwnedProductDetails(db, Number(req.params.id), currentUserId(req));
+    if (!details) return res.status(404).json({ success: false, message: "Товар не знайдено" });
+    res.json({ success: true, ...details });
   });
 
-  app.post("/api/products/:id/publish", async (req: Request, res: Response) => {
+  app.post("/api/products/:id/publish", authMiddleware, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
+      const details = await getOwnedProductDetails(db, productId, currentUserId(req));
+      if (!details) {
+        return res.status(404).json({ success: false, message: "Товар не знайдено" });
+      }
       const platformIds = parsePlatforms(req.body.platforms || req.body.platform);
-      const posts = await getPlatformPosts(db, productId);
+      const posts = details.platformPosts;
       const results = [];
 
       for (const platform of platformIds) {
@@ -704,12 +793,15 @@ async function startServer() {
     }
   });
 
-  app.get("/api/products", async (req: Request, res: Response) => {
+  app.get("/api/products", authMiddleware, async (req: Request, res: Response) => {
     const where: string[] = [];
     const params: unknown[] = [];
     const query = toText(req.query.query);
     const platform = toText(req.query.platform);
     const status = toText(req.query.status);
+
+    where.push(`p.userId = ?`);
+    params.push(String(currentUserId(req)));
 
     if (query) {
       where.push(`(LOWER(p.title) LIKE ? OR LOWER(p.model) LIKE ?)`);
@@ -754,9 +846,9 @@ async function startServer() {
     });
   });
 
-  app.get("/api/products/:id", async (req: Request, res: Response) => {
+  app.get("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
     const productId = Number(req.params.id);
-    const details = await getProductDetails(db, productId);
+    const details = await getOwnedProductDetails(db, productId, currentUserId(req));
 
     if (!details) {
       return res.status(404).json({
@@ -771,10 +863,10 @@ async function startServer() {
     });
   });
 
-  app.put("/api/products/:id", async (req: Request, res: Response) => {
+  app.put("/api/products/:id", authMiddleware, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
-      const details = await getProductDetails(db, productId);
+      const details = await getOwnedProductDetails(db, productId, currentUserId(req));
 
       if (!details) {
         return res.status(404).json({
@@ -802,7 +894,7 @@ async function startServer() {
     }
   });
 
-  app.post("/preview-post", uploadCompat, async (req: Request, res: Response) => {
+  app.post("/preview-post", authMiddleware, uploadCompat, async (req: Request, res: Response) => {
     try {
       const files = getUploadedFiles(req);
       const video = fileToVideo(getUploadedVideo(req));
@@ -816,7 +908,7 @@ async function startServer() {
 
       const images = filesToImages(files);
       const product = productInputFromBody(req.body, images, video);
-      const productId = await insertProduct(db, product, images, ["telegram"]);
+      const productId = await insertProduct(db, currentUserId(req), product, images, ["telegram"]);
       const details = await getProductDetails(db, productId);
       const telegramPost = details!.platformPosts.find(
         (post: any) => post.platform === "telegram"
@@ -840,7 +932,7 @@ async function startServer() {
     }
   });
 
-  app.post("/publish-preview", async (req: Request, res: Response) => {
+  app.post("/publish-preview", authMiddleware, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.body.productId);
       const text = toText(req.body.text);
@@ -852,7 +944,11 @@ async function startServer() {
         });
       }
 
-      const posts = await getPlatformPosts(db, productId);
+      const details = await getOwnedProductDetails(db, productId, currentUserId(req));
+      if (!details) {
+        return res.status(404).json({ success: false, message: "Товар не знайдено" });
+      }
+      const posts = details.platformPosts;
       const telegramPost = posts.find((post: any) => post.platform === "telegram");
 
       if (!telegramPost) {
@@ -885,12 +981,13 @@ async function startServer() {
     }
   });
 
-  app.get("/products-api", async (_req: Request, res: Response) => {
+  app.get("/products-api", authMiddleware, async (req: Request, res: Response) => {
     const products = await db.all(`
       SELECT *
       FROM products
+      WHERE userId = ?
       ORDER BY id DESC
-    `);
+    `, [String(currentUserId(req))]);
 
     return res.json({
       success: true,
@@ -898,10 +995,10 @@ async function startServer() {
     });
   });
 
-  app.put("/products-api/:id", async (req: Request, res: Response) => {
+  app.put("/products-api/:id", authMiddleware, async (req: Request, res: Response) => {
     try {
       const productId = Number(req.params.id);
-      const details = await getProductDetails(db, productId);
+      const details = await getOwnedProductDetails(db, productId, currentUserId(req));
 
       if (!details) {
         return res.status(404).json({
@@ -1014,7 +1111,7 @@ async function startServer() {
     }
     const redirectUri = getFbRedirectUri(req);
     const userId = extractTokenFromQuery(req);
-    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri, userId })).toString("base64");
+    const state = Buffer.from(JSON.stringify({ appId, redirectUri, userId })).toString("base64");
     const url = buildAuthUrl({ appId, appSecret, redirectUri }, state);
     res.redirect(url);
   });
@@ -1034,25 +1131,29 @@ async function startServer() {
 
     try {
       const parsed = JSON.parse(Buffer.from(state, "base64").toString());
-      const { appId, appSecret, redirectUri: savedRedirectUri, userId: stateUserId } = parsed;
+      const { appId, redirectUri: savedRedirectUri, userId: stateUserId } = parsed;
+      const appSecret = readEnv().FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
       const redirectUri = savedRedirectUri || getFbRedirectUri(req);
-      const { pages } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
+      const { pages, userToken, userTokenExpiresAt } = await completeFacebookOAuth({ appId, appSecret, redirectUri }, code);
+      if (stateUserId) pendingFacebookOAuth.set(Number(stateUserId), { userToken, expiresAt: userTokenExpiresAt });
 
       const savePerUser = async (pageResult: any) => {
         if (!stateUserId) return;
-        const fbToken = pageResult.page.token || readEnv().FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
+        const fbToken = pageResult.page.token || userToken;
         await saveUserToken(db, stateUserId, "facebook", {
           access_token: fbToken,
           page_id: pageResult.page.id,
           page_name: pageResult.page.name,
+          expires_at: userTokenExpiresAt,
         });
         if (pageResult.instagram) {
           // For NPE pages the user token (not page token) is needed for Instagram Graph API
-          const igToken = readEnv().INSTAGRAM_ACCESS_TOKEN || readEnv().FACEBOOK_USER_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || fbToken;
+          const igToken = userToken || fbToken;
           await saveUserToken(db, stateUserId, "instagram", {
             access_token: igToken,
             instagram_user_id: pageResult.instagram.id,
             instagram_username: pageResult.instagram.username || "",
+            expires_at: userTokenExpiresAt,
           });
         }
       };
@@ -1063,7 +1164,7 @@ async function startServer() {
         const pageId = extractFbPageId(pageUrl);
         if (pageId) {
           try {
-            const result = await selectFacebookPageManual(pageId);
+            const result = await selectFacebookPageManual(pageId, userToken, false);
             await savePerUser(result);
             const igPart = result.instagram ? `&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
             return res.redirect(`/setup.html?fbSuccess=1&pageName=${encodeURIComponent(result.page.name)}${igPart}`);
@@ -1073,7 +1174,7 @@ async function startServer() {
       }
 
       if (pages.length === 1) {
-        const result = await selectFacebookPage(pages[0].id);
+        const result = await selectFacebookPage(pages[0].id, userToken, false);
         await savePerUser(result);
         const igPart = result.instagram ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
         return res.redirect(`/setup.html?fbSuccess=1&pageId=${pages[0].id}&pageName=${encodeURIComponent(pages[0].name)}${igPart}`);
@@ -1088,14 +1189,90 @@ async function startServer() {
   });
 
   // POST /api/facebook/select-page — user picks a page from dropdown
-  app.post("/api/facebook/select-page", async (req: Request, res: Response) => {
+  app.post("/api/facebook/select-page", authMiddleware, async (req: Request, res: Response) => {
     const { pageId } = req.body as { pageId: string };
     try {
-      const result = await selectFacebookPage(pageId);
+      const pending = pendingFacebookOAuth.get(currentUserId(req));
+      if (!pending) {
+        return res.status(400).json({ success: false, message: "OAuth сесія не знайдена. Підключи Facebook ще раз." });
+      }
+      const result = await selectFacebookPage(pageId, pending.userToken, false);
+      await saveUserToken(db, currentUserId(req), "facebook", {
+        access_token: result.page.token || pending.userToken,
+        page_id: result.page.id,
+        page_name: result.page.name,
+        expires_at: pending.expiresAt,
+      });
+      if (result.instagram) {
+        await saveUserToken(db, currentUserId(req), "instagram", {
+          access_token: pending.userToken,
+          instagram_user_id: result.instagram.id,
+          instagram_username: result.instagram.username || "",
+          expires_at: pending.expiresAt,
+        });
+      }
+      pendingFacebookOAuth.delete(currentUserId(req));
       res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ success: false, message: err instanceof Error ? err.message : String(err) });
     }
+  });
+
+  app.put("/api/products/:id/video-choice", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const productId = Number(req.params.id);
+      const details = await getOwnedProductDetails(db, productId, currentUserId(req));
+      if (!details) {
+        return res.status(404).json({ success: false, message: "Товар не знайдено" });
+      }
+      await db.run(
+        `UPDATE products SET useProcessedVideo = ?, updatedAt = ? WHERE id = ? AND userId = ?`,
+        [req.body.useProcessedVideo === false ? 0 : 1, new Date().toISOString(), productId, String(currentUserId(req))]
+      );
+      return res.json({ success: true, ...(await getOwnedProductDetails(db, productId, currentUserId(req))) });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : "Помилка оновлення відео" });
+    }
+  });
+
+  app.delete("/api/account", authMiddleware, async (req: Request, res: Response) => {
+    const userId = currentUserId(req);
+    const files = await db.all(
+      `
+      SELECT pi.photoPath AS path
+      FROM product_images pi
+      JOIN products p ON p.id = pi.productId
+      WHERE p.userId = ?
+      UNION
+      SELECT videoPath AS path FROM products WHERE userId = ? AND videoPath IS NOT NULL
+      UNION
+      SELECT processedVideoPath AS path FROM products WHERE userId = ? AND processedVideoPath IS NOT NULL
+      `,
+      [String(userId), String(userId), String(userId)]
+    );
+    for (const file of files) {
+      const filePath = String(file.path || "");
+      if (!filePath) continue;
+      try {
+        const resolved = path.resolve(filePath);
+        if (resolved.startsWith(path.resolve(uploadsDir))) fs.unlinkSync(resolved);
+      } catch {
+        // File may already be gone; DB cleanup is the source of truth.
+      }
+    }
+    await db.run(`DELETE FROM users WHERE id = ?`, [userId]);
+    res.json({
+      success: true,
+      message: "Акаунт, товари, пости, налаштування і токени видалено",
+    });
+  });
+
+  app.post("/api/data-deletion", async (req: Request, res: Response) => {
+    const signedRequest = toText(req.body.signed_request);
+    res.json({
+      url: `${publicSiteUrl()}/data-deletion.html`,
+      confirmation_code: signedRequest ? `postly-${Date.now()}` : "postly-manual-request",
+    });
   });
 
   // POST /api/facebook/select-page-manual — fetch page directly by ID (New Page Experience fallback)
@@ -1103,23 +1280,27 @@ async function startServer() {
     const { pageId } = req.body as { pageId: string };
     if (!pageId) return res.status(400).json({ success: false, message: "Потрібен Page ID" });
     try {
-      const result = await selectFacebookPageManual(pageId.trim());
-      // If caller provided a JWT (from new multi-tenant flow), save per-user token too
       const userId = extractOptionalAuth(req);
+      const pending = userId ? pendingFacebookOAuth.get(userId) : null;
+      const result = await selectFacebookPageManual(pageId.trim(), pending?.userToken, !userId);
+      // If caller provided a JWT (from new multi-tenant flow), save per-user token too
       if (userId && result.page.token) {
         await saveUserToken(db, userId, "facebook", {
           access_token: result.page.token,
           page_id: result.page.id,
           page_name: result.page.name,
+          expires_at: pending?.expiresAt || null,
         });
         if (result.instagram) {
-          const igToken = readEnv().INSTAGRAM_ACCESS_TOKEN || readEnv().FACEBOOK_USER_TOKEN || result.page.token;
+          const igToken = pending?.userToken || result.page.token;
           await saveUserToken(db, userId, "instagram", {
             access_token: igToken,
             instagram_user_id: result.instagram.id,
             instagram_username: result.instagram.username || "",
+            expires_at: pending?.expiresAt || null,
           });
         }
+        pendingFacebookOAuth.delete(userId);
       }
       res.json({ success: true, ...result });
     } catch (err) {
@@ -1128,46 +1309,54 @@ async function startServer() {
   });
 
   // POST /api/facebook/set-instagram — manually save Instagram Business Account ID
-  app.post("/api/facebook/set-instagram", (req: Request, res: Response) => {
+  app.post("/api/facebook/set-instagram", authMiddleware, async (req: Request, res: Response) => {
     const { instagramId, instagramUsername } = req.body as { instagramId: string; instagramUsername?: string };
     if (!instagramId) return res.status(400).json({ success: false, message: "Потрібен Instagram ID" });
-    const env = readEnv();
-    // For New Page Experience pages, user token works for Instagram API; page token does not
-    const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN || "";
-    const pageToken = env.FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
-    if (!userToken && !pageToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook" });
-    const vars: Record<string, string> = {
-      INSTAGRAM_USER_ID: instagramId.trim(),
-      INSTAGRAM_ACCESS_TOKEN: userToken || pageToken,
-    };
-    if (instagramUsername) vars.INSTAGRAM_USERNAME = instagramUsername.trim().replace(/^@/, "");
-    writeEnvVars(vars);
+    const tokens = await import("./user-tokens").then(m => m.getUserTokens(db, currentUserId(req)));
+    const fbToken = tokens.facebook?.accessToken;
+    if (!fbToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook" });
+    await saveUserToken(db, currentUserId(req), "instagram", {
+      access_token: fbToken,
+      instagram_user_id: instagramId.trim(),
+      instagram_username: instagramUsername?.trim().replace(/^@/, "") || "",
+    });
     res.json({ success: true });
   });
 
   // GET /api/facebook/saved-creds — return saved App ID (not secret) for pre-filling form
-  app.get("/api/facebook/saved-creds", (_req: Request, res: Response) => {
+  app.get("/api/facebook/saved-creds", authMiddleware, async (req: Request, res: Response) => {
     const env = readEnv();
+    const adminEmail = toText(process.env.ADMIN_EMAIL).toLowerCase();
+    const user = await db.get(`SELECT email FROM users WHERE id = ?`, [currentUserId(req)]);
+    const isAdmin = !adminEmail || String(user?.email || "").toLowerCase() === adminEmail;
     res.json({
       appId: env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "",
       hasSecret: !!(env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET),
       igAppId: env.INSTAGRAM_APP_ID || process.env.INSTAGRAM_APP_ID || "",
       hasIgSecret: !!(env.INSTAGRAM_APP_SECRET || process.env.INSTAGRAM_APP_SECRET),
+      isAdmin,
     });
   });
 
   // POST /api/facebook/save-app — save App ID + App Secret without starting OAuth
-  app.post("/api/facebook/save-app", (req: Request, res: Response) => {
+  app.post("/api/facebook/save-app", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { appId, appSecret } = req.body as { appId: string; appSecret: string };
     if (!appId || !appSecret) return res.status(400).json({ success: false, message: "Потрібні App ID та App Secret" });
     if (!/^\d+$/.test(appId)) return res.status(400).json({ success: false, message: "App ID повинен містити тільки цифри" });
     if (appSecret.length < 20) return res.status(400).json({ success: false, message: "App Secret занадто короткий" });
-    writeEnvVars({ FACEBOOK_APP_ID: appId, FACEBOOK_APP_SECRET: appSecret });
+    writeEnvVars({
+      FACEBOOK_APP_ID: appId,
+      FACEBOOK_APP_SECRET: appSecret,
+      INSTAGRAM_APP_ID: process.env.INSTAGRAM_APP_ID || appId,
+      INSTAGRAM_APP_SECRET: process.env.INSTAGRAM_APP_SECRET || appSecret,
+      SITE_URL: publicSiteUrl(),
+      PUBLIC_BASE_URL: process.env.PUBLIC_BASE_URL || publicSiteUrl(),
+    });
     res.json({ success: true });
   });
 
   // POST /api/facebook/disconnect — clear all Facebook/Instagram tokens
-  app.post("/api/facebook/disconnect", (_req: Request, res: Response) => {
+  app.post("/api/facebook/disconnect", authMiddleware, requireAdmin, (_req: Request, res: Response) => {
     writeEnvVars({
       FACEBOOK_USER_TOKEN: "", FACEBOOK_USER_TOKEN_EXPIRES: "",
       FACEBOOK_PAGE_ID: "", FACEBOOK_PAGE_NAME: "", FACEBOOK_ACCESS_TOKEN: "",
@@ -1232,7 +1421,21 @@ async function startServer() {
   });
 
   // POST /api/facebook/verify — test if current tokens actually work
-  app.post("/api/facebook/verify", async (_req: Request, res: Response) => {
+  app.post("/api/facebook/verify", authMiddleware, async (req: Request, res: Response) => {
+    const userTokens = await getUserSocialStatus(db, currentUserId(req));
+    if (userTokens.facebook) {
+      const tokens = await import("./user-tokens").then(m => m.getUserTokens(db, currentUserId(req)));
+      const fb = tokens.facebook;
+      if (!fb) return res.json({ ok: false, reason: "not_connected" });
+      try {
+        const r = await fetch(`https://graph.facebook.com/v25.0/${fb.pageId}?fields=name,fan_count&access_token=${fb.accessToken}`);
+        const d = await r.json() as any;
+        if (d.error) return res.json({ ok: false, reason: d.error.message });
+        return res.json({ ok: true, pageName: d.name, fans: d.fan_count });
+      } catch (e) {
+        return res.json({ ok: false, reason: e instanceof Error ? e.message : String(e) });
+      }
+    }
     const status = getFacebookStatus();
     if (!status.connected) return res.json({ ok: false, reason: "not_connected" });
     try {
@@ -1249,7 +1452,7 @@ async function startServer() {
 
   // ── Instagram Login OAuth (new flow — does not require Facebook Page) ──────
 
-  app.post("/api/instagram/save-app", (req: Request, res: Response) => {
+  app.post("/api/instagram/save-app", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { appId, appSecret } = req.body as { appId?: string; appSecret?: string };
     if (!appId || !appSecret) return res.json({ success: false, message: "Потрібні appId та appSecret" });
     writeEnvVars({ INSTAGRAM_APP_ID: appId.trim(), INSTAGRAM_APP_SECRET: appSecret.trim() });
@@ -1267,7 +1470,7 @@ async function startServer() {
     if (!appId || !appSecret) return res.redirect("/setup.html?igError=" + encodeURIComponent("Спочатку збережи Instagram App ID та App Secret"));
     const redirectUri = getIgRedirectUri(req);
     const userId = extractTokenFromQuery(req);
-    const state = Buffer.from(JSON.stringify({ appId, appSecret, redirectUri, userId })).toString("base64");
+    const state = Buffer.from(JSON.stringify({ appId, redirectUri, userId })).toString("base64");
     res.redirect(buildInstagramAuthUrl({ appId, appSecret, redirectUri }, state));
   });
 
@@ -1278,15 +1481,16 @@ async function startServer() {
     if (error) return res.redirect(`/setup.html?igError=${encodeURIComponent(req.query.error_description as string || error)}`);
     if (!code || !state) return res.redirect("/setup.html?igError=missing_code");
     try {
-      const { appId, appSecret, redirectUri: savedRedirectUri, userId: stateUserId } = JSON.parse(Buffer.from(state, "base64").toString());
+      const { appId, redirectUri: savedRedirectUri, userId: stateUserId } = JSON.parse(Buffer.from(state, "base64").toString());
+      const appSecret = readEnv().INSTAGRAM_APP_SECRET || process.env.INSTAGRAM_APP_SECRET || readEnv().FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
       const redirectUri = savedRedirectUri || getIgRedirectUri(req);
       const ig = await completeInstagramOAuth({ appId, appSecret, redirectUri }, code);
       if (stateUserId) {
-        const igToken = readEnv().INSTAGRAM_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || "";
         await saveUserToken(db, stateUserId, "instagram", {
-          access_token: igToken,
+          access_token: ig.accessToken,
           instagram_user_id: ig.id,
           instagram_username: ig.username || "",
+          expires_at: ig.expiresAt,
         });
       }
       res.redirect(`/setup.html?igSuccess=1&igUsername=${encodeURIComponent(ig.username || ig.id)}`);
@@ -1300,34 +1504,44 @@ async function startServer() {
     res.json(getInstagramStatus());
   });
 
-  app.post("/api/instagram/disconnect", (_req: Request, res: Response) => {
+  app.post("/api/instagram/disconnect", authMiddleware, requireAdmin, (_req: Request, res: Response) => {
     writeEnvVars({ INSTAGRAM_USER_ID: "", INSTAGRAM_USERNAME: "", INSTAGRAM_ACCESS_TOKEN: "", INSTAGRAM_TOKEN_EXPIRES: "" });
     res.json({ success: true });
   });
 
   // ── Shop settings ──────────────────────────────────────────────────────────
 
-  app.get("/api/settings/shop", (_req: Request, res: Response) => {
-    const env = readEnv();
-    const g = (k: string) => env[k] || process.env[k] || "";
-    res.json({
-      shopName: g("SHOP_NAME"),
-      shopDescription: g("SHOP_DESCRIPTION"),
-      shopLanguage: g("SHOP_LANGUAGE") || "uk",
-      facebookPageUrl: g("FACEBOOK_PAGE_URL"),
-      instagramUrl: g("INSTAGRAM_URL"),
-    });
+  app.get("/api/settings/shop", authMiddleware, async (req: Request, res: Response) => {
+    res.json(await getUserSettings(db, currentUserId(req)));
   });
 
-  app.post("/api/settings/shop", (req: Request, res: Response) => {
+  app.post("/api/settings/shop", authMiddleware, async (req: Request, res: Response) => {
     const { shopName, shopDescription, shopLanguage, facebookPageUrl, instagramUrl } = req.body as Record<string, string>;
-    const vars: Record<string, string> = {};
-    if (shopName !== undefined) vars.SHOP_NAME = shopName;
-    if (shopDescription !== undefined) vars.SHOP_DESCRIPTION = shopDescription;
-    if (shopLanguage !== undefined) vars.SHOP_LANGUAGE = shopLanguage;
-    if (facebookPageUrl !== undefined) vars.FACEBOOK_PAGE_URL = facebookPageUrl;
-    if (instagramUrl !== undefined) vars.INSTAGRAM_URL = instagramUrl;
-    writeEnvVars(vars);
+    const now = new Date().toISOString();
+    await db.run(
+      `
+      INSERT INTO user_settings (
+        user_id, shop_name, shop_description, shop_language, facebook_page_url, instagram_url, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        shop_name = excluded.shop_name,
+        shop_description = excluded.shop_description,
+        shop_language = excluded.shop_language,
+        facebook_page_url = excluded.facebook_page_url,
+        instagram_url = excluded.instagram_url,
+        updated_at = excluded.updated_at
+      `,
+      [
+        currentUserId(req),
+        toText(shopName),
+        toText(shopDescription),
+        toText(shopLanguage) || "uk",
+        toText(facebookPageUrl),
+        toText(instagramUrl),
+        now,
+        now,
+      ]
+    );
     res.json({ success: true });
   });
 
@@ -1403,7 +1617,7 @@ async function startServer() {
     return `${getBaseUrl(req)}/auth/tiktok/callback`;
   }
 
-  app.post("/api/tiktok/setup", (req: Request, res: Response) => {
+  app.post("/api/tiktok/setup", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { clientKey, clientSecret } = req.body as { clientKey: string; clientSecret: string };
     if (!clientKey || !clientSecret) return res.status(400).json({ error: "Потрібні clientKey і clientSecret" });
     writeEnvVars({ TIKTOK_CLIENT_KEY: clientKey, TIKTOK_CLIENT_SECRET: clientSecret });
@@ -1475,10 +1689,10 @@ async function startServer() {
   // ── Site URL ───────────────────────────────────────────────────────────────
 
   app.get("/api/site-url", (_req: Request, res: Response) => {
-    res.json({ url: process.env.SITE_URL || "" });
+    res.json({ url: publicSiteUrl() });
   });
 
-  app.post("/api/site-url", (req: Request, res: Response) => {
+  app.post("/api/site-url", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { url } = req.body as { url: string };
     const { writeEnvVars } = require("./facebook-auth");
     writeEnvVars({ SITE_URL: url || "" });
@@ -1495,7 +1709,7 @@ async function startServer() {
     res.json({ connected: result.ok, hasToken, shopName: result.shopName, error: result.error });
   });
 
-  app.post("/api/prom/save", (req: Request, res: Response) => {
+  app.post("/api/prom/save", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { token } = req.body as { token: string };
     if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
     const { writeEnvVars } = require("./facebook-auth");
@@ -1517,7 +1731,7 @@ async function startServer() {
     res.json({ categories: cats });
   });
 
-  app.post("/api/prom/set-default-category", (req: Request, res: Response) => {
+  app.post("/api/prom/set-default-category", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { categoryId, categoryName } = req.body as { categoryId: number; categoryName: string };
     if (!categoryId) return res.status(400).json({ success: false, message: "categoryId required" });
     const { writeEnvVars } = require("./facebook-auth");
@@ -1536,7 +1750,7 @@ async function startServer() {
     res.json({ connected: result.ok, hasToken, hasCredentials, name: result.name, error: result.error });
   });
 
-  app.post("/api/olx/save-credentials", (req: Request, res: Response) => {
+  app.post("/api/olx/save-credentials", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { clientId, clientSecret } = req.body as { clientId: string; clientSecret: string };
     if (!clientId || !clientSecret) return res.status(400).json({ success: false, message: "Потрібні Client ID і Client Secret" });
     const { writeEnvVars } = require("./facebook-auth");
@@ -1580,7 +1794,7 @@ async function startServer() {
     res.json({ connected: result.ok, hasToken, hasCredentials, shopName: result.shopName, error: result.error });
   });
 
-  app.post("/api/rozetka/save", (req: Request, res: Response) => {
+  app.post("/api/rozetka/save", authMiddleware, requireAdmin, (req: Request, res: Response) => {
     const { login, password } = req.body as { login: string; password: string };
     if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін і пароль" });
     const { writeEnvVars } = require("./facebook-auth");

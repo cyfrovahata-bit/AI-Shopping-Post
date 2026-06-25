@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 export interface FbCreds { pageId: string; accessToken: string; pageName: string }
 export interface IgCreds { userId: string; accessToken: string }
 export interface TtCreds { accessToken: string; refreshToken: string; openId: string; expiresAt: number; refreshExpiresAt: number }
@@ -8,18 +10,52 @@ export interface SocialTokens {
   tiktok?: TtCreds;
 }
 
+const ENC_PREFIX = "enc:v1:";
+
+function encryptionKey() {
+  const raw = process.env.TOKEN_ENCRYPTION_KEY || process.env.JWT_SECRET || "dev-secret-please-change-in-production";
+  return crypto.createHash("sha256").update(raw).digest();
+}
+
+function encryptValue(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${ENC_PREFIX}${Buffer.concat([iv, tag, encrypted]).toString("base64")}`;
+}
+
+function decryptValue(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
+  if (!value.startsWith(ENC_PREFIX)) return value;
+  try {
+    const packed = Buffer.from(value.slice(ENC_PREFIX.length), "base64");
+    const iv = packed.subarray(0, 12);
+    const tag = packed.subarray(12, 28);
+    const encrypted = packed.subarray(28);
+    const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
 export async function getUserTokens(db: any, userId: number): Promise<SocialTokens> {
   const rows = await db.all("SELECT * FROM user_social_tokens WHERE user_id = ?", [userId]);
   const result: SocialTokens = {};
   for (const r of rows) {
-    if (r.platform === "facebook" && r.page_id && r.access_token) {
-      result.facebook = { pageId: r.page_id, accessToken: r.access_token, pageName: r.page_name || "" };
-    } else if (r.platform === "instagram" && r.instagram_user_id && r.access_token) {
-      result.instagram = { userId: r.instagram_user_id, accessToken: r.access_token };
-    } else if (r.platform === "tiktok" && r.access_token) {
+    const accessToken = decryptValue(r.access_token);
+    const refreshToken = decryptValue(r.refresh_token);
+    if (r.platform === "facebook" && r.page_id && accessToken) {
+      result.facebook = { pageId: r.page_id, accessToken, pageName: r.page_name || "" };
+    } else if (r.platform === "instagram" && r.instagram_user_id && accessToken) {
+      result.instagram = { userId: r.instagram_user_id, accessToken };
+    } else if (r.platform === "tiktok" && accessToken) {
       result.tiktok = {
-        accessToken: r.access_token,
-        refreshToken: r.refresh_token || "",
+        accessToken,
+        refreshToken,
         openId: r.open_id || "",
         expiresAt: r.expires_at || 0,
         refreshExpiresAt: r.refresh_expires_at || 0,
@@ -48,7 +84,7 @@ export async function saveUserToken(db: any, userId: number, platform: string, d
       updated_at         = excluded.updated_at
   `, [
     userId, platform,
-    data.access_token ?? null, data.refresh_token ?? null,
+    encryptValue(data.access_token), encryptValue(data.refresh_token),
     data.page_id ?? null, data.page_name ?? null,
     data.open_id ?? null, data.instagram_user_id ?? null, data.instagram_username ?? null,
     data.expires_at ?? null, data.refresh_expires_at ?? null,

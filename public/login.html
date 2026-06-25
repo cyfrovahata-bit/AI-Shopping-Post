@@ -21,6 +21,9 @@
     button[type=submit]:disabled { background: #999; cursor: not-allowed; }
     .error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 14px; font-size: 14px; margin-bottom: 16px; display: none; }
     .error.show { display: block; }
+    .legal-footer { position: fixed; left: 0; right: 0; bottom: 18px; display: flex; justify-content: center; gap: 14px; font-size: 12px; }
+    .legal-footer a { color: #666; text-decoration: none; }
+    .legal-footer a:hover { color: #111; }
   </style>
 </head>
 <body>
@@ -51,6 +54,11 @@
     <button type="submit" id="registerBtn">Зареєструватись</button>
   </form>
 </div>
+<footer class="legal-footer">
+  <a href="/privacy.html">Privacy Policy</a>
+  <a href="/terms.html">Terms of Service</a>
+  <a href="/data-deletion.html">Data Deletion</a>
+</footer>
 
 <script>
   // Redirect if already logged in

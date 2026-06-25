@@ -34,10 +34,10 @@ function productFacts(product: ProductInput) {
 `.trim();
 }
 
-function shopContext() {
-  const name = process.env.SHOP_NAME || "";
-  const desc = process.env.SHOP_DESCRIPTION || "магазину жіночого одягу";
-  const lang = process.env.SHOP_LANGUAGE || "uk";
+function shopContext(product?: ProductInput) {
+  const name = product?.shopName || process.env.SHOP_NAME || "";
+  const desc = product?.shopDescription || process.env.SHOP_DESCRIPTION || "магазину жіночого одягу";
+  const lang = product?.shopLanguage || process.env.SHOP_LANGUAGE || "uk";
   const shopLabel = name ? `магазину «${name}» (${desc})` : desc;
   const langRule = lang === "ru"
     ? "Пиши тільки російською мовою."
@@ -48,7 +48,7 @@ function shopContext() {
 }
 
 function commonRules(product: ProductInput) {
-  const { shopLabel, langRule } = shopContext();
+  const { shopLabel, langRule } = shopContext(product);
   return `
 Ти — SMM-копірайтер для живого ${shopLabel}.
 
@@ -436,7 +436,7 @@ const tiktokPlatform: PublishingPlatform = {
   name: "TikTok",
   supportsPublishing: true,
   generatePrompt(product) {
-    const { shopLabel, langRule } = shopContext();
+    const { shopLabel, langRule } = shopContext(product);
     return `
 ${commonRules(product)}
 
