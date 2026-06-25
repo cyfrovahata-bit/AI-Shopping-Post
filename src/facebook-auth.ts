@@ -168,36 +168,37 @@ export async function selectFacebookPageManual(pageId: string, userTokenOverride
   const userToken = userTokenOverride || env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN;
   if (!userToken) throw new Error("Немає user token. Спершу підключи Facebook.");
 
-  // Try standard: get page + page token
-  const res = await fetch(`${GRAPH}/${pageId}?fields=id,name,access_token&access_token=${userToken}`);
-  const page: any = await res.json();
+  let resolvedId = pageId;
+  let resolvedName = "";
+  let pageToken = userToken; // NPE default: user token works for posting
 
-  let pageId2 = pageId;
-  let pageName = "";
-  let pageToken = "";
+  // Attempt 1: standard page lookup with access_token field
+  try {
+    const res = await fetch(`${GRAPH}/${pageId}?fields=id,name,access_token&access_token=${userToken}`);
+    const page: any = await res.json();
+    if (!page.error) {
+      resolvedId = page.id;
+      resolvedName = page.name;
+      pageToken = page.access_token || userToken;
+    } else {
+      // Attempt 2: basic lookup without access_token (NPE pages)
+      const basicRes = await fetch(`${GRAPH}/${pageId}?fields=id,name&access_token=${userToken}`);
+      const basic: any = await basicRes.json();
+      if (!basic.error) {
+        resolvedId = basic.id;
+        resolvedName = basic.name;
+        // NPE: no separate page token; user token is used directly for Graph API calls
+      }
+      // Attempt 3 (implicit): both failed — trust the user-provided ID, use user token.
+      // Posting will fail later if creds are actually wrong.
+    }
+  } catch { /* network error — proceed with user-provided data */ }
 
-  if (page.error) {
-    // NPE (New Page Experience) pages can't be fetched with access_token field via user token.
-    // Try basic info without access_token field.
-    const basicRes = await fetch(`${GRAPH}/${pageId}?fields=id,name&access_token=${userToken}`);
-    const basic: any = await basicRes.json();
-    if (basic.error) throw new Error(`Помилка Facebook: ${basic.error.message}`);
-    pageId2 = basic.id;
-    pageName = basic.name;
-    // NPE: use user token directly — page tokens aren't available for these pages
-    pageToken = userToken;
-  } else {
-    pageId2 = page.id;
-    pageName = page.name;
-    // Standard page: use page token if available, otherwise fall back to user token (NPE)
-    pageToken = page.access_token || userToken;
-  }
-
-  const ig = await getInstagramAccount(pageId2, pageToken).catch(() => null);
+  const ig = await getInstagramAccount(resolvedId, pageToken).catch(() => null);
 
   const vars: Record<string, string> = {
-    FACEBOOK_PAGE_ID: pageId2,
-    FACEBOOK_PAGE_NAME: pageName,
+    FACEBOOK_PAGE_ID: resolvedId,
+    FACEBOOK_PAGE_NAME: resolvedName || resolvedId,
     FACEBOOK_ACCESS_TOKEN: pageToken,
   };
   if (ig) {
@@ -207,7 +208,7 @@ export async function selectFacebookPageManual(pageId: string, userTokenOverride
   }
 
   writeEnvVars(vars);
-  return { page: { id: pageId2, name: pageName, token: pageToken }, instagram: ig };
+  return { page: { id: resolvedId, name: resolvedName || resolvedId, token: pageToken }, instagram: ig };
 }
 
 // User selects a page → save page token + instagram info

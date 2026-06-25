@@ -1971,9 +1971,16 @@ async function submitManualPageUrl() {
     if (btn) { btn.disabled = false; btn.textContent = "Знайти"; }
     if (data.success) {
       document.getElementById("fb-manual-page-form").style.display = "none";
+      await loadFbUserStatus();
       await loadFbStatus();
+      const pageName = data.page?.name && data.page.name !== data.page?.id ? data.page.name : `ID ${pageId}`;
+      const verified = data.page?.name && data.page.name !== data.page?.id;
       const igMsg = data.instagram?.username ? ` Instagram @${data.instagram.username} теж підключено!` : "";
-      showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${data.page.name}».${igMsg}`, "ok");
+      if (verified) {
+        showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}».${igMsg}`, "ok");
+      } else {
+        showGlobalAlert(`✅ <b>Facebook збережено!</b> Сторінку з ID ${pageId} збережено — підключення буде перевірено при першій публікації.${igMsg}`, "ok");
+      }
     } else {
       if (result) result.innerHTML = `<span style="color:var(--err)">${data.message}</span>`;
     }
