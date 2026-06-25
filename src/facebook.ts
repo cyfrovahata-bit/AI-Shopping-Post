@@ -16,6 +16,21 @@ function buildPublicUrl(fileUrl: string) {
   return `${siteUrl.replace(/\/$/, "")}/${fileUrl.replace(/^\//, "")}`;
 }
 
+const GRAPH = "https://graph.facebook.com/v25.0";
+
+// Resolve the correct page access token.
+// If the stored token is a user token (happens for NPE pages), exchange it for a page token via /me/accounts.
+async function resolvePageToken(pageId: string, storedToken: string): Promise<string> {
+  // Quick sanity check: try /me/accounts to find a page-specific token
+  try {
+    const r = await fetch(`${GRAPH}/me/accounts?fields=id,access_token&access_token=${storedToken}`);
+    const d: any = await r.json();
+    const match = d.data?.find((p: any) => p.id === pageId);
+    if (match?.access_token) return match.access_token;
+  } catch { /* ignore — fall through to stored token */ }
+  return storedToken;
+}
+
 export async function publishFacebookPost(
   imageUrl: string | undefined,
   caption: string,
@@ -25,11 +40,14 @@ export async function publishFacebookPost(
   creds?: { pageId: string; accessToken: string }
 ) {
   const pageId = creds?.pageId || process.env.FACEBOOK_PAGE_ID;
-  const accessToken = creds?.accessToken || process.env.FACEBOOK_ACCESS_TOKEN;
+  const rawToken = creds?.accessToken || process.env.FACEBOOK_ACCESS_TOKEN;
 
-  if (!pageId || !accessToken) {
+  if (!pageId || !rawToken) {
     throw new Error("Facebook credentials missing");
   }
+
+  // Ensure we use a page token (not user token) for all page publishing calls
+  const accessToken = await resolvePageToken(pageId, rawToken);
 
   if (videoPath) {
     const form = new FormData();
@@ -114,11 +132,14 @@ export async function publishFacebookPost(
 
     if (!albumRes.ok) {
       console.error("Facebook album publish error:", albumData);
-
-      throw new Error(
-        albumData.error?.message ||
-          "Facebook album publish failed"
-      );
+      const msg = albumData.error?.message || "Facebook album publish failed";
+      if (albumData.error?.code === 200) {
+        throw new Error(
+          `Facebook: додаток у режимі розробки або некоректний токен. ` +
+          `Відключи та підключи Facebook знову в Налаштуваннях. Деталі: ${msg}`
+        );
+      }
+      throw new Error(msg);
     }
 
     return albumData;
@@ -146,7 +167,15 @@ export async function publishFacebookPost(
 
   if (!res.ok) {
     console.error("Facebook publish error:", data);
-    throw new Error(data.error?.message || "Facebook publish failed");
+    const msg = data.error?.message || "Facebook publish failed";
+    if (data.error?.code === 200) {
+      throw new Error(
+        `Facebook: додаток у режимі розробки або некоректний токен сторінки. ` +
+        `Відкрий Setup → Facebook → Відключити → Підключити знову. ` +
+        `Якщо це не допоможе — додай акаунт як Tester у Meta Developer Portal. Деталі: ${msg}`
+      );
+    }
+    throw new Error(msg);
   }
 
   return data;

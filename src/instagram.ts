@@ -92,7 +92,9 @@ export async function publishInstagramPost(
   const accessToken = creds?.accessToken || process.env.INSTAGRAM_ACCESS_TOKEN;
 
   if (!userId || !accessToken) {
-    throw new Error("Instagram credentials missing");
+    throw new Error(
+      "Instagram не підключено. Відкрий Налаштування → вкладка Instagram → Підключити Instagram."
+    );
   }
 
   const cleanCaption = cleanInstagramCaption(caption);
