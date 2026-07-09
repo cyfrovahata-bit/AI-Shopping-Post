@@ -1,7 +1,6 @@
 import fetch from "node-fetch";
 import fs from "fs";
 import path from "path";
-import { readEnv } from "./facebook-auth";
 
 const API_BASE = "https://my.prom.ua/api/v1";
 
@@ -31,24 +30,18 @@ interface PromApiProduct {
   attributes?: PromAttribute[];
 }
 
-function getToken() {
-  const env = readEnv();
-  return env.PROM_API_TOKEN || process.env.PROM_API_TOKEN || "";
-}
-
-function headers() {
+function headers(token: string) {
   return {
-    "Authorization": `Bearer ${getToken()}`,
+    "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
   };
 }
 
-export async function promTestConnection(): Promise<{ ok: boolean; shopName?: string; error?: string }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "PROM_API_TOKEN не задано" };
+export async function promTestConnection(token: string): Promise<{ ok: boolean; shopName?: string; error?: string }> {
+  if (!token) return { ok: false, error: "Токен не задано" };
   try {
     const r = await fetch(`${API_BASE}/products/list`, {
-      headers: headers() as any,
+      headers: headers(token) as any,
     });
     const d = await r.json() as any;
     if (!r.ok) return { ok: false, error: d.error_message || d.message || `HTTP ${r.status}` };
@@ -59,9 +52,9 @@ export async function promTestConnection(): Promise<{ ok: boolean; shopName?: st
 }
 
 // Search categories by name keyword
-export async function promSearchCategories(query: string): Promise<{ id: number; name: string; fullName: string }[]> {
+export async function promSearchCategories(token: string, query: string): Promise<{ id: number; name: string; fullName: string }[]> {
   try {
-    const r = await fetch(`${API_BASE}/categories/list`, { headers: headers() as any });
+    const r = await fetch(`${API_BASE}/categories/list`, { headers: headers(token) as any });
     const d = await r.json() as any;
     if (!d.categories) return [];
     const q = query.toLowerCase();
@@ -180,9 +173,10 @@ export async function publishToProm(opts: {
   attributes: PromAttribute[];
   sku?: string;
   quantity: number;
+  token: string;
 }): Promise<{ externalPostId: string }> {
-  const token = getToken();
-  if (!token) throw new Error("PROM_API_TOKEN не задано у .env");
+  const token = opts.token;
+  if (!token) throw new Error("Prom.ua не підключено. Підключіть свій акаунт у Налаштуваннях.");
 
   const product: PromApiProduct = {
     name: opts.name.slice(0, 120),
@@ -200,16 +194,13 @@ export async function publishToProm(opts: {
   if (opts.categoryId) product.category_id = opts.categoryId;
   if (opts.sku) product.sku = opts.sku;
 
-  const tokenVal = getToken();
-  console.log(`[Prom] token present: ${!!tokenVal}, length: ${tokenVal.length}`);
-
   // Try minimal product first to isolate which field causes "Ожидается список товаров"
   const minProduct = { name: product.name, price: product.price, currency: product.currency, status: product.status, presence: product.presence };
   console.log(`[Prom] sending to /products/edit:`, JSON.stringify({ products: [minProduct] }));
 
   const r = await fetch(`${API_BASE}/products/edit`, {
     method: "POST",
-    headers: headers() as any,
+    headers: headers(token) as any,
     body: JSON.stringify({ products: [minProduct] }),
   });
 
@@ -243,8 +234,12 @@ export async function publishPromPost(opts: {
   photoPaths: string[];
   imageUrls: string[];
   extras?: Record<string, unknown>;
+  creds?: { accessToken: string; categoryId?: number };
 }): Promise<{ externalPostId: string }> {
-  const { product, text, photoPaths, imageUrls, extras } = opts;
+  const { product, text, photoPaths, imageUrls, extras, creds } = opts;
+  if (!creds?.accessToken) {
+    throw new Error("Prom.ua не підключено. Підключіть свій акаунт у Налаштуваннях.");
+  }
   const siteUrl = process.env.SITE_URL || "";
 
   // Parse AI JSON (handle markdown code blocks and prefix text)
@@ -267,14 +262,12 @@ export async function publishPromPost(opts: {
   const photos = buildPhotos(photoPaths, imageUrls, siteUrl);
   const attributes = buildAttributes(ai, product);
 
-  // Category: from extras (user pick) → from AI → from env default
+  // Category: from extras (per-listing pick) → from AI → from user's saved default
   const categoryId = extras?.categoryId
     ? Number(extras.categoryId)
     : typeof ai.categoryId === "number"
       ? ai.categoryId
-      : process.env.PROM_DEFAULT_CATEGORY_ID
-        ? Number(process.env.PROM_DEFAULT_CATEGORY_ID)
-        : undefined;
+      : creds.categoryId;
 
   const sku = typeof product.model === "string" && product.model ? product.model : undefined;
 
@@ -288,5 +281,6 @@ export async function publishPromPost(opts: {
     attributes,
     sku,
     quantity: 10,
+    token: creds.accessToken,
   });
 }

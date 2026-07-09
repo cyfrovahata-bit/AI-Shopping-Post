@@ -4,12 +4,23 @@ export interface FbCreds { pageId: string; accessToken: string; pageName: string
 export interface IgCreds { userId: string; accessToken: string }
 export interface TtCreds { accessToken: string; refreshToken: string; openId: string; expiresAt: number; refreshExpiresAt: number }
 export interface TelegramCreds { chatId: string }
+export interface PromCreds { accessToken: string; categoryId?: number; categoryName?: string }
+export interface OlxCreds { accessToken: string; refreshToken?: string; expiresAt?: number; categoryId?: number }
+export interface RozetkaCreds { login: string; password: string; accessToken?: string; categoryId?: number; siteId?: number }
 
 export interface SocialTokens {
   facebook?: FbCreds;
   instagram?: IgCreds;
   tiktok?: TtCreds;
   telegram?: TelegramCreds;
+  prom?: PromCreds;
+  olx?: OlxCreds;
+  rozetka?: RozetkaCreds;
+}
+
+function parseMeta(raw: unknown): Record<string, any> {
+  if (typeof raw !== "string" || !raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
 }
 
 const ENC_PREFIX = "enc:v1:";
@@ -62,6 +73,15 @@ export async function getUserTokens(db: any, userId: number): Promise<SocialToke
         expiresAt: r.expires_at || 0,
         refreshExpiresAt: r.refresh_expires_at || 0,
       };
+    } else if (r.platform === "prom" && accessToken) {
+      const meta = parseMeta(r.meta);
+      result.prom = { accessToken, categoryId: meta.categoryId, categoryName: meta.categoryName };
+    } else if (r.platform === "olx" && accessToken) {
+      const meta = parseMeta(r.meta);
+      result.olx = { accessToken, refreshToken: refreshToken || undefined, expiresAt: r.expires_at || undefined, categoryId: meta.categoryId };
+    } else if (r.platform === "rozetka" && r.login) {
+      const meta = parseMeta(r.meta);
+      result.rozetka = { login: r.login, password: refreshToken, accessToken: accessToken || undefined, categoryId: meta.categoryId, siteId: meta.siteId };
     }
   }
   return result;
@@ -69,10 +89,11 @@ export async function getUserTokens(db: any, userId: number): Promise<SocialToke
 
 export async function saveUserToken(db: any, userId: number, platform: string, data: Record<string, any>) {
   const now = new Date().toISOString();
+  const meta = data.meta !== undefined ? JSON.stringify(data.meta) : null;
   await db.run(`
     INSERT INTO user_social_tokens
-      (user_id, platform, access_token, refresh_token, page_id, page_name, open_id, instagram_user_id, instagram_username, expires_at, refresh_expires_at, created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      (user_id, platform, access_token, refresh_token, page_id, page_name, open_id, instagram_user_id, instagram_username, expires_at, refresh_expires_at, login, meta, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(user_id, platform) DO UPDATE SET
       access_token       = excluded.access_token,
       refresh_token      = excluded.refresh_token,
@@ -83,6 +104,8 @@ export async function saveUserToken(db: any, userId: number, platform: string, d
       instagram_username = excluded.instagram_username,
       expires_at         = excluded.expires_at,
       refresh_expires_at = excluded.refresh_expires_at,
+      login              = excluded.login,
+      meta               = excluded.meta,
       updated_at         = excluded.updated_at
   `, [
     userId, platform,
@@ -90,12 +113,23 @@ export async function saveUserToken(db: any, userId: number, platform: string, d
     data.page_id ?? null, data.page_name ?? null,
     data.open_id ?? null, data.instagram_user_id ?? null, data.instagram_username ?? null,
     data.expires_at ?? null, data.refresh_expires_at ?? null,
+    data.login ?? null, meta,
     now, now,
   ]);
 }
 
 export async function deleteUserToken(db: any, userId: number, platform: string) {
   await db.run("DELETE FROM user_social_tokens WHERE user_id = ? AND platform = ?", [userId, platform]);
+}
+
+// Updates just the `meta` JSON blob for an existing token row (e.g. a saved default
+// category) without touching access_token/refresh_token — saveUserToken overwrites
+// every column on conflict, so it isn't safe for a partial update like this one.
+export async function updateUserTokenMeta(db: any, userId: number, platform: string, meta: Record<string, any>) {
+  await db.run(
+    "UPDATE user_social_tokens SET meta = ?, updated_at = ? WHERE user_id = ? AND platform = ?",
+    [JSON.stringify(meta), new Date().toISOString(), userId, platform]
+  );
 }
 
 export async function getUserSocialStatus(db: any, userId: number) {
@@ -105,5 +139,9 @@ export async function getUserSocialStatus(db: any, userId: number) {
     facebookPageName: tokens.facebook?.pageName || null,
     instagram: !!tokens.instagram,
     tiktok: !!tokens.tiktok && (tokens.tiktok.expiresAt > Date.now()),
+    prom: !!tokens.prom,
+    promCategoryName: tokens.prom?.categoryName || null,
+    olx: !!tokens.olx,
+    rozetka: !!tokens.rozetka,
   };
 }

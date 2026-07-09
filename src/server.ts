@@ -29,7 +29,7 @@ import {
   writeEnvVars,
 } from "./facebook-auth";
 import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, extractOptionalAuth } from "./auth";
-import { saveUserToken, deleteUserToken, getUserSocialStatus } from "./user-tokens";
+import { saveUserToken, deleteUserToken, getUserSocialStatus, getUserTokens, updateUserTokenMeta } from "./user-tokens";
 
 dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
@@ -1654,55 +1654,59 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // ── Prom.ua setup ─────────────────────────────────────────────────────────
+  // ── Prom.ua setup (per-user API token, no dev app involved) ────────────────
 
-  app.get("/api/prom/status", async (_req: Request, res: Response) => {
+  app.get("/api/prom/status", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.prom) return res.json({ connected: false, hasToken: false });
     const { promTestConnection } = await import("./prom");
-    const hasToken = !!process.env.PROM_API_TOKEN;
-    if (!hasToken) return res.json({ connected: false, hasToken: false });
-    const result = await promTestConnection();
-    res.json({ connected: result.ok, hasToken, shopName: result.shopName, error: result.error });
+    const result = await promTestConnection(tokens.prom.accessToken);
+    res.json({ connected: result.ok, hasToken: true, shopName: result.shopName, error: result.error, categoryName: tokens.prom.categoryName || null });
   });
 
-  app.post("/api/prom/save", ...requireUser, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/prom/save", ...requireUser, async (req: Request, res: Response) => {
     const { token } = req.body as { token: string };
     if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
-    const { writeEnvVars } = require("./facebook-auth");
-    writeEnvVars({ PROM_API_TOKEN: token });
+    const { promTestConnection } = await import("./prom");
+    const result = await promTestConnection(token);
+    if (!result.ok) return res.status(400).json({ success: false, message: result.error || "Не вдалось перевірити токен" });
+    await saveUserToken(db, currentUserId(req), "prom", { access_token: token });
     res.json({ success: true });
   });
 
-  app.post("/api/prom/verify", async (_req: Request, res: Response) => {
+  app.post("/api/prom/verify", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.prom) return res.json({ ok: false, error: "Prom.ua не підключено" });
     const { promTestConnection } = await import("./prom");
-    const result = await promTestConnection();
+    const result = await promTestConnection(tokens.prom.accessToken);
     res.json(result);
   });
 
-  app.get("/api/prom/categories", async (req: Request, res: Response) => {
+  app.get("/api/prom/categories", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.prom) return res.status(400).json({ categories: [], message: "Спочатку підключи Prom.ua" });
     const { promSearchCategories } = await import("./prom");
     const q = String(req.query.q || "");
     if (!q || q.length < 2) return res.json({ categories: [] });
-    const cats = await promSearchCategories(q);
+    const cats = await promSearchCategories(tokens.prom.accessToken, q);
     res.json({ categories: cats });
   });
 
-  app.post("/api/prom/set-default-category", ...requireUser, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/prom/set-default-category", ...requireUser, async (req: Request, res: Response) => {
     const { categoryId, categoryName } = req.body as { categoryId: number; categoryName: string };
-    if (!categoryId) return res.status(400).json({ success: false, message: "categoryId required" });
-    const { writeEnvVars } = require("./facebook-auth");
-    writeEnvVars({ PROM_DEFAULT_CATEGORY_ID: String(categoryId), PROM_DEFAULT_CATEGORY_NAME: categoryName || "" });
+    await updateUserTokenMeta(db, currentUserId(req), "prom", { categoryId: categoryId || undefined, categoryName: categoryName || undefined });
     res.json({ success: true });
   });
 
-  // ── OLX ─────────────────────────────────────────────────────────────────────
+  // ── OLX (per-user OAuth; Client ID/Secret is the shared dev app) ────────────
 
-  app.get("/api/olx/status", async (_req: Request, res: Response) => {
-    const { olxTestConnection } = await import("./olx");
-    const hasToken = !!process.env.OLX_ACCESS_TOKEN;
+  app.get("/api/olx/status", ...requireUser, async (req: Request, res: Response) => {
     const hasCredentials = !!(process.env.OLX_CLIENT_ID && process.env.OLX_CLIENT_SECRET);
-    if (!hasToken) return res.json({ connected: false, hasToken: false, hasCredentials });
-    const result = await olxTestConnection();
-    res.json({ connected: result.ok, hasToken, hasCredentials, name: result.name, error: result.error });
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.olx) return res.json({ connected: false, hasToken: false, hasCredentials });
+    const { olxTestConnection } = await import("./olx");
+    const result = await olxTestConnection(tokens.olx.accessToken);
+    res.json({ connected: result.ok, hasToken: true, hasCredentials, name: result.name, error: result.error });
   });
 
   app.post("/api/olx/save-credentials", ...requireUser, requireAdmin, (req: Request, res: Response) => {
@@ -1718,50 +1722,70 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.get("/auth/olx", (_req: Request, res: Response) => {
+  app.get("/auth/olx", (req: Request, res: Response) => {
     const { getOlxAuthUrl } = require("./olx");
-    const url = getOlxAuthUrl();
-    res.redirect(url);
+    const userId = extractTokenFromQuery(req);
+    const state = Buffer.from(JSON.stringify({ userId })).toString("base64");
+    res.redirect(getOlxAuthUrl(state));
   });
 
   app.get("/auth/olx/callback", async (req: Request, res: Response) => {
-    const { code, error } = req.query as { code?: string; error?: string };
+    const { code, error, state } = req.query as { code?: string; error?: string; state?: string };
     if (error || !code) {
       return res.redirect(`/setup.html?tab=olx&olxError=${encodeURIComponent(error || "no code")}`);
     }
     try {
       const { completeOlxOAuth } = await import("./olx");
-      await completeOlxOAuth(code);
+      const tokens = await completeOlxOAuth(code);
+      try {
+        const { userId } = JSON.parse(Buffer.from(state || "", "base64").toString());
+        if (userId) {
+          await saveUserToken(db, userId, "olx", {
+            access_token: tokens.accessToken,
+            refresh_token: tokens.refreshToken,
+            expires_at: tokens.expiresAt,
+          });
+        }
+      } catch { /* no state — nothing to save per-user */ }
       res.redirect("/setup.html?tab=olx&olxSuccess=1");
     } catch (e) {
       res.redirect(`/setup.html?tab=olx&olxError=${encodeURIComponent((e as Error).message)}`);
     }
   });
 
-  // ── ROZETKA ───────────────────────────────────────────────────────────────────
+  // ── ROZETKA (per-user seller login/password, no dev app) ───────────────────
 
-  app.get("/api/rozetka/status", async (_req: Request, res: Response) => {
+  app.get("/api/rozetka/status", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.rozetka) return res.json({ connected: false, hasToken: false, hasCredentials: false });
     const { rozetkaTestConnection } = await import("./rozetka");
-    const hasToken = !!process.env.ROZETKA_ACCESS_TOKEN;
-    const hasCredentials = !!(process.env.ROZETKA_LOGIN && process.env.ROZETKA_PASSWORD);
-    if (!hasToken && !hasCredentials) return res.json({ connected: false, hasToken: false, hasCredentials: false });
-    const result = await rozetkaTestConnection();
-    res.json({ connected: result.ok, hasToken, hasCredentials, shopName: result.shopName, error: result.error });
+    const result = tokens.rozetka.accessToken
+      ? await rozetkaTestConnection(tokens.rozetka.accessToken)
+      : { ok: false, error: "Немає токена" };
+    res.json({ connected: result.ok, hasToken: !!tokens.rozetka.accessToken, hasCredentials: true, shopName: result.shopName, error: result.error });
   });
 
-  app.post("/api/rozetka/save", ...requireUser, requireAdmin, (req: Request, res: Response) => {
+  app.post("/api/rozetka/save", ...requireUser, async (req: Request, res: Response) => {
     const { login, password } = req.body as { login: string; password: string };
     if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін і пароль" });
-    const { writeEnvVars } = require("./facebook-auth");
-    writeEnvVars({ ROZETKA_LOGIN: login, ROZETKA_PASSWORD: password });
-    res.json({ success: true });
+    try {
+      const { rozetkaLogin } = await import("./rozetka");
+      const accessToken = await rozetkaLogin(login, password);
+      await saveUserToken(db, currentUserId(req), "rozetka", { access_token: accessToken, refresh_token: password, login });
+      res.json({ success: true });
+    } catch (e) {
+      res.status(400).json({ success: false, message: (e as Error).message });
+    }
   });
 
-  app.post("/api/rozetka/verify", async (_req: Request, res: Response) => {
+  app.post("/api/rozetka/verify", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.rozetka) return res.json({ ok: false, error: "Rozetka не підключено" });
     try {
       const { rozetkaLogin, rozetkaTestConnection } = await import("./rozetka");
-      await rozetkaLogin();
-      const result = await rozetkaTestConnection();
+      const accessToken = await rozetkaLogin(tokens.rozetka.login, tokens.rozetka.password);
+      await saveUserToken(db, currentUserId(req), "rozetka", { access_token: accessToken, refresh_token: tokens.rozetka.password, login: tokens.rozetka.login, meta: { categoryId: tokens.rozetka.categoryId, siteId: tokens.rozetka.siteId } });
+      const result = await rozetkaTestConnection(accessToken);
       res.json(result);
     } catch (e) {
       res.json({ ok: false, error: (e as Error).message });

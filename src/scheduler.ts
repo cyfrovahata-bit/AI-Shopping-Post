@@ -2,6 +2,7 @@ import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
 import { getUserTokens, saveUserToken } from "./user-tokens";
 import { refreshTikTokTokenRaw } from "./tiktok";
+import { refreshOlxToken } from "./olx";
 
 type Db = any;
 
@@ -110,6 +111,21 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
         // Leave the stale token in place; publish will fail with a clear TikTok API error.
       }
     }
+    // OLX tokens also expire; refresh proactively when we have a refresh token.
+    if (userTokens.olx?.refreshToken && userTokens.olx.expiresAt && userTokens.olx.expiresAt < Date.now() + 60_000) {
+      try {
+        const refreshed = await refreshOlxToken(userTokens.olx.refreshToken);
+        await saveUserToken(db, numericUserId, "olx", {
+          access_token: refreshed.accessToken,
+          refresh_token: refreshed.refreshToken,
+          expires_at: refreshed.expiresAt,
+          meta: { categoryId: userTokens.olx.categoryId },
+        });
+        userTokens.olx = { ...userTokens.olx, ...refreshed };
+      } catch {
+        // Leave the stale token in place; publish will fail with a clear OLX API error.
+      }
+    }
   }
   const now = new Date().toISOString();
 
@@ -145,6 +161,17 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
       maxAttempts,
       4000
     );
+
+    // Rozetka may have logged in with a fresh access token mid-publish — persist it
+    // so the next publish doesn't have to re-login.
+    if (numericUserId && post.platform === "rozetka" && userTokens?.rozetka && (result as any).refreshedAccessToken) {
+      await saveUserToken(db, numericUserId, "rozetka", {
+        access_token: (result as any).refreshedAccessToken,
+        refresh_token: userTokens.rozetka.password,
+        login: userTokens.rozetka.login,
+        meta: { categoryId: userTokens.rozetka.categoryId, siteId: userTokens.rozetka.siteId },
+      });
+    }
 
     const publishedAt = new Date().toISOString();
 

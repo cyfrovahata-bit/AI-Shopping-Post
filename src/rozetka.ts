@@ -7,22 +7,17 @@ import type { ProductInput } from "./platform-types";
 // API endpoint for approved partners: https://api.seller.rozetka.com.ua
 const API_BASE = "https://api.seller.rozetka.com.ua";
 
-function getToken() {
-  return process.env.ROZETKA_ACCESS_TOKEN || "";
-}
-
-function headers() {
+function headers(token: string) {
   return {
-    "Authorization": `Bearer ${getToken()}`,
+    "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
   };
 }
 
-export async function rozetkaTestConnection(): Promise<{ ok: boolean; shopName?: string; error?: string }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "ROZETKA_ACCESS_TOKEN не задано" };
+export async function rozetkaTestConnection(token: string): Promise<{ ok: boolean; shopName?: string; error?: string }> {
+  if (!token) return { ok: false, error: "Токен не задано" };
   try {
-    const r = await fetch(`${API_BASE}/sites`, { headers: headers() as any });
+    const r = await fetch(`${API_BASE}/sites`, { headers: headers(token) as any });
     const d = await r.json() as any;
     if (!r.ok) return { ok: false, error: d.message || `HTTP ${r.status}` };
     const shopName = d.data?.sites?.[0]?.title || "OK";
@@ -32,10 +27,9 @@ export async function rozetkaTestConnection(): Promise<{ ok: boolean; shopName?:
   }
 }
 
-export async function rozetkaLogin(): Promise<void> {
-  const login = process.env.ROZETKA_LOGIN || "";
-  const password = process.env.ROZETKA_PASSWORD || "";
-  if (!login || !password) throw new Error("ROZETKA_LOGIN і ROZETKA_PASSWORD не задано");
+// Logs in with the seller's own Rozetka credentials and returns a fresh access token.
+export async function rozetkaLogin(login: string, password: string): Promise<string> {
+  if (!login || !password) throw new Error("Потрібні логін і пароль від Rozetka");
 
   const r = await fetch(`${API_BASE}/sites/login`, {
     method: "POST",
@@ -46,12 +40,11 @@ export async function rozetkaLogin(): Promise<void> {
   const d = await r.json() as any;
   if (!d.data?.access_token) throw new Error(`Rozetka login failed: ${d.message || JSON.stringify(d)}`);
 
-  const { writeEnvVars } = await import("./facebook-auth");
-  writeEnvVars({ ROZETKA_ACCESS_TOKEN: d.data.access_token });
+  return d.data.access_token as string;
 }
 
 // Upload a photo from file or URL and return Rozetka photo object
-async function uploadPhoto(filePath: string): Promise<{ url: string } | null> {
+async function uploadPhoto(token: string, filePath: string): Promise<{ url: string } | null> {
   try {
     const data = fs.readFileSync(filePath);
     const ext = path.extname(filePath).slice(1) || "jpg";
@@ -64,7 +57,7 @@ async function uploadPhoto(filePath: string): Promise<{ url: string } | null> {
     const r = await fetch(`${API_BASE}/upload/item/photo`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${getToken()}`,
+        "Authorization": `Bearer ${token}`,
         ...form.getHeaders(),
       } as any,
       body: form as any,
@@ -81,11 +74,18 @@ export async function publishRozetkaPost(opts: {
   photoPaths: string[];
   imageUrls: string[];
   extras?: Record<string, unknown>;
-}): Promise<{ externalPostId: string }> {
-  const token = getToken();
+  creds?: { login: string; password: string; accessToken?: string; categoryId?: number; siteId?: number };
+}): Promise<{ externalPostId: string; refreshedAccessToken?: string }> {
+  const creds = opts.creds;
+  if (!creds?.login || !creds?.password) {
+    throw new Error("Rozetka не підключено. Підключіть свій акаунт у Налаштуваннях.");
+  }
+
+  let token = creds.accessToken || "";
+  let refreshedAccessToken: string | undefined;
   if (!token) {
-    // Try to login first
-    await rozetkaLogin();
+    token = await rozetkaLogin(creds.login, creds.password);
+    refreshedAccessToken = token;
   }
 
   const { product, text, photoPaths, imageUrls } = opts;
@@ -109,7 +109,7 @@ export async function publishRozetkaPost(opts: {
   const photos: string[] = [];
   for (const p of photoPaths.slice(0, 10)) {
     if (fs.existsSync(p)) {
-      const res = await uploadPhoto(p);
+      const res = await uploadPhoto(token, p);
       if (res?.url) photos.push(res.url);
     }
   }
@@ -123,11 +123,9 @@ export async function publishRozetkaPost(opts: {
 
   const categoryId = opts.extras?.categoryId
     ? Number(opts.extras.categoryId)
-    : process.env.ROZETKA_DEFAULT_CATEGORY_ID
-      ? Number(process.env.ROZETKA_DEFAULT_CATEGORY_ID)
-      : undefined;
+    : creds.categoryId;
 
-  const siteId = process.env.ROZETKA_SITE_ID ? Number(process.env.ROZETKA_SITE_ID) : undefined;
+  const siteId = creds.siteId;
 
   const body: Record<string, unknown> = {
     name: title,
@@ -158,13 +156,24 @@ export async function publishRozetkaPost(opts: {
 
   if (attrs.length) body.attributes = attrs;
 
-  const r = await fetch(`${API_BASE}/goods/add`, {
-    method: "POST",
-    headers: headers() as any,
-    body: JSON.stringify(body),
-  });
+  const doRequest = async (bearer: string) => {
+    const r = await fetch(`${API_BASE}/goods/add`, {
+      method: "POST",
+      headers: headers(bearer) as any,
+      body: JSON.stringify(body),
+    });
+    const data = await r.json() as any;
+    return { r, data };
+  };
 
-  const data = await r.json() as any;
+  let { r, data } = await doRequest(token);
+
+  // Access token may have gone stale — re-login once with the seller's own creds and retry.
+  if (r.status === 401) {
+    token = await rozetkaLogin(creds.login, creds.password);
+    refreshedAccessToken = token;
+    ({ r, data } = await doRequest(token));
+  }
 
   if (!r.ok || data.status === "error") {
     const msg = data.message || data.errors?.join(", ") || `HTTP ${r.status}`;
@@ -175,5 +184,5 @@ export async function publishRozetkaPost(opts: {
   const url = goodsId
     ? `https://seller.rozetka.com.ua/goods/${goodsId}`
     : "https://seller.rozetka.com.ua/goods";
-  return { externalPostId: url };
+  return { externalPostId: url, refreshedAccessToken };
 }

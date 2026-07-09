@@ -365,7 +365,8 @@ ${commonRules(product)}
 `.trim();
   },
   async publish({ product, text, photoPaths, imageUrls, extras }) {
-    return publishPromPost({ product, text, photoPaths, imageUrls, extras });
+    const creds = (extras?.userTokens as any)?.prom;
+    return publishPromPost({ product, text, photoPaths, imageUrls, extras, creds });
   },
 };
 
@@ -397,7 +398,8 @@ ${commonRules(product)}
 `.trim();
   },
   async publish({ product, text, photoPaths, imageUrls, extras }) {
-    return publishOlxPost({ product, text, photoPaths, imageUrls, extras });
+    const creds = (extras?.userTokens as any)?.olx;
+    return publishOlxPost({ product, text, photoPaths, imageUrls, extras, creds });
   },
 };
 
@@ -429,7 +431,8 @@ ${commonRules(product)}
 `.trim();
   },
   async publish({ product, text, photoPaths, imageUrls, extras }) {
-    return publishRozetkaPost({ product, text, photoPaths, imageUrls, extras });
+    const creds = (extras?.userTokens as any)?.rozetka;
+    return publishRozetkaPost({ product, text, photoPaths, imageUrls, extras, creds });
   },
 };
 

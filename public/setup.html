@@ -1472,18 +1472,19 @@ async function tiktokDisconnect() {
 // ── PROM ─────────────────────────────────────────────────────────────────
 
 async function loadPromStatus() {
-  const s = await fetch("/api/prom/status").then(r => r.json());
+  const s = await fetch("/api/prom/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("prom-status");
   if (s.connected) {
-    setDot("prom", "red");
-    box.className = "status-panel warn";
-    box.innerHTML = `<div class="status-icon">⚠️</div>
+    setDot("prom", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
       <div class="status-body">
-        <strong>Prom.ua не підключено для цього користувача</strong>
-        <div class="detail" style="color:var(--text2)">На сервері є глобальний API-токен, але він не показується як особисте підключення нового акаунта.</div>
-        <div id="prom-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
+        <strong>Prom.ua підключено</strong>
+        <div class="detail" style="color:var(--text2)">${s.categoryName ? "Категорія за замовчуванням: " + s.categoryName : "Товари публікуватимуться у твій магазин."}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="promDisconnect()">Відключити</button></div>
       </div>`;
     document.getElementById("prom-verify-btn").style.display = "none";
+    ["prom-s1","prom-s2"].forEach(markDone);
   } else if (s.hasToken) {
     setDot("prom", "red");
     box.className = "status-panel warn";
@@ -1550,7 +1551,7 @@ function promCatSearch() {
     if (q.length < 2) { box.style.display = "none"; return; }
     box.style.display = "block";
     box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Шукаємо...</div>";
-    const d = await fetch(`/api/prom/categories?q=${encodeURIComponent(q)}`).then(r => r.json());
+    const d = await fetch(`/api/prom/categories?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(r => r.json());
     if (!d.categories?.length) {
       box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Нічого не знайдено</div>";
       return;
@@ -1596,20 +1597,26 @@ async function promVerify() {
   if (!target) return;
   target.style.display = "block";
   target.textContent = "Перевіряємо з'єднання з Prom.ua...";
-  const d = await fetch("/api/prom/verify", { method: "POST" }).then(r => r.json());
+  const d = await fetch("/api/prom/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
   if (d.ok) {
     target.innerHTML = `<div class="verify-badge ok">✅ З'єднання працює! Prom.ua API активне.</div>`;
     markDone("prom-s2"); markDone("prom-s3");
-    setDot("prom", "red");
+    setDot("prom", "green");
   } else {
     target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
   }
 }
 
+async function promDisconnect() {
+  if (!confirm("Відключити Prom.ua? Токен буде видалено.")) return;
+  await fetch("/api/user/social/prom", { method: "DELETE", headers: authHeaders() });
+  await loadPromStatus();
+}
+
 // ── OLX ──────────────────────────────────────────────────────────────────
 
 async function loadOlxStatus() {
-  const s = await fetch("/api/olx/status").then(r => r.json());
+  const s = await fetch("/api/olx/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("olx-status");
   // Show correct redirect URI
   const redirectUri = `${location.origin}/auth/olx/callback`;
@@ -1617,19 +1624,19 @@ async function loadOlxStatus() {
   if (uriEl) uriEl.textContent = redirectUri;
 
   if (s.connected) {
-    setDot("olx", "red");
-    box.className = "status-panel warn";
-    box.innerHTML = `<div class="status-icon">⚠️</div>
-      <div class="status-body"><strong>OLX не підключено для цього користувача</strong>
-        <div class="detail" style="color:var(--text2)">На сервері можуть бути глобальні дані, але вони не вважаються твоїм підключенням.</div>
-        <div class="status-actions"><button class="btn ghost" onclick="olxReconnect()">Підключити OLX</button></div>
+    setDot("olx", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body"><strong>OLX підключено${s.name ? " — " + s.name : ""}</strong>
+        <div class="status-actions"><button class="btn ghost" onclick="olxDisconnect()">Відключити</button></div>
       </div>`;
+    ["olx-s1","olx-s2"].forEach(markDone);
   } else if (s.hasCredentials) {
     setDot("olx", "red");
     box.className = "status-panel warn";
     box.innerHTML = `<div class="status-icon">⚠️</div>
-      <div class="status-body"><strong>Є дані але не підключено</strong>
-        <div class="detail" style="color:var(--text2)">${s.error || "Потрібна авторизація"}</div>
+      <div class="status-body"><strong>OLX ще не підключено до твого акаунта</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || "Натисни, щоб підключити свій обліковий запис OLX."}</div>
         <div class="status-actions"><button class="btn secondary" onclick="olxReconnect()">Підключити OLX →</button></div>
       </div>`;
     markDone("olx-s1"); markDone("olx-s2");
@@ -1654,12 +1661,12 @@ async function olxSaveCredentials() {
   const btn = document.getElementById("olx-cred-save-btn");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/olx/save-credentials", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ clientId, clientSecret }),
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти і підключити OLX →";
   if (r.success) {
-    window.location.href = "/auth/olx";
+    olxReconnect();
   } else {
     const err = document.getElementById("olx-cred-err");
     err.style.display = "flex";
@@ -1667,22 +1674,33 @@ async function olxSaveCredentials() {
   }
 }
 
-function olxReconnect() { window.location.href = "/auth/olx"; }
+function olxReconnect() {
+  const token = localStorage.getItem('authToken');
+  if (!token) { window.location.replace('/login.html'); return; }
+  window.location.href = `/auth/olx?token=${encodeURIComponent(token)}`;
+}
+
+async function olxDisconnect() {
+  if (!confirm("Відключити OLX? Токен буде видалено.")) return;
+  await fetch("/api/user/social/olx", { method: "DELETE", headers: authHeaders() });
+  await loadOlxStatus();
+}
 
 // ── ROZETKA ───────────────────────────────────────────────────────────────
 
 async function loadRozetkaStatus() {
-  const s = await fetch("/api/rozetka/status").then(r => r.json());
+  const s = await fetch("/api/rozetka/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("rozetka-status");
   if (s.connected) {
-    setDot("rozetka", "red");
-    box.className = "status-panel warn";
-    box.innerHTML = `<div class="status-icon">⚠️</div>
-      <div class="status-body"><strong>Rozetka не підключено для цього користувача</strong>
-        <div class="detail" style="color:var(--text2)">На сервері можуть бути глобальні дані, але вони не вважаються твоїм підключенням.</div>
+    setDot("rozetka", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body"><strong>Rozetka підключено${s.shopName ? " — " + s.shopName : ""}</strong>
+        <div class="status-actions"><button class="btn ghost" onclick="rozetkaDisconnect()">Відключити</button></div>
         <div id="rozetka-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
       </div>`;
     document.getElementById("rozetka-verify-btn").style.display = "none";
+    ["rozetka-s1","rozetka-s2","rozetka-s3"].forEach(markDone);
   } else if (s.hasCredentials) {
     setDot("rozetka", "red");
     box.className = "status-panel warn";
@@ -1714,7 +1732,7 @@ async function rozеtkaSave() {
   const btn = document.getElementById("rozetka-save-btn");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/rozetka/save", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ login, password }),
   }).then(r => r.json());
   btn.disabled = false; btn.textContent = "Зберегти";
@@ -1736,17 +1754,23 @@ async function rozetkaVerify() {
     target.style.display = "block";
     target.textContent = "Підключаємось до Rozetka...";
   }
-  const d = await fetch("/api/rozetka/verify", { method: "POST" }).then(r => r.json());
+  const d = await fetch("/api/rozetka/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
   if (target) {
     if (d.ok) {
       target.innerHTML = `<div class="verify-badge ok">✅ Підключено! ${d.shopName ? "Магазин: " + d.shopName : ""}</div>`;
       markDone("rozetka-s2"); markDone("rozetka-s3");
-      setDot("rozetka", "red");
+      setDot("rozetka", "green");
     } else {
       target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
       setDot("rozetka", "red");
     }
   }
+  await loadRozetkaStatus();
+}
+
+async function rozetkaDisconnect() {
+  if (!confirm("Відключити Rozetka? Дані буде видалено.")) return;
+  await fetch("/api/user/social/rozetka", { method: "DELETE", headers: authHeaders() });
   await loadRozetkaStatus();
 }
 

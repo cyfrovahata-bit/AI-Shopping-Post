@@ -112,6 +112,8 @@ export async function initDb() {
   await ensureColumn(db, "products", "shopDescription", "TEXT");
   await ensureColumn(db, "products", "shopLanguage", "TEXT");
   await ensureColumn(db, "user_settings", "telegram_chat_id", "TEXT");
+  await ensureColumn(db, "user_social_tokens", "login", "TEXT");
+  await ensureColumn(db, "user_social_tokens", "meta", "TEXT");
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS product_images (

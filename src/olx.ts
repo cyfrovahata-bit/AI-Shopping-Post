@@ -6,22 +6,17 @@ import type { ProductInput } from "./platform-types";
 // OLX Ukraine API v2 — https://developer.olx.ua/api/doc
 const API_BASE = "https://www.olx.ua/api/v2";
 
-function getToken() {
-  return process.env.OLX_ACCESS_TOKEN || "";
-}
-
-function headers(contentType = "application/json") {
+function headers(token: string, contentType = "application/json") {
   return {
-    "Authorization": `Bearer ${getToken()}`,
+    "Authorization": `Bearer ${token}`,
     "Content-Type": contentType,
   };
 }
 
-export async function olxTestConnection(): Promise<{ ok: boolean; name?: string; error?: string }> {
-  const token = getToken();
-  if (!token) return { ok: false, error: "OLX_ACCESS_TOKEN не задано" };
+export async function olxTestConnection(token: string): Promise<{ ok: boolean; name?: string; error?: string }> {
+  if (!token) return { ok: false, error: "Токен не задано" };
   try {
-    const r = await fetch(`${API_BASE}/users/me`, { headers: headers() as any });
+    const r = await fetch(`${API_BASE}/users/me`, { headers: headers(token) as any });
     const d = await r.json() as any;
     if (!r.ok) return { ok: false, error: d.error?.message || `HTTP ${r.status}` };
     const name = d.data?.name || d.data?.email || "OK";
@@ -32,7 +27,7 @@ export async function olxTestConnection(): Promise<{ ok: boolean; name?: string;
 }
 
 // Upload a photo and return its id
-async function uploadPhoto(filePath: string): Promise<string | null> {
+async function uploadPhoto(token: string, filePath: string): Promise<string | null> {
   try {
     const data = fs.readFileSync(filePath);
     const ext = path.extname(filePath).slice(1) || "jpg";
@@ -45,7 +40,7 @@ async function uploadPhoto(filePath: string): Promise<string | null> {
     const r = await fetch(`${API_BASE}/images`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${getToken()}`,
+        "Authorization": `Bearer ${token}`,
         ...form.getHeaders(),
       } as any,
       body: form as any,
@@ -61,9 +56,10 @@ export async function publishOlxPost(opts: {
   photoPaths: string[];
   imageUrls: string[];
   extras?: Record<string, unknown>;
+  creds?: { accessToken: string; categoryId?: number };
 }): Promise<{ externalPostId: string }> {
-  const token = getToken();
-  if (!token) throw new Error("OLX_ACCESS_TOKEN не задано у .env");
+  const token = opts.creds?.accessToken;
+  if (!token) throw new Error("OLX не підключено. Підключіть свій акаунт у Налаштуваннях.");
 
   const { product, text, photoPaths } = opts;
 
@@ -85,18 +81,16 @@ export async function publishOlxPost(opts: {
   const imageIds: string[] = [];
   for (const p of photoPaths.slice(0, 8)) {
     if (fs.existsSync(p)) {
-      const id = await uploadPhoto(p);
+      const id = await uploadPhoto(token, p);
       if (id) imageIds.push(id);
     }
   }
 
   // Build params — OLX requires category-specific params
-  // Default category: women's clothing
+  // Default category: women's clothing, unless the user saved their own default
   const categoryId = opts.extras?.categoryId
     ? Number(opts.extras.categoryId)
-    : process.env.OLX_DEFAULT_CATEGORY_ID
-      ? Number(process.env.OLX_DEFAULT_CATEGORY_ID)
-      : 1397; // Жіночий одяг
+    : opts.creds?.categoryId || 1397; // Жіночий одяг
 
   const params: Record<string, unknown>[] = [];
 
@@ -123,7 +117,7 @@ export async function publishOlxPost(opts: {
 
   const r = await fetch(`${API_BASE}/adverts`, {
     method: "POST",
-    headers: headers() as any,
+    headers: headers(token) as any,
     body: JSON.stringify(body),
   });
 
@@ -139,7 +133,7 @@ export async function publishOlxPost(opts: {
   return { externalPostId: url };
 }
 
-export function getOlxAuthUrl(): string {
+export function getOlxAuthUrl(state: string): string {
   const clientId = process.env.OLX_CLIENT_ID || "";
   const redirectUri = process.env.OLX_REDIRECT_URI || `${process.env.SITE_URL || "http://localhost:3000"}/auth/olx/callback`;
   const params = new URLSearchParams({
@@ -147,12 +141,18 @@ export function getOlxAuthUrl(): string {
     response_type: "code",
     scope: "read write",
     redirect_uri: redirectUri,
-    state: "olx-auth",
+    state,
   });
   return `https://www.olx.ua/oauth/authorize?${params}`;
 }
 
-export async function completeOlxOAuth(code: string): Promise<void> {
+export interface OlxTokens {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+export async function completeOlxOAuth(code: string): Promise<OlxTokens> {
   const clientId = process.env.OLX_CLIENT_ID || "";
   const clientSecret = process.env.OLX_CLIENT_SECRET || "";
   const redirectUri = process.env.OLX_REDIRECT_URI || `${process.env.SITE_URL || "http://localhost:3000"}/auth/olx/callback`;
@@ -172,9 +172,35 @@ export async function completeOlxOAuth(code: string): Promise<void> {
   const d = await r.json() as any;
   if (!d.access_token) throw new Error(`OLX OAuth failed: ${JSON.stringify(d)}`);
 
-  const { writeEnvVars } = await import("./facebook-auth");
-  const vars: Record<string, string> = { OLX_ACCESS_TOKEN: d.access_token };
-  if (d.refresh_token) vars.OLX_REFRESH_TOKEN = d.refresh_token;
-  if (d.expires_in) vars.OLX_TOKEN_EXPIRES = String(Date.now() + d.expires_in * 1000);
-  writeEnvVars(vars);
+  return {
+    accessToken: d.access_token,
+    refreshToken: d.refresh_token || undefined,
+    expiresAt: d.expires_in ? Date.now() + d.expires_in * 1000 : undefined,
+  };
+}
+
+// Refreshes a per-user OLX token using the shared dev-app client_id/secret.
+export async function refreshOlxToken(refreshToken: string): Promise<OlxTokens> {
+  const clientId = process.env.OLX_CLIENT_ID || "";
+  const clientSecret = process.env.OLX_CLIENT_SECRET || "";
+
+  const r = await fetch("https://www.olx.ua/api/open/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" } as any,
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }).toString(),
+  });
+
+  const d = await r.json() as any;
+  if (!d.access_token) throw new Error(`OLX refresh failed: ${JSON.stringify(d)}`);
+
+  return {
+    accessToken: d.access_token,
+    refreshToken: d.refresh_token || refreshToken,
+    expiresAt: d.expires_in ? Date.now() + d.expires_in * 1000 : undefined,
+  };
 }
