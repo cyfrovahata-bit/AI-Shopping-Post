@@ -1211,7 +1211,7 @@ async function fbSelectPage(pageId, pageName, btn) {
     body: JSON.stringify({ pageId }),
   }).then(r => r.json());
   if (d.success) {
-    showGlobalAlert(`✅ Сторінку «${pageName}» підключено! ${d.instagram ? "Instagram @"+(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram не знайдено — прив'яжи Business акаунт."}`, "ok");
+    showGlobalAlert(`✅ Сторінку «${pageName}» підключено! ${d.instagram ? "Instagram @"+(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram — ні: " + describeIgReason(d.instagramError)}`, d.instagram ? "ok" : "warn");
     document.getElementById("fb-page-chooser").style.display = "none";
     await loadFbUserStatus();
     await loadIgUserStatus();
@@ -1780,14 +1780,15 @@ async function rozetkaDisconnect() {
 function handleUrlParams() {
   const p = new URLSearchParams(window.location.search);
   if (p.get("fbSuccess")) {
+    const igName = decodeURIComponent(p.get("igName")||"");
+    const igReason = decodeURIComponent(p.get("igReason")||"");
     if (window.opener && !window.opener.closed) {
-      try { window.opener.postMessage({ type: "fbDone" }, "*"); } catch(e) {}
+      try { window.opener.postMessage({ type: "fbDone", igName, igReason }, "*"); } catch(e) {}
       window.close();
       return;
     }
     const pageName = decodeURIComponent(p.get("pageName")||"");
-    const igName = decodeURIComponent(p.get("igName")||"");
-    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igName ? "Instagram @"+igName+" теж підключено!" : "Instagram не знайдено — прив'яжи Business акаунт."}`, "ok");
+    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igName ? "Instagram @"+igName+" теж підключено!" : "Instagram не підключено: " + describeIgReason(igReason)}`, "ok");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
   if (p.get("needsPageId")) {
@@ -1885,7 +1886,9 @@ async function submitManualPageUrl() {
       await loadFbStatus();
       const pageName = data.page?.name && data.page.name !== data.page?.id ? data.page.name : `ID ${pageId}`;
       const verified = data.page?.name && data.page.name !== data.page?.id;
-      const igMsg = data.instagram?.username ? ` Instagram @${data.instagram.username} теж підключено!` : "";
+      const igMsg = data.instagram?.username
+        ? ` Instagram @${data.instagram.username} теж підключено!`
+        : ` Instagram — ні: ${describeIgReason(data.instagramError)}`;
       if (verified) {
         showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}».${igMsg}`, "ok");
       } else {
@@ -1905,10 +1908,22 @@ async function submitManualPageId() {
   return submitManualPageUrl();
 }
 
+function describeIgReason(reason) {
+  if (!reason || reason === "no_ig_linked") {
+    return "до обраної Facebook Сторінки не прив'язано жоден Instagram Business/Creator акаунт. Прив'яжи його в Meta Business Suite → Налаштування сторінки → Пов'язані акаунти → Instagram, потім підключи Facebook ще раз.";
+  }
+  return reason;
+}
+
 window.addEventListener("message", (e) => {
   if (e.data?.type === "fbDone") {
     loadFbUserStatus(); loadFbStatus();
-    showGlobalAlert("✅ <b>Facebook підключено!</b>", "ok");
+    if (e.data.igName) {
+      loadIgUserStatus();
+      showGlobalAlert(`✅ <b>Facebook підключено!</b> Instagram @${e.data.igName} теж підключено!`, "ok");
+    } else {
+      showGlobalAlert(`⚠️ <b>Facebook підключено</b>, але Instagram — ні: ${describeIgReason(e.data.igReason)}`, "warn");
+    }
   }
   if (e.data?.type === "fbNeedsPageId") {
     loadFbUserStatus(); loadFbStatus();

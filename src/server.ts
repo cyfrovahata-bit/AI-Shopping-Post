@@ -1164,7 +1164,9 @@ async function startServer() {
           try {
             const result = await selectFacebookPageManual(pageId, userToken, false);
             await savePerUser(result);
-            const igPart = result.instagram ? `&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
+            const igPart = result.instagram
+              ? `&igName=${encodeURIComponent(result.instagram.username || "")}`
+              : `&igReason=${encodeURIComponent(result.instagramError || "no_ig_linked")}`;
             return res.redirect(`/setup.html?fbSuccess=1&pageName=${encodeURIComponent(result.page.name)}${igPart}`);
           } catch { /* fall through to manual entry */ }
         }
@@ -1174,7 +1176,9 @@ async function startServer() {
       if (pages.length === 1) {
         const result = await selectFacebookPage(pages[0].id, userToken, false);
         await savePerUser(result);
-        const igPart = result.instagram ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}` : "";
+        const igPart = result.instagram
+          ? `&igId=${result.instagram.id}&igName=${encodeURIComponent(result.instagram.username || "")}`
+          : `&igReason=${encodeURIComponent(result.instagramError || "no_ig_linked")}`;
         return res.redirect(`/setup.html?fbSuccess=1&pageId=${pages[0].id}&pageName=${encodeURIComponent(pages[0].name)}${igPart}`);
       }
 

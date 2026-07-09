@@ -128,18 +128,26 @@ async function getPages(userToken: string) {
   return data.data as { id: string; name: string; access_token: string }[];
 }
 
-// Get Instagram Business Account linked to a Page
+// Get Instagram Business Account linked to a Page. Throws with Meta's own error
+// message on an actual API failure, so callers can tell that apart from the
+// (very common) case of the Page simply not having any Instagram account linked.
 async function getInstagramAccount(pageId: string, pageToken: string) {
   const res = await fetch(
     `${GRAPH}/${pageId}?fields=instagram_business_account&access_token=${pageToken}`
   );
   const data: any = await res.json();
+  if (data.error) {
+    throw new Error(data.error.message || "Facebook API error while checking Instagram link");
+  }
   const igId = data.instagram_business_account?.id as string | undefined;
   if (!igId) return null;
 
   // Get username
   const igRes = await fetch(`${GRAPH}/${igId}?fields=username&access_token=${pageToken}`);
   const igData: any = await igRes.json();
+  if (igData.error) {
+    throw new Error(igData.error.message || "Facebook API error while reading Instagram username");
+  }
   return { id: igId, username: igData.username as string | undefined };
 }
 
@@ -193,7 +201,14 @@ export async function selectFacebookPageManual(pageId: string, userTokenOverride
     }
   } catch { /* network error — proceed with user-provided data */ }
 
-  const ig = await getInstagramAccount(resolvedId, pageToken).catch(() => null);
+  let ig: { id: string; username?: string } | null = null;
+  let instagramError: string | undefined;
+  try {
+    ig = await getInstagramAccount(resolvedId, pageToken);
+  } catch (e) {
+    instagramError = e instanceof Error ? e.message : String(e);
+    console.error("[Facebook] Instagram lookup failed:", instagramError);
+  }
 
   const vars: Record<string, string> = {
     FACEBOOK_PAGE_ID: resolvedId,
@@ -207,7 +222,7 @@ export async function selectFacebookPageManual(pageId: string, userTokenOverride
   }
 
   if (saveGlobal) writeEnvVars(vars);
-  return { page: { id: resolvedId, name: resolvedName || resolvedId, token: pageToken }, instagram: ig };
+  return { page: { id: resolvedId, name: resolvedName || resolvedId, token: pageToken }, instagram: ig, instagramError };
 }
 
 // User selects a page → save page token + instagram info
@@ -220,7 +235,14 @@ export async function selectFacebookPage(pageId: string, userTokenOverride?: str
   const page = pages.find(p => p.id === pageId);
   if (!page) throw new Error(`Сторінка ${pageId} не знайдена`);
 
-  const ig = await getInstagramAccount(page.id, page.access_token).catch(() => null);
+  let ig: { id: string; username?: string } | null = null;
+  let instagramError: string | undefined;
+  try {
+    ig = await getInstagramAccount(page.id, page.access_token);
+  } catch (e) {
+    instagramError = e instanceof Error ? e.message : String(e);
+    console.error("[Facebook] Instagram lookup failed:", instagramError);
+  }
 
   const vars: Record<string, string> = {
     FACEBOOK_PAGE_ID: page.id,
@@ -235,7 +257,7 @@ export async function selectFacebookPage(pageId: string, userTokenOverride?: str
   }
 
   if (saveGlobal) writeEnvVars(vars);
-  return { page: { id: page.id, name: page.name, token: page.access_token }, instagram: ig };
+  return { page: { id: page.id, name: page.name, token: page.access_token }, instagram: ig, instagramError };
 }
 
 // Check current token status
