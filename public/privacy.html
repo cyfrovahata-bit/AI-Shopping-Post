@@ -10,17 +10,53 @@
   <main class="page-body" style="max-width:820px;margin:0 auto;line-height:1.65">
     <section class="card">
       <h1>Privacy Policy</h1>
-      <p>Postly helps users create product posts and publish them to connected social media and marketplace accounts.</p>
-      <h2>Data We Collect</h2>
-      <p>We store account email, product content, uploaded media, generated post text, publishing statuses, shop settings, and social access tokens after the user connects a platform.</p>
-      <h2>How We Use Data</h2>
-      <p>We use this data only to provide the service: generate content, save drafts, publish posts, schedule posts, and show connection status.</p>
-      <h2>Social Platform Tokens</h2>
-      <p>Facebook, Instagram, and other social tokens are stored per user and are used only to publish content or verify account connection. Tokens are not sold or shared with third parties.</p>
-      <h2>Data Deletion</h2>
-      <p>Users can request deletion on the <a href="/data-deletion.html">Data Deletion</a> page or delete their account from the app when available.</p>
-      <h2>Contact</h2>
-      <p>Contact: <a href="mailto:info@cyfrovahata.com.ua">info@cyfrovahata.com.ua</a></p>
+      <p style="color:var(--text2)">Last updated: 2026-07-09</p>
+
+      <p>Postly ("Postly", "we", "us") is a web application that helps sellers create product posts with AI and publish them to social media accounts and marketplaces that the seller connects. Postly is currently operated by an individual entrepreneur (sole proprietorship registration in progress); see Contact below for the operator's current contact details.</p>
+
+      <h2>1. What Data We Collect</h2>
+      <ul>
+        <li><b>Account data:</b> email address and a hashed password when you register.</li>
+        <li><b>Product content:</b> titles, prices, sizes, colors, materials, descriptions, and photos/videos you upload to create a post.</li>
+        <li><b>Generated content:</b> AI-generated post text and publishing status/history for each platform.</li>
+        <li><b>Shop settings:</b> shop name, description, language, and links you choose to save.</li>
+        <li><b>Connected-platform tokens:</b> OAuth access/refresh tokens (or, for platforms without OAuth, an API token or seller login) for each social/marketplace account you explicitly connect. These are encrypted at rest and are never visible to other users.</li>
+      </ul>
+
+      <h2>2. How We Use Data</h2>
+      <p>We use this data solely to operate Postly: generating post drafts with AI, storing drafts, publishing or scheduling posts to the accounts you connected, and showing you connection/publishing status. We do not use your data for advertising, and we do not sell or rent it to third parties.</p>
+
+      <h2>3. Connected Platforms and Third-Party APIs</h2>
+      <p>When you connect a platform, Postly uses that platform's official API, on your explicit request, only to publish the content you created:</p>
+      <ul>
+        <li><b>Facebook &amp; Instagram (Meta Graph API):</b> publishes photo/video posts to the Facebook Page and linked Instagram Business account you authorize. We request only the permissions needed to read your Page/Instagram account and publish posts.</li>
+        <li><b>TikTok (Content Posting API):</b> publishes videos to the TikTok account you authorize via TikTok Login Kit. We do not access or store any TikTok content beyond what is needed to publish your post and show connection status.</li>
+        <li><b>Telegram (Bot API):</b> sends your generated post to the Telegram chat/channel ID you provide, using Postly's bot.</li>
+        <li><b>Prom.ua, OLX.ua, Rozetka:</b> publish your product listing to the seller account you connect (via your own API token, OAuth authorization, or seller login, depending on the platform).</li>
+        <li><b>OpenAI API:</b> product details and photos you submit are sent to OpenAI to generate post text. OpenAI processes this data as our sub-processor and does not use it to train models on our behalf beyond standard API terms.</li>
+      </ul>
+      <p>We only publish content when you press "publish" or set a schedule — Postly never posts on your behalf without an explicit action from you.</p>
+
+      <h2>4. Data Retention</h2>
+      <p>We retain your account, product, and connected-platform data for as long as your account exists. If you disconnect a platform, its access token is deleted immediately. If you delete your account, all associated products, posts, settings, and tokens are permanently deleted (see Data Deletion below).</p>
+
+      <h2>5. Data Security</h2>
+      <p>Passwords are hashed with bcrypt. Platform access/refresh tokens are encrypted at rest with AES-256-GCM. Access to your data is scoped to your account only.</p>
+
+      <h2>6. Your Rights</h2>
+      <p>You can disconnect any connected platform at any time from Settings, edit or delete your products/posts, and request full account deletion at any time (see Data Deletion). You may also contact us to request a copy of the data we hold about you.</p>
+
+      <h2>7. Children's Privacy</h2>
+      <p>Postly is a business tool intended for sellers and is not directed at children under 16. We do not knowingly collect data from children.</p>
+
+      <h2>8. Data Deletion</h2>
+      <p>See the <a href="/data-deletion.html">Data Deletion</a> page for how to delete your account and all associated data, including for platforms that require a deletion callback (e.g. Meta).</p>
+
+      <h2>9. Changes to This Policy</h2>
+      <p>We may update this policy as Postly adds new platforms or features. Material changes will be reflected by updating the date at the top of this page.</p>
+
+      <h2>10. Contact</h2>
+      <p>Questions about this policy or your data: <a href="mailto:info@cyfrovahata.com.ua">info@cyfrovahata.com.ua</a></p>
     </section>
     <footer class="legal-footer">
       <a href="/">App</a>

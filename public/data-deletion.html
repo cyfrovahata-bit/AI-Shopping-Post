@@ -10,12 +10,18 @@
   <main class="page-body" style="max-width:820px;margin:0 auto;line-height:1.65">
     <section class="card">
       <h1>Data Deletion</h1>
-      <p>You can request deletion of your Postly account data, products, generated posts, uploaded media references, and connected social tokens.</p>
+      <p>You can request deletion of your Postly account and all associated data at any time: your account, uploaded products and media references, generated posts and publishing history, shop settings, and every connected-platform token (Facebook, Instagram, TikTok, Telegram, Prom.ua, OLX.ua, Rozetka).</p>
+
       <h2>How To Request Deletion</h2>
-      <p>Send an email to <a href="mailto:info@cyfrovahata.com.ua">info@cyfrovahata.com.ua</a> from the email address used in your Postly account with the subject “Data Deletion Request”.</p>
-      <p>If you are logged in, you can also use the account deletion API from the app. Deleted accounts cannot be restored.</p>
-      <h2>Facebook Data Deletion Callback</h2>
-      <p>Meta can call <code>/api/data-deletion</code>. The endpoint returns a confirmation code and this page URL.</p>
+      <p><b>Option 1 — In the app:</b> log in, open Settings, and use the account deletion action. This immediately and permanently deletes your account and all related data.</p>
+      <p><b>Option 2 — By email:</b> send an email to <a href="mailto:info@cyfrovahata.com.ua">info@cyfrovahata.com.ua</a> from the email address registered on your Postly account, with the subject "Data Deletion Request". We will confirm deletion within a reasonable time.</p>
+      <p>Deleted accounts and data cannot be restored.</p>
+
+      <h2>Facebook / Meta Data Deletion Callback</h2>
+      <p>Meta may call our automated deletion callback at <code>/api/data-deletion</code> when a user removes Postly from their Facebook account. The endpoint returns a confirmation code and a link back to this page, as required by Meta's Platform Terms.</p>
+
+      <h2>TikTok Data Deletion</h2>
+      <p>If you disconnect Postly from your TikTok account (via TikTok's app settings or Postly's Settings page), Postly deletes the associated TikTok access/refresh tokens immediately. You can also request full account deletion as described above.</p>
     </section>
     <footer class="legal-footer">
       <a href="/">App</a>
