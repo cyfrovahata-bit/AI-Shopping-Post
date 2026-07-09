@@ -1,8 +1,8 @@
 import fetch from "node-fetch";
 
-// Instagram API with Instagram Login uses graph.instagram.com (not graph.facebook.com)
-// instagram_basic was deprecated Dec 2024; new approach requires Instagram Login OAuth
-const GRAPH_API = "https://graph.instagram.com/v25.0";
+// Instagram is connected via Facebook OAuth (Page's linked Instagram Business Account),
+// so publishing must go through graph.facebook.com using that Facebook user/page token.
+const GRAPH_API = "https://graph.facebook.com/v25.0";
 
 export function cleanInstagramCaption(text: string) {
   return text
@@ -88,8 +88,8 @@ export async function publishInstagramPost(
   imageUrls: string[] = [],
   creds?: { userId: string; accessToken: string }
 ) {
-  const userId = creds?.userId || process.env.INSTAGRAM_USER_ID;
-  const accessToken = creds?.accessToken || process.env.INSTAGRAM_ACCESS_TOKEN;
+  const userId = creds?.userId;
+  const accessToken = creds?.accessToken;
 
   if (!userId || !accessToken) {
     throw new Error(

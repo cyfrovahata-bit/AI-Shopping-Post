@@ -67,10 +67,10 @@ export async function sendTelegramMediaGroup(
   creds?: TelegramCredentials
 ) {
   const botToken = process.env.BOT_TOKEN;
-  const chatId = creds?.chatId || process.env.TELEGRAM_CHAT_ID;
+  const chatId = creds?.chatId;
 
   if (!botToken || !chatId) {
-    throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
+    throw new Error("Telegram не підключено. Вкажи chat_id свого каналу в Налаштуваннях.");
   }
 
   const photos = photoPaths.filter(Boolean).slice(0, 10);
@@ -128,10 +128,10 @@ export async function sendTelegramMixedMediaGroup(
   creds?: TelegramCredentials
 ) {
   const botToken = process.env.BOT_TOKEN;
-  const chatId = creds?.chatId || process.env.TELEGRAM_CHAT_ID;
+  const chatId = creds?.chatId;
 
   if (!botToken || !chatId) {
-    throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
+    throw new Error("Telegram не підключено. Вкажи chat_id свого каналу в Налаштуваннях.");
   }
 
   const photos = photoPaths.filter(Boolean).slice(0, 9);
@@ -190,11 +190,11 @@ export async function sendTelegramPost(
   creds?: TelegramCredentials
 ) {
   const botToken = process.env.BOT_TOKEN;
-  const chatId = creds?.chatId || process.env.TELEGRAM_CHAT_ID;
+  const chatId = creds?.chatId;
   const replyMarkup = getReplyMarkup();
 
   if (!botToken || !chatId) {
-    throw new Error("Немає BOT_TOKEN або TELEGRAM_CHAT_ID в .env");
+    throw new Error("Telegram не підключено. Вкажи chat_id свого каналу в Налаштуваннях.");
   }
 
   const allPhotos = photoPaths?.length

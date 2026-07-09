@@ -39,11 +39,11 @@ export async function publishFacebookPost(
   imageUrls: string[] = [],
   creds?: { pageId: string; accessToken: string }
 ) {
-  const pageId = creds?.pageId || process.env.FACEBOOK_PAGE_ID;
-  const rawToken = creds?.accessToken || process.env.FACEBOOK_ACCESS_TOKEN;
+  const pageId = creds?.pageId;
+  const rawToken = creds?.accessToken;
 
   if (!pageId || !rawToken) {
-    throw new Error("Facebook credentials missing");
+    throw new Error("Facebook не підключено. Підключіть свій акаунт у Налаштуваннях.");
   }
 
   // Ensure we use a page token (not user token) for all page publishing calls

@@ -473,67 +473,17 @@
         <!-- Admin setup accordion -->
         <div class="card" style="margin-top:12px">
           <button onclick="toggleIgSetup()" style="width:100%;display:flex;justify-content:space-between;align-items:center;background:none;border:none;padding:20px;cursor:pointer;color:var(--text)">
-            <span style="font-size:14px;font-weight:700;color:var(--text2)">⚙️ Налаштування Instagram App — тільки для адміністратора</span>
+            <span style="font-size:14px;font-weight:700;color:var(--text2)">⚙️ Публічна адреса сайту — тільки для адміністратора</span>
             <span id="ig-setup-chevron" style="font-size:18px;color:var(--text2)">▾</span>
           </button>
           <div id="ig-setup-body" style="display:none;border-top:1px solid var(--border)">
-            <div style="padding:16px 20px 4px">
-              <div id="ig-status" class="status-panel">
-                <div class="status-icon">⏳</div>
-                <div class="status-body"><strong>Перевіряємо...</strong></div>
-              </div>
-              <div class="info-box" style="margin-top:12px;border-color:var(--accent)">
-                <b>Це налаштовується один раз для всієї платформи.</b> Зазвичай Instagram і Facebook використовують <b>один і той самий</b> Meta-додаток — App ID та Secret ті ж самі. Якщо Facebook вже налаштовано — просто введи ті самі значення.
-              </div>
-            </div>
             <div class="steps">
 
               <div class="step">
-                <div class="step-left"><div class="step-num active" id="ig-s1">1</div><div class="step-line"></div></div>
-                <div class="step-body">
-                  <div class="step-title">🔗 Додай Redirect URI для Instagram</div>
-                  <div class="step-desc">Окремий Redirect URI для Instagram OAuth — навіть якщо використовуєш той самий Meta-додаток.</div>
-                  <div class="info-box" style="margin-bottom:10px">
-                    <ol>
-                      <li><a href="https://developers.facebook.com/apps/" target="_blank" style="color:var(--accent)">developers.facebook.com/apps</a> → твій додаток → <b>«Instagram»</b> → <b>«API setup with Instagram login»</b></li>
-                      <li>Крок 4 → <b>«Set up»</b> → поле <b>«Valid OAuth Redirect URIs»</b> → встав адресу → <b>Save Changes</b></li>
-                    </ol>
-                    <div class="copy-row" style="margin:8px 0 0">
-                      <span id="ig-redirect-uri" style="word-break:break-all;font-size:12px"></span>
-                      <button class="btn ghost" onclick="copy('ig-redirect-uri', this)">Скопіювати</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="step">
-                <div class="step-left"><div class="step-num" id="ig-s2">2</div><div class="step-line"></div></div>
-                <div class="step-body">
-                  <div class="step-title">🔑 App ID і App Secret</div>
-                  <div class="step-desc">Ті самі що й для Facebook (App Settings → Basic). Якщо вже введено вище — просто скопіюй звідти.</div>
-                  <div class="grid-2">
-                    <div class="field">
-                      <label>App ID</label>
-                      <input type="text" id="ig-app-id" placeholder="1234567890123456" inputmode="numeric" />
-                    </div>
-                    <div class="field">
-                      <label>App Secret</label>
-                      <div class="field-row">
-                        <input type="password" id="ig-app-secret" placeholder="abc1234def..." style="flex:1" />
-                        <button class="btn ghost" onclick="togglePassVis('ig-app-secret')" style="flex-shrink:0">👁</button>
-                      </div>
-                    </div>
-                  </div>
-                  <button class="btn secondary" id="ig-save-app-btn" onclick="igSaveApp()">Зберегти</button>
-                  <div id="ig-save-app-result" style="font-size:12px;margin-top:6px"></div>
-                </div>
-              </div>
-
-              <div class="step">
-                <div class="step-left"><div class="step-num" id="ig-s3">3</div><div class="step-line"></div></div>
+                <div class="step-left"><div class="step-num" id="ig-s3">1</div><div class="step-line"></div></div>
                 <div class="step-body">
                   <div class="step-title">🌐 Публічна адреса сайту</div>
-                  <div class="step-desc">Instagram завантажує фото за URL — потрібна HTTPS-адреса. На Railway вже є автоматично.</div>
+                  <div class="step-desc">Instagram/Facebook завантажують фото та відео за URL — потрібна публічна HTTPS-адреса. На Railway вже є автоматично.</div>
                   <div class="field" style="margin-top:8px">
                     <label>SITE_URL</label>
                     <div class="field-row">
@@ -1032,16 +982,11 @@ async function loadSavedCreds() {
     // Pre-fill App ID (not secret — security)
     const fbId = document.getElementById("fb-app-id");
     if (fbId && d.appId) { fbId.value = d.appId; }
-    const igId = document.getElementById("ig-app-id");
-    if (igId && d.igAppId) { igId.value = d.igAppId; }
     // Show placeholder hint for secret if already saved
     const fbSecret = document.getElementById("fb-app-secret");
     if (fbSecret && d.hasSecret && !fbSecret.value) { fbSecret.placeholder = "••••••••••••••••••••••••••••••• (збережено)"; }
-    const igSecret = document.getElementById("ig-app-secret");
-    if (igSecret && d.hasIgSecret && !igSecret.value) { igSecret.placeholder = "••••••••••••••••••••••••••••••• (збережено)"; }
     // Enable connect button if creds already saved
     if (d.appId && d.hasSecret) { fbCredsChanged(); document.getElementById("fb-save-btn").disabled = false; }
-    if (d.igAppId && d.hasIgSecret) markDone("ig-s2");
   } catch(e) {}
 }
 
@@ -1153,73 +1098,11 @@ async function fbDisconnect() {
   showGlobalAlert("Facebook відключено. Виконай кроки щоб підключити знову.", "warn");
 }
 
-async function loadIgStatus() {
-  const s = await fetch("/api/instagram/status").then(r => r.json());
-  const box = document.getElementById("ig-status");
-  if (s.connected) {
-    box.className = "status-panel ok";
-    const daysInfo = s.daysLeft != null ? ` · токен діє ще <b>${s.daysLeft} днів</b>` : "";
-    box.innerHTML = `<div class="status-icon">✅</div>
-      <div class="status-body">
-        <strong>Instagram підключено</strong>
-        <div class="detail">Акаунт: <b>@${s.igUsername || s.igId}</b>${daysInfo}</div>
-        <div class="status-actions" style="margin-top:8px">
-          <button class="btn ghost" onclick="igDisconnect()">Відключити</button>
-        </div>
-      </div>`;
-    ["ig-s1","ig-s2","ig-s3","ig-s4"].forEach(markDone);
-  } else {
-    box.className = "status-panel error";
-    box.innerHTML = `<div class="status-icon">❌</div>
-      <div class="status-body"><strong>Instagram не підключено</strong>
-      <div class="detail" style="color:var(--text2)">Виконай кроки нижче щоб підключити.</div></div>`;
-  }
-  return s;
-}
-
-async function igDisconnect() {
-  if (!confirm("Відключити Instagram? Токен буде видалено.")) return;
-  await fetch("/api/instagram/disconnect", { method: "POST", headers: authHeaders() });
-  await loadIgStatus();
-}
-
 function igConnect() {
   fbConnect();
 }
 
-async function igSaveApp() {
-  const appId = document.getElementById("ig-app-id").value.trim();
-  const appSecret = document.getElementById("ig-app-secret").value.trim();
-  const result = document.getElementById("ig-save-app-result");
-  if (!appId || !appSecret) { result.innerHTML = '<span style="color:var(--err)">Введи обидва поля</span>'; return; }
-  const btn = document.getElementById("ig-save-app-btn");
-  btn.disabled = true; btn.textContent = "Зберігаємо...";
-  const r = await fetch("/api/instagram/save-app", {
-    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ appId, appSecret }),
-  }).then(r => r.json());
-  btn.disabled = false; btn.textContent = "Зберегти App ID/Secret";
-  if (r.success) {
-    result.innerHTML = '<span style="color:var(--ok)">✓ Збережено! Тепер натисни «Підключити через Facebook».</span>';
-    markDone("ig-s2");
-  } else {
-    result.innerHTML = `<span style="color:var(--err)">${r.message}</span>`;
-  }
-}
-
-async function loadIgAppCreds() {
-  const r = await fetch("/api/facebook/status").then(r => r.json());
-  // Check if Instagram-specific app creds are saved (via env)
-  const igIdEl = document.getElementById("ig-app-id");
-  const igSecEl = document.getElementById("ig-app-secret");
-  if (!igIdEl || !igSecEl) return;
-  // Pre-fill hint only — actual values not returned for security
-  const env = await fetch("/api/settings/shop").then(r => r.json()).catch(() => ({}));
-  // If we at least have FB app id saved, show a hint
-  if (r.connected) markDone("ig-s2");
-}
-
-function updateIgStatus() { /* legacy no-op — use loadIgStatus() */ }
+function updateIgStatus() { /* legacy no-op — use loadIgUserStatus() */ }
 
 function fbCredsChanged() {
   const appId = document.getElementById("fb-app-id").value.trim();
@@ -1419,8 +1302,6 @@ async function loadSiteUrl() {
   const base = url && url.startsWith("https://") ? url.replace(/\/$/, "") : window.location.origin;
   const fbEl = document.getElementById("fb-redirect-uri");
   if (fbEl) fbEl.textContent = base + "/auth/facebook/callback";
-  const igEl = document.getElementById("ig-redirect-uri");
-  if (igEl) igEl.textContent = base + "/auth/instagram/callback";
 }
 
 async function igSaveSiteUrl() {
@@ -2013,7 +1894,7 @@ window.addEventListener("message", (e) => {
     showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${e.data.msg}`, "err");
   }
   if (e.data?.type === "igDone") {
-    loadIgUserStatus(); loadIgStatus();
+    loadIgUserStatus();
     showGlobalAlert(`✅ <b>Instagram підключено!</b>${e.data.username ? " @" + e.data.username : ""}`, "ok");
     switchTab("ig");
   }
@@ -2155,7 +2036,7 @@ async function tiktokUserDisconnect() {
   handleUrlParams();
   await Promise.all([
     loadFbUserStatus(), loadIgUserStatus(), loadTiktokUserStatus(),
-    loadFbStatus(), loadIgStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(),
+    loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(),
     loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(),
     loadShopInfo(), loadSavedCreds(),
   ]);

@@ -81,7 +81,10 @@ export async function exchangeTikTokCode(code: string, redirectUri: string): Pro
   return tokens;
 }
 
-async function refreshTikTokToken(refreshToken: string): Promise<TikTokTokens> {
+// Calls TikTok's refresh endpoint using the shared dev-app client key/secret.
+// Does not persist anywhere — caller decides where the refreshed tokens go
+// (global .env for the admin/global connection, or per-user DB row).
+export async function refreshTikTokTokenRaw(refreshToken: string): Promise<TikTokTokens> {
   const res = await fetch(`${API}/oauth/token/`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -97,13 +100,17 @@ async function refreshTikTokToken(refreshToken: string): Promise<TikTokTokens> {
     throw new Error(`TikTok refresh error: ${JSON.stringify(data)}`);
   }
   const now = Date.now();
-  const tokens: TikTokTokens = {
+  return {
     accessToken: data.access_token as string,
     refreshToken: data.refresh_token as string,
     openId: data.open_id as string,
     expiresAt: now + (Number(data.expires_in) || 86400) * 1000,
     refreshExpiresAt: now + (Number(data.refresh_expires_in) || 2592000) * 1000,
   };
+}
+
+async function refreshTikTokToken(refreshToken: string): Promise<TikTokTokens> {
+  const tokens = await refreshTikTokTokenRaw(refreshToken);
   saveTokens(tokens);
   return tokens;
 }
@@ -139,10 +146,26 @@ async function tiktokFetch(endpoint: string, body: Record<string, unknown>, retr
   return (data as any)?.data ?? data;
 }
 
-async function pollPublishStatus(publishId: string, maxWaitMs = 120_000): Promise<string> {
+async function fetchPublishStatus(publishId: string, forcedTokens?: TikTokTokens): Promise<Record<string, unknown>> {
+  if (forcedTokens) {
+    const res = await fetch(`${API}/post/publish/status/fetch/`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${forcedTokens.accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+      body: JSON.stringify({ publish_id: publishId }),
+    });
+    const data = await res.json() as any;
+    if (data?.error && data.error.code !== "ok") {
+      throw new Error(`TikTok API error: ${JSON.stringify(data.error)}`);
+    }
+    return data?.data ?? data;
+  }
+  return tiktokFetch("/post/publish/status/fetch/", { publish_id: publishId });
+}
+
+async function pollPublishStatus(publishId: string, forcedTokens?: TikTokTokens, maxWaitMs = 120_000): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    const d = await tiktokFetch("/post/publish/status/fetch/", { publish_id: publishId });
+    const d = await fetchPublishStatus(publishId, forcedTokens);
     const status = (d as any)?.status;
     console.log(`[TikTok] publish status: ${status}`);
     if (status === "PUBLISH_COMPLETE") return publishId;
@@ -154,39 +177,21 @@ async function pollPublishStatus(publishId: string, maxWaitMs = 120_000): Promis
 
 export async function publishTikTokVideo(videoUrl: string, caption: string, forcedTokens?: TikTokTokens): Promise<string> {
   console.log("[TikTok] Publishing video via PULL_FROM_URL");
-  if (forcedTokens) {
-    // Use provided tokens directly (per-user flow)
-    const res = await fetch(`${API}/post/publish/video/init/`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${forcedTokens.accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
-      body: JSON.stringify({
-        post_info: { title: caption.slice(0, 2200), privacy_level: "SELF_ONLY", disable_duet: false, disable_comment: false, disable_stitch: false, video_cover_timestamp_ms: 1000 },
-        source_info: { source: "PULL_FROM_URL", video_url: videoUrl },
-      }),
-    });
-    const data = await res.json() as any;
-    const publishId = data?.data?.publish_id as string;
-    if (!publishId) throw new Error(`TikTok: no publish_id: ${JSON.stringify(data)}`);
-    return pollPublishStatus(publishId);
+  if (!forcedTokens) {
+    throw new Error("TikTok не підключено. Підключіть свій акаунт у Налаштуваннях.");
   }
-  const d = await tiktokFetch("/post/publish/video/init/", {
-    post_info: {
-      title: caption.slice(0, 2200),
-      privacy_level: "SELF_ONLY",  // sandbox-safe; change to PUBLIC_TO_EVERYONE after approval
-      disable_duet: false,
-      disable_comment: false,
-      disable_stitch: false,
-      video_cover_timestamp_ms: 1000,
-    },
-    source_info: {
-      source: "PULL_FROM_URL",
-      video_url: videoUrl,
-    },
+  const res = await fetch(`${API}/post/publish/video/init/`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${forcedTokens.accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
+    body: JSON.stringify({
+      post_info: { title: caption.slice(0, 2200), privacy_level: "SELF_ONLY", disable_duet: false, disable_comment: false, disable_stitch: false, video_cover_timestamp_ms: 1000 },
+      source_info: { source: "PULL_FROM_URL", video_url: videoUrl },
+    }),
   });
-  const publishId = (d as any)?.publish_id as string;
-  if (!publishId) throw new Error(`TikTok: no publish_id in response: ${JSON.stringify(d)}`);
-  console.log(`[TikTok] publish_id: ${publishId}`);
-  return pollPublishStatus(publishId);
+  const data = await res.json() as any;
+  const publishId = data?.data?.publish_id as string;
+  if (!publishId) throw new Error(`TikTok: no publish_id: ${JSON.stringify(data)}`);
+  return pollPublishStatus(publishId, forcedTokens);
 }
 
 export async function publishTikTokPhotos(photoPaths: string[], caption: string): Promise<string> {

@@ -28,31 +28,12 @@ import {
   readEnv,
   writeEnvVars,
 } from "./facebook-auth";
-import {
-  buildInstagramAuthUrl,
-  completeInstagramOAuth,
-  getInstagramStatus,
-} from "./instagram-auth";
 import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, extractOptionalAuth } from "./auth";
 import { saveUserToken, deleteUserToken, getUserSocialStatus } from "./user-tokens";
 
 dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
 if (fs.existsSync("/data/.env")) dotenv.config({ path: "/data/.env", override: true });
-
-// Auto-fix: if INSTAGRAM_ACCESS_TOKEN is the page token, replace with user token
-// (NPE Facebook pages require user token for Instagram Graph API)
-{
-  const env = readEnv();
-  const userToken = env.FACEBOOK_USER_TOKEN || process.env.FACEBOOK_USER_TOKEN || "";
-  const pageToken = env.FACEBOOK_ACCESS_TOKEN || process.env.FACEBOOK_ACCESS_TOKEN || "";
-  const igToken = env.INSTAGRAM_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN || "";
-  const igId = env.INSTAGRAM_USER_ID || process.env.INSTAGRAM_USER_ID || "";
-  if (igId && userToken && igToken === pageToken && pageToken) {
-    writeEnvVars({ INSTAGRAM_ACCESS_TOKEN: userToken });
-    console.log("[startup] Auto-fixed INSTAGRAM_ACCESS_TOKEN to user token for NPE page");
-  }
-}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1119,10 +1100,6 @@ async function startServer() {
     return `${getBaseUrl(req)}/auth/facebook/callback`;
   }
 
-  function getIgRedirectUri(req: Request): string {
-    return `${getBaseUrl(req)}/auth/instagram/callback`;
-  }
-
   // GET /auth/facebook — start OAuth (requires ?appId=&appSecret= or they're in .env)
   app.get("/auth/facebook", (req: Request, res: Response) => {
     const appId = (req.query.appId as string) || process.env.FACEBOOK_APP_ID || "";
@@ -1473,65 +1450,6 @@ async function startServer() {
     } catch (e) {
       res.json({ ok: false, reason: e instanceof Error ? e.message : String(e) });
     }
-  });
-
-  // ── Instagram Login OAuth (new flow — does not require Facebook Page) ──────
-
-  app.post("/api/instagram/save-app", ...requireUser, requireAdmin, (req: Request, res: Response) => {
-    const { appId, appSecret } = req.body as { appId?: string; appSecret?: string };
-    if (!appId || !appSecret) return res.json({ success: false, message: "Потрібні appId та appSecret" });
-    writeEnvVars({ INSTAGRAM_APP_ID: appId.trim(), INSTAGRAM_APP_SECRET: appSecret.trim() });
-    res.json({ success: true });
-  });
-
-  app.get("/auth/instagram", (req: Request, res: Response) => {
-    const env = readEnv();
-    const appId = (req.query.appId as string)
-      || env.INSTAGRAM_APP_ID || process.env.INSTAGRAM_APP_ID
-      || env.FACEBOOK_APP_ID || process.env.FACEBOOK_APP_ID || "";
-    const appSecret = (req.query.appSecret as string)
-      || env.INSTAGRAM_APP_SECRET || process.env.INSTAGRAM_APP_SECRET
-      || env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
-    if (!appId || !appSecret) return res.redirect("/setup.html?igError=" + encodeURIComponent("Спочатку збережи Instagram App ID та App Secret"));
-    const redirectUri = getIgRedirectUri(req);
-    const userId = extractTokenFromQuery(req);
-    const state = Buffer.from(JSON.stringify({ appId, redirectUri, userId })).toString("base64");
-    res.redirect(buildInstagramAuthUrl({ appId, appSecret, redirectUri }, state));
-  });
-
-  app.get("/auth/instagram/callback", async (req: Request, res: Response) => {
-    const code = req.query.code as string;
-    const state = req.query.state as string;
-    const error = req.query.error as string;
-    if (error) return res.redirect(`/setup.html?igError=${encodeURIComponent(req.query.error_description as string || error)}`);
-    if (!code || !state) return res.redirect("/setup.html?igError=missing_code");
-    try {
-      const { appId, redirectUri: savedRedirectUri, userId: stateUserId } = JSON.parse(Buffer.from(state, "base64").toString());
-      const appSecret = readEnv().INSTAGRAM_APP_SECRET || process.env.INSTAGRAM_APP_SECRET || readEnv().FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
-      const redirectUri = savedRedirectUri || getIgRedirectUri(req);
-      const ig = await completeInstagramOAuth({ appId, appSecret, redirectUri }, code);
-      if (stateUserId) {
-        await saveUserToken(db, stateUserId, "instagram", {
-          access_token: ig.accessToken,
-          instagram_user_id: ig.id,
-          instagram_username: ig.username || "",
-          expires_at: ig.expiresAt,
-        });
-      }
-      res.redirect(`/setup.html?igSuccess=1&igUsername=${encodeURIComponent(ig.username || ig.id)}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.redirect(`/setup.html?igError=${encodeURIComponent(msg)}`);
-    }
-  });
-
-  app.get("/api/instagram/status", (_req: Request, res: Response) => {
-    res.json(getInstagramStatus());
-  });
-
-  app.post("/api/instagram/disconnect", ...requireUser, requireAdmin, (_req: Request, res: Response) => {
-    writeEnvVars({ INSTAGRAM_USER_ID: "", INSTAGRAM_USERNAME: "", INSTAGRAM_ACCESS_TOKEN: "", INSTAGRAM_TOKEN_EXPIRES: "" });
-    res.json({ success: true });
   });
 
   // ── Shop settings ──────────────────────────────────────────────────────────

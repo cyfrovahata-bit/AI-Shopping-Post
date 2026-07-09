@@ -1,6 +1,7 @@
 import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
-import { getUserTokens } from "./user-tokens";
+import { getUserTokens, saveUserToken } from "./user-tokens";
+import { refreshTikTokTokenRaw } from "./tiktok";
 
 type Db = any;
 
@@ -91,6 +92,23 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
     const settings = await db.get(`SELECT telegram_chat_id FROM user_settings WHERE user_id = ?`, [numericUserId]);
     if (settings?.telegram_chat_id) {
       userTokens.telegram = { chatId: settings.telegram_chat_id };
+    }
+    // TikTok access tokens are short-lived; refresh proactively so scheduled/queued
+    // posts don't fail with a stale token for accounts connected a while ago.
+    if (userTokens.tiktok && userTokens.tiktok.expiresAt < Date.now() + 60_000) {
+      try {
+        const refreshed = await refreshTikTokTokenRaw(userTokens.tiktok.refreshToken);
+        await saveUserToken(db, numericUserId, "tiktok", {
+          access_token: refreshed.accessToken,
+          refresh_token: refreshed.refreshToken,
+          open_id: refreshed.openId,
+          expires_at: refreshed.expiresAt,
+          refresh_expires_at: refreshed.refreshExpiresAt,
+        });
+        userTokens.tiktok = refreshed;
+      } catch {
+        // Leave the stale token in place; publish will fail with a clear TikTok API error.
+      }
     }
   }
   const now = new Date().toISOString();
