@@ -1,19 +1,6 @@
 import fetch from "node-fetch";
-import fs from "fs";
-import path from "path";
 
 const API_BASE = "https://my.prom.ua/api/v1";
-
-interface PromPhoto {
-  url?: string;
-  base64_data?: string;
-  base64_name?: string;
-}
-
-interface PromAttribute {
-  name: string;
-  value: string;
-}
 
 interface PromApiProduct {
   name: string;
@@ -21,13 +8,13 @@ interface PromApiProduct {
   price: number;
   currency: string;
   keywords: string;
-  category_id?: number;
-  photos: PromPhoto[];
+  category?: { id: number };
+  main_image?: string;
+  images?: { url: string }[];
   status: string;
   presence: string;
   sku?: string;
-  quantity?: number;
-  attributes?: PromAttribute[];
+  quantity_in_stock?: number;
 }
 
 function headers(token: string) {
@@ -65,92 +52,40 @@ export async function promSearchCategories(token: string, query: string): Promis
   } catch { return []; }
 }
 
-function fileToBase64(filePath: string): { base64_data: string; base64_name: string } | null {
-  try {
-    const data = fs.readFileSync(filePath);
-    const ext = path.extname(filePath).slice(1).toLowerCase() || "jpg";
-    return {
-      base64_data: `data:image/${ext};base64,${data.toString("base64")}`,
-      base64_name: path.basename(filePath),
-    };
-  } catch { return null; }
-}
-
-function buildPhotos(photoPaths: string[], imageUrls: string[], siteUrl: string): PromPhoto[] {
-  const photos: PromPhoto[] = [];
-  for (let i = 0; i < Math.min(photoPaths.length, 10); i++) {
-    const localPath = photoPaths[i];
-    if (localPath && fs.existsSync(localPath)) {
-      const b64 = fileToBase64(localPath);
-      if (b64) { photos.push(b64); continue; }
-    }
-    if (siteUrl && imageUrls[i]) {
-      const url = imageUrls[i].startsWith("http")
-        ? imageUrls[i]
-        : `${siteUrl.replace(/\/$/, "")}${imageUrls[i]}`;
-      photos.push({ url });
-    }
-  }
-  if (!photos.length) {
-    for (const url of imageUrls.slice(0, 10)) {
-      const full = siteUrl && !url.startsWith("http") ? `${siteUrl.replace(/\/$/, "")}${url}` : url;
-      if (full.startsWith("http")) photos.push({ url: full });
-    }
+// Prom's product API only accepts public image URLs (main_image + images[].url) —
+// there is no raw file/base64 upload on this endpoint, so a public SITE_URL is required.
+function buildPhotos(imageUrls: string[], siteUrl: string): string[] {
+  const photos: string[] = [];
+  for (const url of imageUrls.slice(0, 10)) {
+    if (!url) continue;
+    const full = url.startsWith("http")
+      ? url
+      : siteUrl ? `${siteUrl.replace(/\/$/, "")}${url}` : "";
+    if (full.startsWith("http")) photos.push(full);
   }
   return photos;
 }
 
-// Build attributes array from product data
-function buildAttributes(ai: Record<string, unknown>, product: import("./platform-types").ProductInput): PromAttribute[] {
-  const attrs: PromAttribute[] = [];
-
-  // Colors
-  const colors: string[] = Array.isArray(ai.colors)
-    ? (ai.colors as string[])
-    : product.colors ? product.colors.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
-  if (colors.length) attrs.push({ name: "Колір", value: colors.join(", ") });
-
-  // Sizes
-  const sizes: string[] = Array.isArray(ai.sizes)
-    ? (ai.sizes as string[])
-    : product.sizes ? product.sizes.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
-  if (sizes.length) attrs.push({ name: "Розмір", value: sizes.join(", ") });
-
-  // Material/fabric
-  const materials: string[] = Array.isArray(ai.materials)
-    ? (ai.materials as string[])
-    : product.fabric ? product.fabric.split(/[,;]/).map(s => s.trim()).filter(Boolean) : [];
-  if (materials.length) attrs.push({ name: "Матеріал", value: materials.join(", ") });
-
-  // Season
-  const seasons: string[] = Array.isArray(ai.seasons) ? (ai.seasons as string[]) : [];
-  if (seasons.length) attrs.push({ name: "Сезон", value: seasons.join(", ") });
-
-  // Style
-  const styles: string[] = Array.isArray(ai.style) ? (ai.style as string[]) : [];
-  if (styles.length) attrs.push({ name: "Стиль", value: styles.join(", ") });
-
-  // Country
-  attrs.push({ name: "Країна виробник", value: "Україна" });
-
-  return attrs;
-}
-
-// Build rich HTML description
+// Build rich HTML description — Prom's product API has no generic "attributes" field,
+// so colors/materials/sizes/season/style are folded into the description text instead.
 function buildDescription(ai: Record<string, unknown>, product: import("./platform-types").ProductInput): string {
   const base = typeof ai.description === "string" ? ai.description : product.description || product.title;
 
   const sizes = Array.isArray(ai.sizes) ? (ai.sizes as string[]) : product.sizes?.split(/[,;]/).map(s => s.trim()) || [];
   const materials = Array.isArray(ai.materials) ? (ai.materials as string[]) : product.fabric ? [product.fabric] : [];
   const colors = Array.isArray(ai.colors) ? (ai.colors as string[]) : product.colors?.split(/[,;]/).map(s => s.trim()) || [];
+  const seasons = Array.isArray(ai.seasons) ? (ai.seasons as string[]) : [];
+  const styles = Array.isArray(ai.style) ? (ai.style as string[]) : [];
 
   let html = `<p>${base}</p>`;
 
-  if (materials.length || colors.length || sizes.length) {
+  if (materials.length || colors.length || sizes.length || seasons.length || styles.length) {
     html += `<br><p><strong>Характеристики:</strong></p><ul>`;
     if (colors.length)    html += `<li>Колір: ${colors.join(", ")}</li>`;
     if (materials.length) html += `<li>Матеріал: ${materials.join(", ")}</li>`;
     if (sizes.length)     html += `<li>Розміри в наявності: ${sizes.join(", ")}</li>`;
+    if (seasons.length)   html += `<li>Сезон: ${seasons.join(", ")}</li>`;
+    if (styles.length)    html += `<li>Стиль: ${styles.join(", ")}</li>`;
     html += `</ul>`;
   }
 
@@ -169,8 +104,7 @@ export async function publishToProm(opts: {
   price: number;
   keywords: string;
   categoryId?: number;
-  photos: PromPhoto[];
-  attributes: PromAttribute[];
+  photos: string[];
   sku?: string;
   quantity: number;
   token: string;
@@ -180,19 +114,19 @@ export async function publishToProm(opts: {
   if (!opts.photos.length) throw new Error("Prom.ua вимагає хоча б одне фото товару.");
 
   const product: PromApiProduct = {
-    name: opts.name.slice(0, 120),
+    name: opts.name.slice(0, 110),
     description: opts.description,
     price: opts.price,
     currency: "UAH",
     keywords: opts.keywords,
-    photos: opts.photos,
+    main_image: opts.photos[0],
+    images: opts.photos.slice(1).map(url => ({ url })),
     status: "on_display",
     presence: "available",
-    quantity: opts.quantity,
-    attributes: opts.attributes,
+    quantity_in_stock: opts.quantity,
   };
 
-  if (opts.categoryId) product.category_id = opts.categoryId;
+  if (opts.categoryId) product.category = { id: opts.categoryId };
   if (opts.sku) product.sku = opts.sku;
 
   console.log(`[Prom] sending to /products/edit:`, JSON.stringify({ products: [product] }));
@@ -235,7 +169,7 @@ export async function publishPromPost(opts: {
   extras?: Record<string, unknown>;
   creds?: { accessToken: string; categoryId?: number };
 }): Promise<{ externalPostId: string }> {
-  const { product, text, photoPaths, imageUrls, extras, creds } = opts;
+  const { product, text, imageUrls, extras, creds } = opts;
   if (!creds?.accessToken) {
     throw new Error("Prom.ua не підключено. Підключіть свій акаунт у Налаштуваннях.");
   }
@@ -258,8 +192,7 @@ export async function publishPromPost(opts: {
     : [product.title, product.colors, product.fabric].filter(Boolean).join(", ");
 
   const price = parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0;
-  const photos = buildPhotos(photoPaths, imageUrls, siteUrl);
-  const attributes = buildAttributes(ai, product);
+  const photos = buildPhotos(imageUrls, siteUrl);
 
   // Category: from extras (per-listing pick) → from AI → from user's saved default
   const categoryId = extras?.categoryId
@@ -274,10 +207,9 @@ export async function publishPromPost(opts: {
     name: title,
     description,
     price,
-    keywords,
+    keywords: keywords.slice(0, 1024),
     categoryId,
     photos,
-    attributes,
     sku,
     quantity: 10,
     token: creds.accessToken,
