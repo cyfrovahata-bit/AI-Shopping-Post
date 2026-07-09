@@ -1,5 +1,7 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import fs from "fs";
+import path from "path";
 
 async function ensureColumn(
   db: any,
@@ -17,6 +19,11 @@ async function ensureColumn(
 
 export async function initDb() {
   const dbPath = process.env.DB_PATH || "./database.sqlite";
+
+  const dbDir = path.dirname(dbPath);
+  if (dbDir && dbDir !== ".") {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
 
   const db = await open({
     filename: dbPath,
