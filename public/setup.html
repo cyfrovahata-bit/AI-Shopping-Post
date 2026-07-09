@@ -1229,7 +1229,7 @@ async function loadTgStatus() {
     const el = document.getElementById("tg-bot-name");
     if (el) el.textContent = "@" + s.username;
   }
-  if (s.connected && s.hasChatId) {
+  if (s.connected && s.hasChatId && s.chatReachable) {
     setDot("tg", "green");
     box.className = "status-panel ok";
     box.innerHTML = `<div class="status-icon">✅</div>
@@ -1242,6 +1242,20 @@ async function loadTgStatus() {
         </div>
       </div>`;
     ["tg-s1","tg-s2"].forEach(markDone);
+  } else if (s.connected && s.hasChatId) {
+    setDot("tg", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body">
+        <strong>Канал не знайдено</strong>
+        <div class="detail">Бот: <b>@${s.username}</b></div>
+        <div class="detail">Вказано: <b>${s.chatId}</b></div>
+        <div class="detail" style="color:var(--text2)">${s.chatError || "Telegram не бачить цей чат"} — перевір, що бот доданий адміністратором саме до цього каналу, і що ID/username вказано правильно (з @).</div>
+        <div class="status-actions" style="margin-top:8px">
+          <button class="btn ghost" onclick="tgDisconnect()">Змінити канал</button>
+        </div>
+      </div>`;
+    markDone("tg-s1");
   } else if (s.connected) {
     setDot("tg", "yellow");
     box.className = "status-panel warn";

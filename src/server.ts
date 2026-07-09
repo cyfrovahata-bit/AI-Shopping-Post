@@ -1504,8 +1504,30 @@ async function startServer() {
     try {
       const r = await fetch(`https://api.telegram.org/bot${token}/getMe`);
       const d = await r.json() as any;
-      if (d.ok) res.json({ connected: true, username: d.result.username, firstName: d.result.first_name, hasChatId: !!chatId, chatId });
-      else res.json({ connected: false, hasChatId: !!chatId, error: d.description });
+      if (!d.ok) return res.json({ connected: false, hasChatId: !!chatId, error: d.description });
+
+      let chatReachable = false;
+      let chatError: string | undefined;
+      if (chatId) {
+        try {
+          const cr = await fetch(`https://api.telegram.org/bot${token}/getChat?chat_id=${encodeURIComponent(chatId)}`);
+          const cd = await cr.json() as any;
+          chatReachable = !!cd.ok;
+          if (!cd.ok) chatError = cd.description;
+        } catch (e) {
+          chatError = e instanceof Error ? e.message : String(e);
+        }
+      }
+
+      res.json({
+        connected: true,
+        username: d.result.username,
+        firstName: d.result.first_name,
+        hasChatId: !!chatId,
+        chatId,
+        chatReachable,
+        chatError,
+      });
     } catch (e) { res.json({ connected: false, hasChatId: !!chatId }); }
   });
 
