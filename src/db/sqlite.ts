@@ -18,7 +18,12 @@ async function ensureColumn(
 }
 
 export async function initDb() {
-  const dbPath = process.env.DB_PATH || "./database.sqlite";
+  let dbPath = process.env.DB_PATH || "./database.sqlite";
+
+  const stat = fs.existsSync(dbPath) ? fs.statSync(dbPath) : null;
+  if (stat && stat.isDirectory()) {
+    dbPath = path.join(dbPath, "database.sqlite");
+  }
 
   const dbDir = path.dirname(dbPath);
   if (dbDir && dbDir !== ".") {
