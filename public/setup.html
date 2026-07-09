@@ -208,7 +208,15 @@
         <div class="card" style="margin-top:12px">
           <div style="padding:20px">
             <div style="font-size:15px;font-weight:700;margin-bottom:6px">📘 Підключи свою Facebook Сторінку</div>
-            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Натисни кнопку — відкриється вікно Facebook де ти вибереш свою Бізнес-сторінку і підтвердиш доступи. Токен збережеться на твій акаунт. <b>Facebook Сторінку потрібно створити заздалегідь</b> — особистий профіль не підходить.</div>
+            <div class="info-box" style="margin-bottom:14px">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li><b>Facebook Сторінка</b> (Page) — обов'язково. Особистий профіль не підходить, Facebook API постить лише від імені Сторінок.</li>
+                <li>Ти маєш бути <b>адміністратором</b> цієї Сторінки.</li>
+                <li>Немає Сторінки? Створи безкоштовно: <a href="https://www.facebook.com/pages/create" target="_blank" style="color:var(--accent)">facebook.com/pages/create</a></li>
+              </ul>
+            </div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Натисни кнопку — відкриється вікно Facebook де ти вибереш свою Сторінку і підтвердиш доступи. Токен збережеться на твій акаунт.</div>
             <div id="fb-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
               <span class="aico">⚠️</span><span>Адміністратор ще не налаштував Meta App. Розгорни налаштування нижче.</span>
             </div>
@@ -389,6 +397,15 @@
 
         <!-- Setup — 2 steps only -->
         <div class="card" style="margin-top:12px">
+          <div style="padding:16px 20px 0">
+            <div class="info-box">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Власний Telegram-<b>канал або група</b> — обов'язково (особисті повідомлення бот надсилати не може).</li>
+                <li>Бот доданий адміністратором з правом <b>"Публікація повідомлень"</b>.</li>
+              </ul>
+            </div>
+          </div>
           <div class="steps">
 
             <div class="step">
@@ -459,7 +476,15 @@
         <div class="card" style="margin-top:12px">
           <div style="padding:20px">
             <div style="font-size:15px;font-weight:700;margin-bottom:6px">📸 Підключи Instagram через Facebook</div>
-            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Потрібен <b>Business або Creator</b> акаунт Instagram, прив'язаний до Facebook Сторінки. Натисни кнопку — відкриється Facebook-підключення, після вибору сторінки Instagram підтягнеться автоматично.</div>
+            <div class="info-box" style="margin-bottom:14px">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Instagram акаунт типу <b>Business або Creator</b> — звичайний особистий акаунт не підійде (безкоштовно перемикається в самому Instagram: Налаштування → Акаунт → Перейти на професійний акаунт).</li>
+                <li>Цей Instagram акаунт має бути <b>прив'язаний до твоєї Facebook Сторінки</b>: Meta Business Suite → Налаштування Сторінки → Пов'язані акаунти → Instagram.</li>
+                <li>Facebook (вкладка ліворуч) має бути підключений — Instagram підтягується через нього автоматично.</li>
+              </ul>
+            </div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Натисни кнопку — відкриється Facebook-підключення, після вибору сторінки Instagram підтягнеться автоматично.</div>
             <div id="ig-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
               <span class="aico">⚠️</span><span>Адміністратор ще не налаштував Instagram App. Розгорни налаштування нижче.</span>
             </div>
@@ -519,6 +544,14 @@
         <div class="card" style="margin-top:12px">
           <div style="padding:20px">
             <div style="font-size:15px;font-weight:700;margin-bottom:6px">🎵 Підключи свій TikTok</div>
+            <div class="info-box" style="margin-bottom:14px">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Звичайний TikTok акаунт підходить для підключення. Для магазину рекомендується (не обов'язково) перевести акаунт у <b>TikTok Business Account</b> — безкоштовно, в TikTok: Налаштування → Керування акаунтом → Перейти на бізнес-акаунт. Це дає доступ до статистики й позначення рекламного контенту.</li>
+                <li>Акаунт не повинен обмежувати перегляд відео (не встановлюй режим "Приватний акаунт").</li>
+                <li><b>Поки застосунок на модерації TikTok</b> — підключитись і публікувати можуть тільки акаунти, додані розробником як тестові в TikTok Developer Portal. Після проходження модерації обмеження знімається.</li>
+              </ul>
+            </div>
             <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Натисни кнопку — відкриється вікно авторизації TikTok. Підтвердь доступ для акаунту магазину. У тестовому режимі пости будуть видимі тільки тобі (налаштування приватності SELF_ONLY).</div>
             <div id="tiktok-app-missing-warn" class="alert alert-warn" style="display:none;margin-bottom:12px">
               <span class="aico">⚠️</span><span>Адміністратор ще не налаштував TikTok App. Розгорни налаштування нижче.</span>
@@ -674,6 +707,16 @@
             <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
 
+          <div style="padding:16px 20px 0">
+            <div class="info-box">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Акаунт продавця на Prom.ua з <b>відкритим магазином</b> (модерація магазину має бути пройдена).</li>
+                <li>Особистий API-токен зі свого кабінету (кожен користувач вставляє свій власний — це не спільний застосунок, як у Facebook/TikTok).</li>
+              </ul>
+            </div>
+          </div>
+
           <div class="steps">
 
             <div class="step">
@@ -780,6 +823,16 @@
             <div class="status-body"><strong>Перевіряємо...</strong></div>
           </div>
 
+          <div style="padding:16px 20px 0">
+            <div class="info-box">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Звичайний акаунт на OLX.ua — достатньо натиснути "Підключити OLX" вище і авторизуватись.</li>
+                <li>Кроки нижче (реєстрація застосунку, Client ID/Secret) виконує <b>тільки адміністратор сервісу один раз</b> — звичайним користувачам їх заповнювати не треба.</li>
+              </ul>
+            </div>
+          </div>
+
           <div class="steps">
 
             <div class="step">
@@ -841,6 +894,16 @@
           <div id="rozetka-status" class="status-panel">
             <div class="status-icon">⏳</div>
             <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+
+          <div style="padding:16px 20px 0">
+            <div class="info-box">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li><b>Підписаний партнерський договір з Rozetka</b> — без нього API недоступне, це вимога самої Rozetka, не Postly.</li>
+                <li>Логін і пароль продавця від <b>seller.rozetka.com.ua</b> (кожен користувач вводить свої власні).</li>
+              </ul>
+            </div>
           </div>
 
           <div class="steps">
