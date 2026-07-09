@@ -177,6 +177,7 @@ export async function publishToProm(opts: {
 }): Promise<{ externalPostId: string }> {
   const token = opts.token;
   if (!token) throw new Error("Prom.ua не підключено. Підключіть свій акаунт у Налаштуваннях.");
+  if (!opts.photos.length) throw new Error("Prom.ua вимагає хоча б одне фото товару.");
 
   const product: PromApiProduct = {
     name: opts.name.slice(0, 120),
@@ -194,14 +195,12 @@ export async function publishToProm(opts: {
   if (opts.categoryId) product.category_id = opts.categoryId;
   if (opts.sku) product.sku = opts.sku;
 
-  // Try minimal product first to isolate which field causes "Ожидается список товаров"
-  const minProduct = { name: product.name, price: product.price, currency: product.currency, status: product.status, presence: product.presence };
-  console.log(`[Prom] sending to /products/edit:`, JSON.stringify({ products: [minProduct] }));
+  console.log(`[Prom] sending to /products/edit:`, JSON.stringify({ products: [product] }));
 
   const r = await fetch(`${API_BASE}/products/edit`, {
     method: "POST",
     headers: headers(token) as any,
-    body: JSON.stringify({ products: [minProduct] }),
+    body: JSON.stringify({ products: [product] }),
   });
 
   const rawText = await r.text();
