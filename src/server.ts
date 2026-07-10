@@ -9,7 +9,6 @@ import {
   generatePlatformPost,
   generatePostsForPlatforms,
   generateVideoTexts,
-  extractProductFields,
 } from "./ai-generator";
 import { initDb } from "./db/sqlite";
 import { editTelegramPost } from "./telegram";
@@ -551,25 +550,6 @@ async function startServer() {
               ? `Помилка розбору відповіді AI: ${raw.slice(0, 120)}`
               : raw || "Помилка генерації попереднього перегляду";
         return res.status(500).json({ success: false, message: friendly });
-      }
-    }
-  );
-
-  app.post(
-    "/api/posts/extract-fields",
-    ...requireUser,
-    async (req: Request, res: Response) => {
-      try {
-        const description = toText(req.body.description);
-        if (!description) {
-          return res.json({ success: true, fields: {} });
-        }
-        const fields = await extractProductFields(description);
-        res.json({ success: true, fields });
-      } catch (error) {
-        console.error("Extract fields error:", error);
-        const raw = error instanceof Error ? error.message : String(error);
-        res.status(500).json({ success: false, message: raw || "Не вдалося розібрати опис" });
       }
     }
   );

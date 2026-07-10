@@ -24,7 +24,6 @@ const uploadBox           = document.getElementById("uploadBox");
 const photoGallery        = document.getElementById("photoGallery");
 const videoPreview        = document.getElementById("videoPreview");
 const previewBtn          = document.getElementById("previewBtn");
-const autoPreviewCheckbox = document.getElementById("autoPreviewCheckbox");
 const publishSelectedBtn  = document.getElementById("publishSelectedBtn");
 const scheduleSelectedBtn = document.getElementById("scheduleSelectedBtn");
 const newProductBtn       = document.getElementById("newProductBtn");
@@ -595,59 +594,6 @@ async function savePost(post, status, scheduledAt = null) {
   Object.assign(post, data.platformPost);
 }
 
-function applyExtractedSizes(sizeSystemLabel, sizes) {
-  const keyMap = { "Міжнародний": "int", "Європейський": "eur", "Українські": "ukr" };
-  const key = keyMap[sizeSystemLabel];
-  if (!key || !Array.isArray(sizes) || !sizes.length) return;
-
-  const tabBtn = document.querySelector(`.size-tab[onclick*="'${key}'"]`);
-  if (tabBtn) setSizeTab(tabBtn, key);
-
-  const grid = document.getElementById("size-grid-" + key);
-  if (!grid) return;
-  grid.querySelectorAll(".size-btn.selected").forEach(b => b.classList.remove("selected"));
-  sizes.forEach(sz => {
-    const btn = [...grid.querySelectorAll(".size-btn")].find(b => b.dataset.size === sz);
-    if (btn) btn.classList.add("selected");
-  });
-  updateSizesHidden();
-}
-
-function applyExtractedFields(fields) {
-  if (!fields) return;
-  const setIfPresent = (name, value) => {
-    if (value === undefined || value === null || value === "") return;
-    const el = form.querySelector(`[name="${name}"]`);
-    if (el) el.value = value;
-  };
-  setIfPresent("title", fields.title);
-  setIfPresent("price", fields.price);
-  setIfPresent("dropPrice", fields.dropPrice);
-  setIfPresent("colors", fields.colors);
-  setIfPresent("fabric", fields.fabric);
-  setIfPresent("description", fields.description);
-  applyExtractedSizes(fields.sizeSystem, fields.sizes);
-}
-
-// Cheap text-only pass: pulls title/price/colors/sizes/etc. out of whatever the
-// user pasted into "Додатковий опис" without touching the (much pricier) per-platform
-// post generation. Leaves a field untouched if the AI wasn't confident about it.
-async function extractFieldsFromDescription() {
-  const descriptionEl = form.querySelector('[name="description"]');
-  const description = descriptionEl?.value?.trim();
-  if (!description) return;
-
-  setLoading(true, "Розбираємо опис...");
-  const response = await fetch("/api/posts/extract-fields", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ description }),
-  });
-  const data = await response.json();
-  if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося розібрати опис");
-  applyExtractedFields(data.fields);
-}
-
 async function createPreview() {
   const hasPhotos = photosInput.files?.length;
   const hasVideo  = videoInput?.files?.length;
@@ -871,14 +817,7 @@ platformEditor.addEventListener("change", async e => {
 });
 
 previewBtn.addEventListener("click", async () => {
-  try {
-    await extractFieldsFromDescription();
-    if (autoPreviewCheckbox?.checked) {
-      await createPreview();
-    } else {
-      showMessage("Поля заповнено з опису");
-    }
-  }
+  try { await createPreview(); }
   catch (err) { showMessage(err.message, "error"); }
   finally { setLoading(false); }
 });
