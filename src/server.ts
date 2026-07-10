@@ -50,6 +50,13 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+console.log(
+  `[uploads] UPLOADS_DIR env: ${process.env.UPLOADS_DIR || "(not set)"} | ` +
+  `/data exists: ${fs.existsSync("/data")} | ` +
+  `resolved uploadsDir: ${uploadsDir} | ` +
+  `existing files: ${(() => { try { return fs.readdirSync(uploadsDir).length; } catch (e) { return `error: ${e}`; } })()}`
+);
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
