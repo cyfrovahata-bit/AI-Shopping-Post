@@ -41,7 +41,11 @@ const PORT = process.env.PORT || 3000;
 const DEFAULT_SITE_URL = "https://postly.pp.ua";
 process.env.SITE_URL ||= DEFAULT_SITE_URL;
 process.env.PUBLIC_BASE_URL ||= process.env.SITE_URL;
-const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "uploads");
+// On Railway, /data is the persistent volume — the container filesystem itself
+// (including __dirname) is wiped on every redeploy, which was silently deleting
+// every previously uploaded photo/video (and breaking their public URLs) each
+// time we shipped a fix. Default onto the volume when it's present.
+const uploadsDir = process.env.UPLOADS_DIR || (fs.existsSync("/data") ? "/data/uploads" : path.join(__dirname, "uploads"));
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
