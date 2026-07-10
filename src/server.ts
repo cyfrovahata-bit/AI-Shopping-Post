@@ -123,7 +123,16 @@ app.get("/products", (_req: Request, res: Response) => {
 app.get("/products/", (_req: Request, res: Response) => {
   res.redirect("/products.html");
 });
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "../public"), {
+  // HTML shells change on every deploy (landing/cabinet/settings pages) — never let
+  // browsers or intermediate caches serve a stale one; still lets them revalidate
+  // cheaply via ETag. Other static assets (css/js) keep express.static's defaults.
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
 
 function toText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
