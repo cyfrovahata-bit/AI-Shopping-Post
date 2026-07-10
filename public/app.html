@@ -26,11 +26,14 @@
         <span class="badge">Кабінет</span>
         <span class="topbar-desc">Публікація товарів для магазину одягу</span>
       </div>
-      <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
-      <a href="/products.html" class="btn ghost">Історія</a>
-      <a href="/stats.html" class="btn ghost">Статистика</a>
-      <span id="userEmailLabel" style="font-size:13px;color:#666;margin-left:4px"></span>
-      <button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Вийти</button>
+      <button class="nav-toggle" onclick="document.getElementById('topbarNav').classList.toggle('open')" aria-label="Меню">☰</button>
+      <nav class="topbar-nav" id="topbarNav">
+        <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
+        <a href="/products.html" class="btn ghost">Історія</a>
+        <a href="/stats.html" class="btn ghost">Статистика</a>
+        <span id="userEmailLabel" class="topbar-email"></span>
+        <button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Вийти</button>
+      </nav>
     </header>
 
     <div class="page-body">

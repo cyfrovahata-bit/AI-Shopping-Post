@@ -128,6 +128,28 @@
     .landing-footer .flinks a { color: var(--text2); font-size: 13px; }
     .landing-footer .flinks a:hover { color: var(--text); text-decoration: none; }
     .landing-footer .fcopy { color: var(--text3); font-size: 12px; }
+
+    /* ── Mobile ───────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .landing-header { padding: 12px 14px; }
+      .landing-header .actions { gap: 6px; }
+      .landing-header .actions .btn { padding: 0 12px; font-size: 12px; height: 34px; }
+      /* Kept in the footer already — dropping it from the header avoids a
+         fourth squeezed button next to the two primary CTAs on a phone. */
+      .landing-header .support-link { display: none; }
+
+      .hero { padding: 48px 16px 40px; }
+      .hero-cta .btn { width: 100%; }
+      .hero-cta { flex-direction: column; }
+
+      .hero-visual { padding: 16px; margin-top: 40px; border-radius: 16px; }
+      .flow-row { flex-direction: column; }
+      .flow-arrow { transform: rotate(90deg); }
+      .flow-step { width: 100%; min-width: 0; }
+
+      .cta-band { padding: 32px 20px; margin: 32px auto 56px; border-radius: 18px; }
+      .cta-band .btn { width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -285,7 +307,7 @@
         return;
       }
       actions.innerHTML = `
-        <a href="mailto:cyfrovahata@gmail.com" class="btn ghost">Підтримка</a>
+        <a href="mailto:cyfrovahata@gmail.com" class="btn ghost support-link">Підтримка</a>
         <a href="/login.html" class="btn ghost">Увійти</a>
         <a href="/login.html?tab=register" class="btn primary">Зареєструватися</a>
       `;

@@ -24,6 +24,15 @@
     .legal-footer { position: fixed; left: 0; right: 0; bottom: 18px; display: flex; justify-content: center; gap: 14px; font-size: 12px; }
     .legal-footer a { color: #666; text-decoration: none; }
     .legal-footer a:hover { color: #111; }
+
+    @media (max-width: 460px) {
+      /* body lays .card and the footer out as flex siblings — switch to a
+         column so the footer stacks below the card instead of beside it
+         once it's taken out of position:fixed. */
+      body { flex-direction: column; padding: 16px; justify-content: flex-start; padding-top: 48px; }
+      .card { padding: 24px 20px; }
+      .legal-footer { position: static; margin-top: 24px; flex-wrap: wrap; }
+    }
   </style>
 </head>
 <body>

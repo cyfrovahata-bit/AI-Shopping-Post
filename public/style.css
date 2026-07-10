@@ -49,6 +49,7 @@ a:hover { text-decoration: underline; }
 .app {
   display: grid;
   grid-template-rows: 56px 1fr;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -119,6 +120,66 @@ a:hover { text-decoration: underline; }
   display: none;
   color: var(--text2);
   font-size: 13px;
+}
+
+/* ── Mobile nav (hamburger) ────────────────────────────── */
+/* Hidden on desktop — the nav links render inline as before. On narrow
+   screens the links move into a dropdown panel toggled by a ☰ button, since
+   5+ inline links/buttons (Кабінет/Історія/Статистика/Налаштування/e-mail/
+   Вийти) don't fit a single row on a phone. .topbar keeps position:sticky,
+   which also anchors the dropdown's position:absolute. */
+.nav-toggle {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .nav-toggle { display: flex; }
+
+  .topbar-nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: rgba(13, 17, 23, 0.98);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+  }
+
+  .topbar-nav.open { display: flex; }
+
+  .topbar-nav .btn {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .topbar-nav .topbar-email {
+    order: 10;
+    padding: 6px 4px 0;
+    font-size: 12px;
+    color: var(--text3);
+  }
 }
 
 /* ── Layout ───────────────────────────────────────────── */
@@ -218,7 +279,7 @@ textarea {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -227,7 +288,7 @@ textarea {
 /* ── Upload areas ─────────────────────────────────────── */
 .media-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -447,7 +508,7 @@ textarea {
 
 .video-style-select {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -785,7 +846,7 @@ textarea {
 }
 
 .image-strip {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 0;
 }
 
@@ -988,15 +1049,15 @@ textarea {
 
 /* ── Responsive ───────────────────────────────────────── */
 @media (max-width: 1024px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
   .topbar-desc { display: none; }
 }
 
 @media (max-width: 768px) {
-  .product-card { grid-template-columns: 1fr; }
-  .filters { grid-template-columns: 1fr; }
-  .video-style-select { grid-template-columns: repeat(2, 1fr); }
-  .media-row { grid-template-columns: 1fr; }
+  .product-card { grid-template-columns: minmax(0, 1fr); }
+  .filters { grid-template-columns: minmax(0, 1fr); }
+  .video-style-select { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .media-row { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 640px) {
@@ -1004,8 +1065,8 @@ textarea {
   h1 { font-size: 19px; }
   .topbar { padding: 0 14px; }
   .form-card, .preview-panel { padding: 14px; }
-  .grid { grid-template-columns: 1fr; }
-  .video-style-select { grid-template-columns: repeat(2, 1fr); }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .video-style-select { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   /* Mobile bottom action sheet */
   .sticky-actions {

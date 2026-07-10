@@ -59,11 +59,14 @@
         <div class="topbar-divider"></div>
         <span class="badge">Статистика</span>
       </div>
-      <a href="/app.html" class="btn ghost">Кабінет</a>
-      <a href="/products.html" class="btn ghost">Історія</a>
-      <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
-      <span id="statsUserEmail" style="font-size:13px;color:#666"></span>
-      <button class="btn ghost" onclick="statsLogout()" id="statsLogoutBtn" style="display:none">Вийти</button>
+      <button class="nav-toggle" onclick="document.getElementById('topbarNav').classList.toggle('open')" aria-label="Меню">☰</button>
+      <nav class="topbar-nav" id="topbarNav">
+        <a href="/app.html" class="btn ghost">Кабінет</a>
+        <a href="/products.html" class="btn ghost">Історія</a>
+        <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
+        <span id="statsUserEmail" class="topbar-email" style="font-size:13px;color:#666"></span>
+        <button class="btn ghost" onclick="statsLogout()" id="statsLogoutBtn" style="display:none">Вийти</button>
+      </nav>
     </header>
 
     <div class="page-body">
