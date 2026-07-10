@@ -111,6 +111,104 @@ export async function generatePost(
   );
 }
 
+export type ExtractedProductFields = {
+  title?: string;
+  price?: string;
+  dropPrice?: string;
+  colors?: string;
+  fabric?: string;
+  sizeSystem?: "Міжнародний" | "Європейський" | "Українські";
+  sizes?: string[];
+  description?: string;
+};
+
+const SIZE_LISTS = {
+  "Міжнародний": ["XXS","XS","S","M","L","XL","XXL","XXXL","4XL","5XL","6XL","7XL","8XL","9XL","XXS-XS","XS-S","S-M","M-L","L-XL","XL-XXL","One size","Інший"],
+  "Європейський": ["32","34","36","38","40","42","44","46","48","50","52","54","56","58","60","62","64","One size","Інший"],
+  "Українські": ["38","40","42","44","46","48","50","52","54","56","58","60","62","64","66","68","70","40-42","42-44","42-48","44-46","46-48","48-50","50-52","52-54","54-56","56-58","58-60","60-62","62-64","64-66","66-68","68-70","One size","Інший"],
+};
+
+// Cheap, text-only (no images) extraction of structured product fields from a
+// pasted free-form post (e.g. an old Instagram/Telegram caption). Used to
+// autofill the upload form without paying for the much more expensive
+// per-platform post generation.
+export async function extractProductFields(rawText: string): Promise<ExtractedProductFields> {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY не задано в .env");
+  }
+  if (!rawText || !rawText.trim()) return {};
+
+  openai ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+  const prompt = `
+Тобі дали довільний текст поста про товар (можливо, скопійований зі старого допису в Instagram/Telegram — з емодзі, ціною, розмірами, контактами, посиланнями на соцмережі тощо).
+
+Твоя задача — витягнути з нього структуровані поля товару. ГОЛОВНЕ ПРАВИЛО: якщо якесь поле не вказано в тексті явно, або ти не впевнений у значенні — поверни для нього null. Ніколи не вигадуй і не досі домислюй дані.
+
+Текст:
+"""
+${rawText}
+"""
+
+Поверни строго JSON без markdown:
+{
+  "title": "коротка назва товару (тип виробу), або null",
+  "price": "ціна як написана в тексті (наприклад '980 грн'), або null",
+  "dropPrice": "дроп-ціна/ціна для реселерів, якщо явно вказана окремо від звичайної ціни, або null",
+  "colors": "кольори через кому, як у тексті, або null",
+  "fabric": "склад тканини/матеріал, або null",
+  "sizeSystem": "одне з: \"Міжнародний\", \"Європейський\", \"Українські\", або null якщо розміри не вказані чи незрозуміло яка система",
+  "sizes": ["масив розмірів ТІЛЬКИ з дозволеного списку обраної sizeSystem, або null"],
+  "description": "решта опису — тільки емоційний/описовий текст про сам товар (посадка, тканина на дотик, для чого підходить). ВИДАЛИ звідси: ціну, розміри, склад тканини (вони вже окремі поля), контакти, посилання на соцмережі, заклики типу 'пишіть в директ', артикули/модель. Якщо після очищення нічого змістовного не залишилось — null."
+}
+
+Дозволені розміри для кожної системи (використовуй ТІЛЬКИ ці значення, нічого іншого):
+Міжнародний: ${JSON.stringify(SIZE_LISTS["Міжнародний"])}
+Європейський: ${JSON.stringify(SIZE_LISTS["Європейський"])}
+Українські: ${JSON.stringify(SIZE_LISTS["Українські"])}
+
+Якщо в тексті розмір вказано як діапазон, що не збігається точно з жодним значенням зі списку (наприклад "42-46" при відсутності такого значення в списку) — залиш "sizes": null, не підбирай приблизне.
+`.trim();
+
+  const response = await openai.responses.create({
+    model,
+    input: [
+      {
+        role: "user",
+        content: [{ type: "input_text", text: prompt }],
+      },
+    ],
+  });
+
+  const raw = response.output_text.trim();
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+
+  try {
+    const parsed = JSON.parse(cleaned);
+    const result: ExtractedProductFields = {};
+    if (typeof parsed.title === "string" && parsed.title.trim()) result.title = parsed.title.trim();
+    if (typeof parsed.price === "string" && parsed.price.trim()) result.price = parsed.price.trim();
+    if (typeof parsed.dropPrice === "string" && parsed.dropPrice.trim()) result.dropPrice = parsed.dropPrice.trim();
+    if (typeof parsed.colors === "string" && parsed.colors.trim()) result.colors = parsed.colors.trim();
+    if (typeof parsed.fabric === "string" && parsed.fabric.trim()) result.fabric = parsed.fabric.trim();
+    if (typeof parsed.description === "string" && parsed.description.trim()) result.description = parsed.description.trim();
+    if (
+      (parsed.sizeSystem === "Міжнародний" || parsed.sizeSystem === "Європейський" || parsed.sizeSystem === "Українські") &&
+      Array.isArray(parsed.sizes) && parsed.sizes.length
+    ) {
+      const allowed = new Set(SIZE_LISTS[parsed.sizeSystem as keyof typeof SIZE_LISTS]);
+      const validSizes = (parsed.sizes as unknown[]).filter((s): s is string => typeof s === "string" && allowed.has(s));
+      if (validSizes.length) {
+        result.sizeSystem = parsed.sizeSystem;
+        result.sizes = validSizes;
+      }
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
 export async function generateVideoTexts(product: ProductInput) {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY не задано в .env");
