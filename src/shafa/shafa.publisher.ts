@@ -295,8 +295,11 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
     await humanPause(400);
   }
 
-  // Click size system tab using mouse coordinates (React-friendly)
-  const sysBtn = page.getByRole("button", { name: sizeSystem, exact: true });
+  // Shafa's actual tab label differs from our internal "Українські" (site shows the
+  // singular adjective "Український", prefixed with a 🇺🇦 flag emoji) — match on a
+  // substring so the flag/pluralization mismatch doesn't cause the tab to never be found.
+  const tabMatch = sizeSystem === "Українські" ? "Український" : sizeSystem;
+  const sysBtn = page.getByRole("button", { name: new RegExp(tabMatch) });
   if ((await sysBtn.count()) > 0) {
     const box = await sysBtn.first().boundingBox();
     if (box) {
