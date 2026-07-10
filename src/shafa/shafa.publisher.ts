@@ -93,13 +93,37 @@ async function fillTitle(page: Page, title: string) {
 async function fillCategory(page: Page, categoryPath: string[]) {
   await dismissModals(page);
   for (const cat of categoryPath) {
-    const item = page.getByText(cat, { exact: true }).last();
-    if (!((await item.count()) > 0 && (await item.isVisible({ timeout: 5000 }).catch(() => false)))) {
+    // Exact text match is brittle — Shafa's category labels aren't verified live against our
+    // preset list, and its markup sometimes substitutes Latin lookalikes for Cyrillic С/Х.
+    // Match case/homoglyph-normalized, exact first then substring, same approach as sizes.
+    await humanPause(300);
+    const result = await page.evaluate(`(function() {
+      var target = ${JSON.stringify(cat)};
+      function norm(s) {
+        return s.replace(/Х/g,"X").replace(/х/g,"x").replace(/С/g,"C").replace(/с/g,"c")
+          .replace(/\\s+/g, " ").trim().toLowerCase();
+      }
+      var t = norm(target);
+      var all = Array.from(document.querySelectorAll("button, [role='button'], a, li, [role='option'], span, div"));
+      var visible = all.filter(function(el) { return el.offsetParent && (el.innerText||el.textContent||"").trim().length > 0 && (el.innerText||el.textContent||"").trim().length < 60; });
+      var texts = visible.map(function(el) { return (el.innerText||el.textContent||"").trim(); });
+      var candidates = visible.filter(function(el) { return norm((el.innerText||el.textContent||"").trim()) === t; });
+      if (candidates.length === 0) {
+        candidates = visible.filter(function(el) { return norm((el.innerText||el.textContent||"").trim()).indexOf(t) !== -1; });
+      }
+      if (candidates.length === 0) return { coords: null, seen: Array.from(new Set(texts)).slice(0, 80) };
+      var el = candidates[candidates.length - 1];
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      var r = el.getBoundingClientRect();
+      return { coords: { x: r.left + r.width/2, y: r.top + r.height/2 } };
+    })()`) as { coords: { x: number; y: number } | null; seen?: string[] };
+
+    if (!result.coords) {
+      console.log(`[Shafa] Категорія "${cat}" не знайдена. Видимі елементи: ${JSON.stringify(result.seen)}`);
       throw new Error(`Категорія не знайдена: ${cat}`);
     }
-    await item.scrollIntoViewIfNeeded().catch(() => {});
-    await humanPause(500);
-    await item.click();
+    await humanPause(300);
+    await page.mouse.click(result.coords.x, result.coords.y);
     await humanPause(1200);
   }
   await page.keyboard.press("Escape");
