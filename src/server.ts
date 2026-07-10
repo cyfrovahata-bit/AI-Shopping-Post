@@ -1693,11 +1693,14 @@ async function startServer() {
   app.post("/api/prom/save", ...requireUser, async (req: Request, res: Response) => {
     const { token } = req.body as { token: string };
     if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
+    // Save unconditionally — the verification call (/products/list) can fail for reasons
+    // unrelated to whether the token actually works for publishing (e.g. narrower scope,
+    // a transient block on that specific endpoint), so a failed check here shouldn't block
+    // saving a token that may well work fine for real publishing.
+    await saveUserToken(db, currentUserId(req), "prom", { access_token: token });
     const { promTestConnection } = await import("./prom");
     const result = await promTestConnection(token);
-    if (!result.ok) return res.status(400).json({ success: false, message: result.error || "Не вдалось перевірити токен" });
-    await saveUserToken(db, currentUserId(req), "prom", { access_token: token });
-    res.json({ success: true });
+    res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
   });
 
   app.post("/api/prom/verify", ...requireUser, async (req: Request, res: Response) => {
