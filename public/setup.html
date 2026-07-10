@@ -907,8 +907,8 @@
             <div class="info-box">
               <b>Вимоги перед підключенням:</b>
               <ul style="margin:6px 0 0;padding-left:18px">
-                <li><b>Підписаний партнерський договір з Rozetka</b> — без нього API недоступне, це вимога самої Rozetka, не Postly.</li>
-                <li>Логін і пароль продавця від <b>seller.rozetka.com.ua</b> (кожен користувач вводить свої власні).</li>
+                <li>Акаунт продавця на Rozetka Marketplace з активним магазином.</li>
+                <li>Особистий довгоживучий API-токен зі свого кабінету (кожен користувач генерує свій власний — це не спільний застосунок, як у Facebook/TikTok).</li>
               </ul>
             </div>
           </div>
@@ -919,46 +919,74 @@
               <div class="step-left"><div class="step-num active" id="rozetka-s1">1</div><div class="step-line"></div></div>
               <div class="step-body">
                 <div class="step-title">🤝 Підключись як продавець Rozetka</div>
-                <div class="step-desc">Rozetka — закритий маркетплейс. Для отримання API потрібно підписати партнерський договір з Rozetka.</div>
+                <div class="step-desc">Rozetka — закритий маркетплейс. Для доступу до API потрібен активний акаунт продавця.</div>
                 <div class="info-box">
-                  <b>Як підключитись:</b>
+                  <b>Якщо ще немає акаунту:</b>
                   <ol>
-                    <li>Відкрий <a href="https://seller.rozetka.com.ua" target="_blank" style="color:var(--accent)">seller.rozetka.com.ua</a> і подай заявку</li>
-                    <li>Після затвердження — отримаєш логін і пароль продавця</li>
-                    <li>Введи їх нижче — API-токен буде отримано автоматично</li>
+                    <li>Відкрий <a href="https://seller.rozetka.com.ua" target="_blank" style="color:var(--accent)">seller.rozetka.com.ua</a> і зареєструйся як продавець</li>
+                    <li>Дочекайся підтвердження і активації магазину</li>
                   </ol>
+                  <b style="display:block;margin-top:8px">Якщо акаунт вже є — переходь до кроку 2.</b>
                 </div>
-                <a href="https://seller.rozetka.com.ua" target="_blank" class="btn primary">Стати продавцем Rozetka →</a>
+                <a href="https://seller.rozetka.com.ua" target="_blank" class="btn primary">Відкрити Rozetka Seller →</a>
               </div>
             </div>
 
             <div class="step">
               <div class="step-left"><div class="step-num" id="rozetka-s2">2</div><div class="step-line"></div></div>
               <div class="step-body">
-                <div class="step-title">🔑 Введи логін і пароль продавця</div>
-                <div class="field">
-                  <label>Логін (email)</label>
-                  <input type="email" id="rozetka-login" placeholder="seller@email.com" autocomplete="off" oninput="rozetkaCredChanged()" />
+                <div class="step-title">🔑 Згенеруй API-токен</div>
+                <div class="step-desc">API-токен — це секретний ключ, який дає програмі право публікувати товари у твій магазин. Він не має терміну дії (на відміну від логіну/паролю).</div>
+                <div class="info-box">
+                  <b>Як отримати токен:</b>
+                  <ol>
+                    <li>Увійди в <a href="https://seller.rozetka.com.ua" target="_blank" style="color:var(--accent)">seller.rozetka.com.ua</a></li>
+                    <li>Відкрий: <b>Налаштування → Безпека API</b></li>
+                    <li>Натисни <b>«Згенерувати API токен»</b>, вибери роль</li>
+                    <li>Скопіюй токен і встав нижче — він показується тільки один раз!</li>
+                  </ol>
                 </div>
                 <div class="field">
-                  <label>Пароль</label>
-                  <input type="password" id="rozetka-password" placeholder="Пароль від seller.rozetka.com.ua" autocomplete="off" oninput="rozetkaCredChanged()" />
+                  <label>API-токен Rozetka</label>
+                  <input type="password" id="rozetka-token" placeholder="Встав токен сюди..." autocomplete="off" oninput="rozetkaChanged()" />
+                  <div class="hint">Довгий рядок символів з особистого кабінету Rozetka</div>
                 </div>
                 <div id="rozetka-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="rozetka-err-text"></span></div>
                 <div style="display:flex;gap:8px;margin-top:4px">
-                  <button class="btn secondary" id="rozetka-save-btn" onclick="rozеtkaSave()" disabled>Зберегти</button>
+                  <button class="btn secondary" id="rozetka-save-btn" onclick="rozetkaSave()" disabled>Зберегти токен</button>
                   <button class="btn ghost" id="rozetka-verify-btn" onclick="rozetkaVerify()" style="display:none">Перевірити</button>
                 </div>
-                <div id="rozetka-verify-res" style="display:none;margin-top:8px"></div>
+                <div id="rozetka-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+                <div id="rozetka-verify-res" style="display:none"></div>
               </div>
             </div>
 
             <div class="step">
-              <div class="step-left"><div class="step-num" id="rozetka-s3">3</div></div>
+              <div class="step-left"><div class="step-num" id="rozetka-s3">3</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">📂 Вибери категорію за замовчуванням (рекомендовано)</div>
+                <div class="step-desc">Rozetka вимагає точну категорію для кожного товару — без неї публікація не пройде. Якщо у тебе магазин одного типу товарів, задай категорію один раз.</div>
+                <div class="field">
+                  <label>Пошук категорії</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="rozetka-cat-search" placeholder="Жіночі сукні..." oninput="rozetkaCatSearch()" autocomplete="off" />
+                    <button class="btn ghost" onclick="rozetkaCatSearch()">Знайти</button>
+                  </div>
+                </div>
+                <div id="rozetka-cat-results" style="display:none;max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid var(--border);border-radius:8px"></div>
+                <div id="rozetka-cat-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:13px"></div>
+                <div class="hint">Обов'язково для успішної публікації — без категорії Rozetka відхилить товар.</div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="rozetka-s4">4</div></div>
               <div class="step-body">
                 <div class="step-title">✅ Готово — товари публікуватимуться на Rozetka!</div>
                 <div class="step-desc">
-                  AI заповнить детальну назву, HTML-опис, ключові слова, кольори, розміри і матеріали — все що потрібно для каталогу Rozetka.
+                  AI заповнить детальну назву, опис, кольори, розміри і матеріали — все що потрібно для каталогу Rozetka.
+                  <br><br>
+                  <span style="color:var(--text2)">Кольори, розмір і матеріал підбираються автоматично під характеристики обраної категорії; інші характеристики поки що не заповнюються.</span>
                 </div>
               </div>
             </div>
@@ -1785,81 +1813,138 @@ async function loadRozetkaStatus() {
     setDot("rozetka", "green");
     box.className = "status-panel ok";
     box.innerHTML = `<div class="status-icon">✅</div>
-      <div class="status-body"><strong>Rozetka підключено${s.shopName ? " — " + s.shopName : ""}</strong>
+      <div class="status-body">
+        <strong>Rozetka підключено</strong>
+        <div class="detail" style="color:var(--text2)">${s.categoryName ? "Категорія за замовчуванням: " + s.categoryName : "Товари публікуватимуться у твій магазин."}</div>
         <div class="status-actions"><button class="btn ghost" onclick="rozetkaDisconnect()">Відключити</button></div>
-        <div id="rozetka-verify-panel" style="display:none;font-size:13px;margin-top:8px"></div>
       </div>`;
     document.getElementById("rozetka-verify-btn").style.display = "none";
-    ["rozetka-s1","rozetka-s2","rozetka-s3"].forEach(markDone);
-  } else if (s.hasCredentials) {
+    ["rozetka-s1","rozetka-s2"].forEach(markDone);
+  } else if (s.hasToken) {
     setDot("rozetka", "red");
     box.className = "status-panel warn";
     box.innerHTML = `<div class="status-icon">⚠️</div>
-      <div class="status-body"><strong>Дані збережено, але не авторизовано</strong>
-        <div class="detail" style="color:var(--text2)">${s.error || ""}</div>
-        <div class="status-actions"><button class="btn ghost" onclick="rozetkaVerify()">Спробувати підключитись</button></div>
+      <div class="status-body">
+        <strong>Токен збережено, але не вдалось перевірити</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || "Можливо, токен невірний або немає інтернету"}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="rozetkaVerify()">Перевірити ще раз</button></div>
       </div>`;
     markDone("rozetka-s1"); markDone("rozetka-s2");
+    document.getElementById("rozetka-verify-btn").style.display = "";
   } else {
     setDot("rozetka", "red");
     box.className = "status-panel error";
     box.innerHTML = `<div class="status-icon">❌</div>
       <div class="status-body"><strong>Rozetka не підключено</strong>
-        <div class="detail" style="color:var(--text2)">Введи логін і пароль на кроці 2.</div></div>`;
+      <div class="detail" style="color:var(--text2)">Введи API-токен на кроці 2.</div></div>`;
   }
 }
 
-function rozetkaCredChanged() {
-  const login = document.getElementById("rozetka-login").value.trim();
-  const pwd = document.getElementById("rozetka-password").value.trim();
-  document.getElementById("rozetka-save-btn").disabled = !(login && pwd);
-  document.getElementById("rozetka-verify-btn").style.display = (login && pwd) ? "" : "none";
+function rozetkaChanged() {
+  const token = document.getElementById("rozetka-token").value.trim();
+  const btn = document.getElementById("rozetka-save-btn");
+  const verBtn = document.getElementById("rozetka-verify-btn");
+  const errBox = document.getElementById("rozetka-err");
+  btn.disabled = true; errBox.style.display = "none";
+  if (!token) return;
+  if (token.length < 10) {
+    errBox.style.display = "flex";
+    document.getElementById("rozetka-err-text").textContent = "Токен занадто короткий";
+    return;
+  }
+  btn.disabled = false;
+  verBtn.style.display = "";
 }
 
-async function rozеtkaSave() {
-  const login = document.getElementById("rozetka-login").value.trim();
-  const password = document.getElementById("rozetka-password").value.trim();
+async function rozetkaSave() {
+  const token = document.getElementById("rozetka-token").value.trim();
   const btn = document.getElementById("rozetka-save-btn");
+  const hint = document.getElementById("rozetka-save-hint");
   btn.disabled = true; btn.textContent = "Зберігаємо...";
   const r = await fetch("/api/rozetka/save", {
     method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ login, password }),
+    body: JSON.stringify({ token }),
   }).then(r => r.json());
-  btn.disabled = false; btn.textContent = "Зберегти";
+  btn.disabled = false; btn.textContent = "Зберегти токен";
   if (r.success) {
-    document.getElementById("rozetka-verify-btn").style.display = "";
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Збережено! Перевіряємо з'єднання...";
     await rozetkaVerify();
+    await loadRozetkaStatus();
   } else {
-    const err = document.getElementById("rozetka-err");
-    err.style.display = "flex";
-    document.getElementById("rozetka-err-text").textContent = r.message;
+    hint.style.display = "block"; hint.style.color = "#f85149";
+    hint.textContent = "Помилка: " + r.message;
   }
+}
+
+let rozetkaCatSearchTimer = null;
+function rozetkaCatSearch() {
+  clearTimeout(rozetkaCatSearchTimer);
+  rozetkaCatSearchTimer = setTimeout(async () => {
+    const q = document.getElementById("rozetka-cat-search").value.trim();
+    const box = document.getElementById("rozetka-cat-results");
+    if (q.length < 2) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Шукаємо...</div>";
+    const d = await fetch(`/api/rozetka/categories?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(r => r.json());
+    if (!d.categories?.length) {
+      box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Нічого не знайдено</div>";
+      return;
+    }
+    box.innerHTML = d.categories.map(c =>
+      `<div onclick="rozetkaSelectCategory(${c.id}, '${c.fullName.replace(/'/g,"\\'")}')"
+           style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px"
+           onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <b>${c.name}</b>
+      </div>`
+    ).join("");
+  }, 350);
+}
+
+async function rozetkaSelectCategory(id, fullName) {
+  document.getElementById("rozetka-cat-results").style.display = "none";
+  document.getElementById("rozetka-cat-search").value = "";
+  const selectedDiv = document.getElementById("rozetka-cat-selected");
+  selectedDiv.style.display = "block";
+  selectedDiv.innerHTML = `<b>Категорія:</b> ${fullName} <button class="btn ghost" style="padding:2px 8px;margin-left:8px;font-size:11px" onclick="rozetkaClearCategory()">✕</button>`;
+  const r = await fetch("/api/rozetka/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ categoryId: id, categoryName: fullName }),
+  }).then(r => r.json());
+  if (r.success) {
+    selectedDiv.innerHTML += " <span style='color:#3fb950;font-size:12px'>✓ збережено</span>";
+    markDone("rozetka-s3");
+  }
+}
+
+function rozetkaClearCategory() {
+  fetch("/api/rozetka/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ categoryId: 0, categoryName: "" }),
+  });
+  document.getElementById("rozetka-cat-selected").style.display = "none";
 }
 
 async function rozetkaVerify() {
   const res = document.getElementById("rozetka-verify-res");
   const panel = document.getElementById("rozetka-verify-panel");
   const target = res || panel;
-  if (target) {
-    target.style.display = "block";
-    target.textContent = "Підключаємось до Rozetka...";
-  }
+  if (!target) return;
+  target.style.display = "block";
+  target.textContent = "Перевіряємо з'єднання з Rozetka...";
   const d = await fetch("/api/rozetka/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
-  if (target) {
-    if (d.ok) {
-      target.innerHTML = `<div class="verify-badge ok">✅ Підключено! ${d.shopName ? "Магазин: " + d.shopName : ""}</div>`;
-      markDone("rozetka-s2"); markDone("rozetka-s3");
-      setDot("rozetka", "green");
-    } else {
-      target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
-      setDot("rozetka", "red");
-    }
+  if (d.ok) {
+    target.innerHTML = `<div class="verify-badge ok">✅ З'єднання працює! Rozetka API активне.</div>`;
+    markDone("rozetka-s2"); markDone("rozetka-s3");
+    setDot("rozetka", "green");
+  } else {
+    target.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
+    setDot("rozetka", "red");
   }
-  await loadRozetkaStatus();
 }
 
 async function rozetkaDisconnect() {
-  if (!confirm("Відключити Rozetka? Дані буде видалено.")) return;
+  if (!confirm("Відключити Rozetka? Токен буде видалено.")) return;
   await fetch("/api/user/social/rozetka", { method: "DELETE", headers: authHeaders() });
   await loadRozetkaStatus();
 }

@@ -163,17 +163,6 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
       4000
     );
 
-    // Rozetka may have logged in with a fresh access token mid-publish — persist it
-    // so the next publish doesn't have to re-login.
-    if (numericUserId && post.platform === "rozetka" && userTokens?.rozetka && (result as any).refreshedAccessToken) {
-      await saveUserToken(db, numericUserId, "rozetka", {
-        access_token: (result as any).refreshedAccessToken,
-        refresh_token: userTokens.rozetka.password,
-        login: userTokens.rozetka.login,
-        meta: { categoryId: userTokens.rozetka.categoryId, siteId: userTokens.rozetka.siteId },
-      });
-    }
-
     const publishedAt = new Date().toISOString();
 
     await db.run(

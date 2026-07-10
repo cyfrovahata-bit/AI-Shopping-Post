@@ -6,7 +6,7 @@ export interface TtCreds { accessToken: string; refreshToken: string; openId: st
 export interface TelegramCreds { chatId: string }
 export interface PromCreds { accessToken: string; categoryId?: number; categoryName?: string }
 export interface OlxCreds { accessToken: string; refreshToken?: string; expiresAt?: number; categoryId?: number }
-export interface RozetkaCreds { login: string; password: string; accessToken?: string; categoryId?: number; siteId?: number }
+export interface RozetkaCreds { accessToken: string; categoryId?: number; categoryName?: string }
 
 export interface SocialTokens {
   facebook?: FbCreds;
@@ -79,9 +79,9 @@ export async function getUserTokens(db: any, userId: number): Promise<SocialToke
     } else if (r.platform === "olx" && accessToken) {
       const meta = parseMeta(r.meta);
       result.olx = { accessToken, refreshToken: refreshToken || undefined, expiresAt: r.expires_at || undefined, categoryId: meta.categoryId };
-    } else if (r.platform === "rozetka" && r.login) {
+    } else if (r.platform === "rozetka" && accessToken) {
       const meta = parseMeta(r.meta);
-      result.rozetka = { login: r.login, password: refreshToken, accessToken: accessToken || undefined, categoryId: meta.categoryId, siteId: meta.siteId };
+      result.rozetka = { accessToken, categoryId: meta.categoryId, categoryName: meta.categoryName };
     }
   }
   return result;

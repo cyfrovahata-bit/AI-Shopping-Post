@@ -1,71 +1,142 @@
 import fetch from "node-fetch";
 import fs from "fs";
-import path from "path";
 import type { ProductInput } from "./platform-types";
 
-// Rozetka Partner API — requires partnership agreement at rozetka.com.ua
-// API endpoint for approved partners: https://api.seller.rozetka.com.ua
-const API_BASE = "https://api.seller.rozetka.com.ua";
+// Rozetka Marketplace API — https://api-seller.rozetka.com.ua/apidoc/
+// Auth model: each seller generates their own long-lived API token in their own
+// cabinet (seller.rozetka.com.ua → Налаштування → Безпека API → "Згенерувати API
+// токен"). There is no shared dev OAuth app for Rozetka — every request below is
+// authenticated with that per-user token.
+const API_BASE = "https://api-seller.rozetka.com.ua";
+
+type RozetkaCategory = { id: number; title: string; title_ua: string; parent_id: number; is_vendor_required: number };
+type RozetkaAttribute = { id: number; title: string; title_ua: string; type: string };
+type RozetkaAttributeValue = { id: number; title: string; title_ua: string };
 
 function headers(token: string) {
   return {
     "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
+    "Content-Language": "uk",
   };
 }
 
-export async function rozetkaTestConnection(token: string): Promise<{ ok: boolean; shopName?: string; error?: string }> {
+// Rozetka returns HTTP 200 even for logical errors — the real result is in the
+// { success, content } / { success, errors } envelope, not the status code.
+async function parseRozetkaResponse(r: { ok: boolean; status: number; text: () => Promise<string> }): Promise<any> {
+  const raw = await r.text();
+  let data: any;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(`Rozetka: неочікувана відповідь (HTTP ${r.status}): ${raw.slice(0, 200)}`);
+  }
+  if (data.success === false) {
+    const msg = data.errors?.message || (data.errors?.details ? JSON.stringify(data.errors.details) : null) || `HTTP ${r.status}`;
+    throw new Error(`Rozetka API помилка: ${msg}`);
+  }
+  return data.content;
+}
+
+export async function rozetkaTestConnection(token: string): Promise<{ ok: boolean; error?: string }> {
   if (!token) return { ok: false, error: "Токен не задано" };
   try {
-    const r = await fetch(`${API_BASE}/sites`, { headers: headers(token) as any });
-    const d = await r.json() as any;
-    if (!r.ok) return { ok: false, error: d.message || `HTTP ${r.status}` };
-    const shopName = d.data?.sites?.[0]?.title || "OK";
-    return { ok: true, shopName };
+    const r = await fetch(`${API_BASE}/balances/status`, { headers: headers(token) as any });
+    await parseRozetkaResponse(r);
+    return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
-// Logs in with the seller's own Rozetka credentials and returns a fresh access token.
-export async function rozetkaLogin(login: string, password: string): Promise<string> {
-  if (!login || !password) throw new Error("Потрібні логін і пароль від Rozetka");
-
-  const r = await fetch(`${API_BASE}/sites/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" } as any,
-    body: JSON.stringify({ username: login, password }),
-  });
-
-  const d = await r.json() as any;
-  if (!d.data?.access_token) throw new Error(`Rozetka login failed: ${d.message || JSON.stringify(d)}`);
-
-  return d.data.access_token as string;
+export async function rozetkaSearchCategories(token: string, title: string): Promise<{ id: number; name: string; fullName: string }[]> {
+  const q = new URLSearchParams({ title, is_vendor_required: "0", pageSize: "20" });
+  const r = await fetch(`${API_BASE}/items-create/categories?${q}`, { headers: headers(token) as any });
+  const content = await parseRozetkaResponse(r);
+  const categories = (content?.categories || []) as RozetkaCategory[];
+  return categories.map((c) => ({ id: c.id, name: c.title_ua || c.title, fullName: c.title_ua || c.title }));
 }
 
-// Upload a photo from file or URL and return Rozetka photo object
-async function uploadPhoto(token: string, filePath: string): Promise<{ url: string } | null> {
+async function rozetkaGetAttributes(token: string, categoryId: number): Promise<RozetkaAttribute[]> {
+  const q = new URLSearchParams({ category_id: String(categoryId), pageSize: "100" });
+  const r = await fetch(`${API_BASE}/items-create/attributes?${q}`, { headers: headers(token) as any });
+  const content = await parseRozetkaResponse(r);
+  return (content?.attributes || []) as RozetkaAttribute[];
+}
+
+async function rozetkaGetValues(token: string, categoryId: number, attributeId: number): Promise<RozetkaAttributeValue[]> {
+  const q = new URLSearchParams({ category_id: String(categoryId), attribute_id: String(attributeId), pageSize: "50" });
+  const r = await fetch(`${API_BASE}/items-create/values?${q}`, { headers: headers(token) as any });
+  const content = await parseRozetkaResponse(r);
+  return (content?.attributeValues || []) as RozetkaAttributeValue[];
+}
+
+const LIST_ATTR_TYPES = new Set(["List", "ListValues", "ComboBox", "CheckBoxGroup", "CheckBoxGroupValues"]);
+const TEXT_ATTR_TYPES = new Set(["Text", "TextArea", "TextInput"]);
+
+// Rozetka's product characteristics ("params") aren't free text — each one must be
+// looked up by category (id/type), and list-type values must be matched to an option
+// id from Rozetka's own dictionary. Building a full attribute-mapping UI is out of
+// scope for now, so this best-effort matches only the fields that matter most for a
+// clothing listing (color, size, material) by name, and silently skips the rest —
+// a listing without an exact attribute match is still far better than one that fails
+// to publish at all.
+async function buildRozetkaParams(
+  token: string,
+  categoryId: number,
+  product: ProductInput,
+  ai: Record<string, unknown>
+): Promise<{ id: number; title: string; type: string; value: unknown; value_ua?: string }[]> {
+  const params: { id: number; title: string; type: string; value: unknown; value_ua?: string }[] = [];
+
+  let attributes: RozetkaAttribute[];
   try {
-    const data = fs.readFileSync(filePath);
-    const ext = path.extname(filePath).slice(1) || "jpg";
-    const mime = `image/${ext === "jpg" ? "jpeg" : ext}`;
+    attributes = await rozetkaGetAttributes(token, categoryId);
+  } catch {
+    return params;
+  }
 
-    const FormData = (await import("form-data")).default;
-    const form = new FormData();
-    form.append("file", data, { filename: path.basename(filePath), contentType: mime });
+  const colors = Array.isArray(ai.colors) ? (ai.colors as string[]) : (product.colors?.split(/[,;]/).map((s) => s.trim()).filter(Boolean) || []);
+  const sizes = Array.isArray(ai.sizes) ? (ai.sizes as string[]) : (product.sizes?.split(/[,;]/).map((s) => s.trim()).filter(Boolean) || []);
+  const materials = Array.isArray(ai.materials) ? (ai.materials as string[]) : (product.fabric ? [product.fabric] : []);
 
-    const r = await fetch(`${API_BASE}/upload/item/photo`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        ...form.getHeaders(),
-      } as any,
-      body: form as any,
-    });
+  const wanted: { pattern: RegExp; values: string[] }[] = [];
+  if (colors.length) wanted.push({ pattern: /колір|цвет/i, values: colors });
+  if (sizes.length) wanted.push({ pattern: /розмір|размер/i, values: sizes });
+  if (materials.length) wanted.push({ pattern: /матеріал|материал|тканина|склад/i, values: materials });
 
-    const d = await r.json() as any;
-    return d.data?.url ? { url: d.data.url } : null;
-  } catch { return null; }
+  for (const w of wanted) {
+    const attr = attributes.find((a) => w.pattern.test(a.title_ua || a.title));
+    if (!attr) continue;
+
+    if (LIST_ATTR_TYPES.has(attr.type)) {
+      let values: RozetkaAttributeValue[];
+      try {
+        values = await rozetkaGetValues(token, categoryId, attr.id);
+      } catch {
+        continue;
+      }
+      const matched: { id: number; value: string }[] = [];
+      for (const wantedValue of w.values) {
+        const wv = wantedValue.toLowerCase();
+        const found = values.find((v) => {
+          const label = (v.title_ua || v.title || "").toLowerCase();
+          return label && (label.includes(wv) || wv.includes(label));
+        });
+        if (found && !matched.some((m) => m.id === found.id)) {
+          matched.push({ id: found.id, value: found.title_ua || found.title });
+        }
+      }
+      if (matched.length) {
+        params.push({ id: attr.id, title: attr.title_ua || attr.title, type: attr.type, value: matched });
+      }
+    } else if (TEXT_ATTR_TYPES.has(attr.type)) {
+      const joined = w.values.join(", ");
+      params.push({ id: attr.id, title: attr.title_ua || attr.title, type: attr.type, value: joined, value_ua: joined });
+    }
+  }
+
+  return params;
 }
 
 export async function publishRozetkaPost(opts: {
@@ -74,18 +145,17 @@ export async function publishRozetkaPost(opts: {
   photoPaths: string[];
   imageUrls: string[];
   extras?: Record<string, unknown>;
-  creds?: { login: string; password: string; accessToken?: string; categoryId?: number; siteId?: number };
-}): Promise<{ externalPostId: string; refreshedAccessToken?: string }> {
+  creds?: { accessToken: string; categoryId?: number; categoryName?: string };
+}): Promise<{ externalPostId: string }> {
   const creds = opts.creds;
-  if (!creds?.login || !creds?.password) {
-    throw new Error("Rozetka не підключено. Підключіть свій акаунт у Налаштуваннях.");
+  if (!creds?.accessToken) {
+    throw new Error("Rozetka не підключено. Додайте API-токен у Налаштуваннях.");
   }
+  const token = creds.accessToken;
 
-  let token = creds.accessToken || "";
-  let refreshedAccessToken: string | undefined;
-  if (!token) {
-    token = await rozetkaLogin(creds.login, creds.password);
-    refreshedAccessToken = token;
+  const categoryId = opts.extras?.categoryId ? Number(opts.extras.categoryId) : creds.categoryId;
+  if (!categoryId) {
+    throw new Error("Не обрано категорію Rozetka. Обери категорію товару у Налаштуваннях.");
   }
 
   const { product, text, photoPaths, imageUrls } = opts;
@@ -98,91 +168,61 @@ export async function publishRozetkaPost(opts: {
     const raw = m ? m[1].trim() : text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     ai = JSON.parse(raw);
   } catch {
-    try { const m = text.match(/\{[\s\S]+\}/); if (m) ai = JSON.parse(m[0]); } catch {}
+    try {
+      const m = text.match(/\{[\s\S]+\}/);
+      if (m) ai = JSON.parse(m[0]);
+    } catch {}
   }
 
-  const title = (typeof ai.title === "string" ? ai.title : product.title).slice(0, 255);
+  const title = (typeof ai.title === "string" ? ai.title : product.title).slice(0, 250);
   const description = typeof ai.description === "string" ? ai.description : product.description || product.title;
-  const price = parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0;
+  const price = Math.round(parseFloat(String(product.price).replace(/[^\d.]/g, "")) || 0);
 
-  // Upload photos
-  const photos: string[] = [];
-  for (const p of photoPaths.slice(0, 10)) {
-    if (fs.existsSync(p)) {
-      const res = await uploadPhoto(token, p);
-      if (res?.url) photos.push(res.url);
+  // Rozetka accepts either a public image URL or a base64-encoded file body per
+  // picture — no separate upload endpoint. Prefer URLs (cheaper/faster), fall back
+  // to base64 only if we have no public URL to offer.
+  const pictures: { link?: string; body?: string }[] = [];
+  for (const u of imageUrls.slice(0, 15)) {
+    const full = !u.startsWith("http") && siteUrl ? `${siteUrl.replace(/\/$/, "")}${u}` : u;
+    if (full.startsWith("http")) pictures.push({ link: full });
+  }
+  if (!pictures.length) {
+    for (const p of photoPaths.slice(0, 15)) {
+      if (fs.existsSync(p)) pictures.push({ body: fs.readFileSync(p).toString("base64") });
     }
   }
-  // Fallback to URLs
-  if (!photos.length) {
-    for (const u of imageUrls.slice(0, 10)) {
-      const full = !u.startsWith("http") && siteUrl ? `${siteUrl.replace(/\/$/, "")}${u}` : u;
-      if (full.startsWith("http")) photos.push(full);
-    }
+  if (!pictures.length) {
+    throw new Error("Немає жодного фото для публікації на Rozetka");
   }
 
-  const categoryId = opts.extras?.categoryId
-    ? Number(opts.extras.categoryId)
-    : creds.categoryId;
-
-  const siteId = creds.siteId;
+  const params = await buildRozetkaParams(token, categoryId, product, ai);
 
   const body: Record<string, unknown> = {
     name: title,
     name_ua: title,
-    description_ua: description,
-    description: description,
+    category_id: categoryId,
     price,
-    currency: "UAH",
-    status: 1, // 1 = active
-    photos: photos.map((url, i) => ({ url, sort: i + 1, main: i === 0 })),
+    stock_quantity: 1,
+    state: 1, // новий товар
+    pictures,
+    description,
+    description_ua: description,
+    is_approve: true, // одразу відправити на модерацію, а не лишити чернеткою
   };
-
-  if (categoryId) body.category_id = categoryId;
-  if (siteId) body.site_id = siteId;
-
-  // Article/SKU
   if (product.model) body.article = product.model;
+  if (params.length) body.params = params;
 
-  // Attributes
-  const attrs: { name: string; value: string }[] = [];
-  const colors = Array.isArray(ai.colors) ? (ai.colors as string[]) : product.colors?.split(/[,;]/).map(s => s.trim()) || [];
-  const sizes = Array.isArray(ai.sizes) ? (ai.sizes as string[]) : product.sizes?.split(/[,;]/).map(s => s.trim()) || [];
-  const materials = Array.isArray(ai.materials) ? (ai.materials as string[]) : product.fabric ? [product.fabric] : [];
+  const r = await fetch(`${API_BASE}/items-create/create`, {
+    method: "POST",
+    headers: headers(token) as any,
+    body: JSON.stringify(body),
+  });
+  const content = await parseRozetkaResponse(r);
 
-  if (colors.length) attrs.push({ name: "Колір", value: colors.join(", ") });
-  if (sizes.length) attrs.push({ name: "Розмір", value: sizes.join(", ") });
-  if (materials.length) attrs.push({ name: "Матеріал", value: materials.join(", ") });
-
-  if (attrs.length) body.attributes = attrs;
-
-  const doRequest = async (bearer: string) => {
-    const r = await fetch(`${API_BASE}/goods/add`, {
-      method: "POST",
-      headers: headers(bearer) as any,
-      body: JSON.stringify(body),
-    });
-    const data = await r.json() as any;
-    return { r, data };
-  };
-
-  let { r, data } = await doRequest(token);
-
-  // Access token may have gone stale — re-login once with the seller's own creds and retry.
-  if (r.status === 401) {
-    token = await rozetkaLogin(creds.login, creds.password);
-    refreshedAccessToken = token;
-    ({ r, data } = await doRequest(token));
+  const itemId = content?.item?.item_id;
+  if (!itemId) {
+    throw new Error("Rozetka не повернула ID створеного товару");
   }
 
-  if (!r.ok || data.status === "error") {
-    const msg = data.message || data.errors?.join(", ") || `HTTP ${r.status}`;
-    throw new Error(`Rozetka API помилка: ${msg}`);
-  }
-
-  const goodsId = data.data?.id;
-  const url = goodsId
-    ? `https://seller.rozetka.com.ua/goods/${goodsId}`
-    : "https://seller.rozetka.com.ua/goods";
-  return { externalPostId: url, refreshedAccessToken };
+  return { externalPostId: String(itemId) };
 }

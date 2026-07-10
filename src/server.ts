@@ -1793,43 +1793,53 @@ async function startServer() {
     }
   });
 
-  // ── ROZETKA (per-user seller login/password, no dev app) ───────────────────
+  // ── ROZETKA (per-user long-lived API token, no dev app) ─────────────────────
 
   app.get("/api/rozetka/status", ...requireUser, async (req: Request, res: Response) => {
     const tokens = await getUserTokens(db, currentUserId(req));
-    if (!tokens.rozetka) return res.json({ connected: false, hasToken: false, hasCredentials: false });
+    if (!tokens.rozetka) return res.json({ connected: false, hasToken: false });
     const { rozetkaTestConnection } = await import("./rozetka");
-    const result = tokens.rozetka.accessToken
-      ? await rozetkaTestConnection(tokens.rozetka.accessToken)
-      : { ok: false, error: "Немає токена" };
-    res.json({ connected: result.ok, hasToken: !!tokens.rozetka.accessToken, hasCredentials: true, shopName: result.shopName, error: result.error });
+    const result = await rozetkaTestConnection(tokens.rozetka.accessToken);
+    res.json({ connected: result.ok, hasToken: true, error: result.error, categoryName: tokens.rozetka.categoryName || null });
   });
 
   app.post("/api/rozetka/save", ...requireUser, async (req: Request, res: Response) => {
-    const { login, password } = req.body as { login: string; password: string };
-    if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін і пароль" });
-    try {
-      const { rozetkaLogin } = await import("./rozetka");
-      const accessToken = await rozetkaLogin(login, password);
-      await saveUserToken(db, currentUserId(req), "rozetka", { access_token: accessToken, refresh_token: password, login });
-      res.json({ success: true });
-    } catch (e) {
-      res.status(400).json({ success: false, message: (e as Error).message });
-    }
+    const { token } = req.body as { token: string };
+    if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
+    // Save unconditionally, same reasoning as Prom — a failed check call shouldn't
+    // block saving a token that may well work fine for real publishing.
+    await saveUserToken(db, currentUserId(req), "rozetka", { access_token: token });
+    const { rozetkaTestConnection } = await import("./rozetka");
+    const result = await rozetkaTestConnection(token);
+    res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
   });
 
   app.post("/api/rozetka/verify", ...requireUser, async (req: Request, res: Response) => {
     const tokens = await getUserTokens(db, currentUserId(req));
     if (!tokens.rozetka) return res.json({ ok: false, error: "Rozetka не підключено" });
+    const { rozetkaTestConnection } = await import("./rozetka");
+    const result = await rozetkaTestConnection(tokens.rozetka.accessToken);
+    res.json(result);
+  });
+
+  app.get("/api/rozetka/categories", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.rozetka) return res.status(400).json({ categories: [], message: "Спочатку підключи Rozetka" });
+    const { rozetkaSearchCategories } = await import("./rozetka");
+    const q = String(req.query.q || "");
+    if (!q || q.length < 2) return res.json({ categories: [] });
     try {
-      const { rozetkaLogin, rozetkaTestConnection } = await import("./rozetka");
-      const accessToken = await rozetkaLogin(tokens.rozetka.login, tokens.rozetka.password);
-      await saveUserToken(db, currentUserId(req), "rozetka", { access_token: accessToken, refresh_token: tokens.rozetka.password, login: tokens.rozetka.login, meta: { categoryId: tokens.rozetka.categoryId, siteId: tokens.rozetka.siteId } });
-      const result = await rozetkaTestConnection(accessToken);
-      res.json(result);
+      const cats = await rozetkaSearchCategories(tokens.rozetka.accessToken, q);
+      res.json({ categories: cats });
     } catch (e) {
-      res.json({ ok: false, error: (e as Error).message });
+      res.status(400).json({ categories: [], message: (e as Error).message });
     }
+  });
+
+  app.post("/api/rozetka/set-default-category", ...requireUser, async (req: Request, res: Response) => {
+    const { categoryId, categoryName } = req.body as { categoryId: number; categoryName: string };
+    await updateUserTokenMeta(db, currentUserId(req), "rozetka", { categoryId: categoryId || undefined, categoryName: categoryName || undefined });
+    res.json({ success: true });
   });
 
   // ── End Facebook OAuth ──────────────────────────────────────────────────────
