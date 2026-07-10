@@ -38,6 +38,7 @@ async function getProductInput(db: Db, productId: number): Promise<ProductInput>
     price: product.price || "",
     dropPrice: product.dropPrice || "",
     sizes: product.sizes || "",
+    sizeSystem: product.sizeSystem || undefined,
     colors: product.colors || "",
     fabric: product.fabric || "",
     description: product.description || "",
