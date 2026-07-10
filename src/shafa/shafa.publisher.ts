@@ -300,7 +300,9 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
   // substring so the flag/pluralization mismatch doesn't cause the tab to never be found.
   const tabMatch = sizeSystem === "Українські" ? "Український" : sizeSystem;
   const sysBtn = page.getByRole("button", { name: new RegExp(tabMatch) });
-  if ((await sysBtn.count()) > 0) {
+  const sysBtnCount = await sysBtn.count();
+  console.log(`[Shafa] Size system tab "${sizeSystem}" (regex /${tabMatch}/) matches: ${sysBtnCount}`);
+  if (sysBtnCount > 0) {
     const box = await sysBtn.first().boundingBox();
     if (box) {
       await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
@@ -310,16 +312,26 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
     await humanPause(800);
   }
 
-  // Normalize Cyrillic lookalikes to Latin (Shafa HTML uses mixed encoding)
-  const normSize = (s: string) => s.replace(/Х/g, "X").replace(/х/g, "x").replace(/С/g, "C").replace(/с/g, "c");
+  // Normalize Cyrillic lookalikes to Latin (Shafa HTML uses mixed encoding) and
+  // collapse the various dash characters (hyphen, non-breaking hyphen, en/em dash)
+  // that Shafa's typography may use in range labels like "40‑42" down to a plain "-".
+  const normSize = (s: string) =>
+    s
+      .replace(/Х/g, "X").replace(/х/g, "x").replace(/С/g, "C").replace(/с/g, "c")
+      .replace(/[‐-―−]/g, "-")
+      .replace(/\s+/g, "")
+      .trim();
 
   // Click each size button using mouse coordinates (bypasses React synthetic event issues)
   for (const size of sizes) {
     const normSz = normSize(size);
     // Pass as string to avoid TypeScript checking browser-context code
-    const coords = await page.evaluate(`(function() {
+    const result = await page.evaluate(`(function() {
       var sz = ${JSON.stringify(normSz)};
-      function norm(s) { return s.replace(/Х/g,"X").replace(/х/g,"x").replace(/С/g,"C").replace(/с/g,"c"); }
+      function norm(s) {
+        return s.replace(/Х/g,"X").replace(/х/g,"x").replace(/С/g,"C").replace(/с/g,"c")
+          .replace(/[\\u2010-\\u2015\\u2212]/g, "-").replace(/\\s+/g, "").trim();
+      }
       var all = Array.from(document.querySelectorAll("*"));
       var sizeLabel = null; var minLen = Infinity;
       for (var i = 0; i < all.length; i++) {
@@ -331,25 +343,35 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
         }
       }
       var container = sizeLabel ? sizeLabel.parentElement : null;
+      var seenLabels = [];
       for (var d = 0; d < 10 && container; d++) {
         var btns = Array.from(container.querySelectorAll("button, [role='button']"));
-        var btn = btns.find(function(b) { return norm((b.innerText||b.textContent||"").trim()) === sz && b.offsetParent; });
+        var visible = btns.filter(function(b) { return b.offsetParent; });
+        seenLabels = visible.map(function(b) { return norm((b.innerText||b.textContent||"").trim()); });
+        var btn = visible.find(function(b) { return norm((b.innerText||b.textContent||"").trim()) === sz; });
+        if (!btn) {
+          btn = visible.find(function(b) {
+            var bt = norm((b.innerText||b.textContent||"").trim());
+            return bt.length > 0 && (bt.indexOf(sz) !== -1 || sz.indexOf(bt) !== -1);
+          });
+        }
         if (btn) {
           btn.scrollIntoView({ block:"nearest", behavior:"instant" });
           var r = btn.getBoundingClientRect();
-          return { x: r.left + r.width/2, y: r.top + r.height/2 };
+          return { coords: { x: r.left + r.width/2, y: r.top + r.height/2 }, seenLabels: seenLabels };
         }
         container = container.parentElement;
       }
-      return null;
-    })()`) as { x: number; y: number } | null;
+      return { coords: null, seenLabels: seenLabels };
+    })()`) as { coords: { x: number; y: number } | null; seenLabels: string[] };
+    const coords = result.coords;
 
     if (coords) {
       await page.mouse.click(coords.x, coords.y);
       console.log(`[Shafa] Size "${size}" clicked`);
       await humanPause(400);
     } else {
-      console.log(`[Shafa] Size "${size}" not found`);
+      console.log(`[Shafa] Size "${size}" not found. Visible size buttons: ${JSON.stringify(result.seenLabels)}`);
     }
   }
   await p();
