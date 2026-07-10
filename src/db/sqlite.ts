@@ -18,7 +18,13 @@ async function ensureColumn(
 }
 
 export async function initDb() {
-  let dbPath = process.env.DB_PATH || "./database.sqlite";
+  // Same reasoning as uploadsDir in server.ts: default to the persistent Railway
+  // volume when one is mounted, instead of a path inside the ephemeral container
+  // filesystem. Relying solely on DB_PATH being set correctly in Railway Variables
+  // meant a missing/wrong variable silently wiped every product and post on each
+  // redeploy — the uploaded photos on disk survived, but with no DB rows left
+  // pointing at them, the app looked like it had lost the photos entirely.
+  let dbPath = process.env.DB_PATH || (fs.existsSync("/data") ? "/data/database.sqlite" : "./database.sqlite");
 
   const stat = fs.existsSync(dbPath) ? fs.statSync(dbPath) : null;
   if (stat && stat.isDirectory()) {
@@ -29,6 +35,13 @@ export async function initDb() {
   if (dbDir && dbDir !== ".") {
     fs.mkdirSync(dbDir, { recursive: true });
   }
+
+  console.log(
+    `[db] DB_PATH env: ${process.env.DB_PATH || "(not set)"} | ` +
+    `/data exists: ${fs.existsSync("/data")} | ` +
+    `resolved dbPath: ${dbPath} | ` +
+    `existing file: ${fs.existsSync(dbPath)}`
+  );
 
   const db = await open({
     filename: dbPath,

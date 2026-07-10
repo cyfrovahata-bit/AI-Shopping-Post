@@ -82,6 +82,29 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
     throw new Error("Platform post not found");
   }
 
+  // Atomically claim this post before doing any work. Without this, a scheduler
+  // tick and a manual "publish now" click (or a double click) racing on the same
+  // post would both run platform.publish() concurrently and post the product twice —
+  // the WHERE clause makes the claim a single compare-and-swap, not a check-then-act
+  // race, since only one UPDATE can match "status NOT IN (...)" before the first
+  // writer's status change lands.
+  const claimedAt = new Date().toISOString();
+  const claim = await db.run(
+    `
+    UPDATE platform_posts
+    SET status = 'publishing',
+        errorMessage = NULL,
+        updatedAt = ?
+    WHERE id = ? AND status NOT IN ('publishing', 'published')
+    `,
+    [claimedAt, postId]
+  );
+  if (!claim.changes) {
+    throw new Error(
+      post.status === "published" ? "Цей пост вже опубліковано" : "Цей пост вже публікується — зачекай"
+    );
+  }
+
   const product = await getProductInput(db, post.productId);
   const platform = getPlatform(post.platform as PlatformId);
 
@@ -128,18 +151,6 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
       }
     }
   }
-  const now = new Date().toISOString();
-
-  await db.run(
-    `
-    UPDATE platform_posts
-    SET status = 'publishing',
-        errorMessage = NULL,
-        updatedAt = ?
-    WHERE id = ?
-    `,
-    [now, postId]
-  );
 
   try {
     const preparedVideo = await prepareVideoForPublishing(product);

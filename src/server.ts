@@ -28,7 +28,7 @@ import {
   readEnv,
   writeEnvVars,
 } from "./facebook-auth";
-import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, extractOptionalAuth } from "./auth";
+import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, signOAuthState, verifyOAuthState } from "./auth";
 import { saveUserToken, deleteUserToken, getUserSocialStatus, getUserTokens, updateUserTokenMeta } from "./user-tokens";
 
 dotenv.config();
@@ -1206,7 +1206,7 @@ async function startServer() {
     }
     const redirectUri = getFbRedirectUri(req);
     const userId = extractTokenFromQuery(req);
-    const state = Buffer.from(JSON.stringify({ appId, redirectUri, userId })).toString("base64");
+    const state = signOAuthState({ appId, redirectUri, userId });
     const url = buildAuthUrl({ appId, appSecret, redirectUri }, state);
     res.redirect(url);
   });
@@ -1225,7 +1225,7 @@ async function startServer() {
     }
 
     try {
-      const parsed = JSON.parse(Buffer.from(state, "base64").toString());
+      const parsed = verifyOAuthState<{ appId: string; redirectUri: string; userId?: number }>(state);
       const { appId, redirectUri: savedRedirectUri, userId: stateUserId } = parsed;
       const appSecret = readEnv().FACEBOOK_APP_SECRET || process.env.FACEBOOK_APP_SECRET || "";
       const redirectUri = savedRedirectUri || getFbRedirectUri(req);
@@ -1375,19 +1375,21 @@ async function startServer() {
   });
 
   // POST /api/facebook/select-page-manual — fetch page directly by ID (New Page Experience fallback)
-  app.post("/api/facebook/select-page-manual", async (req: Request, res: Response) => {
+  // Requires auth like every other per-user token endpoint — this used to also accept
+  // unauthenticated calls and, in that case, wrote the selected Facebook Page's access
+  // token into the shared /data/.env admin config (and echoed that token back in the
+  // response). Any caller who knew this path could silently repoint the legacy global
+  // Facebook config, and — if an admin had ever used it — potentially read the page's
+  // access token back out. The manual-entry UI already always sends a Bearer token, so
+  // there was no legitimate use of the unauthenticated branch.
+  app.post("/api/facebook/select-page-manual", ...requireUser, async (req: Request, res: Response) => {
     const { pageId } = req.body as { pageId: string };
     if (!pageId) return res.status(400).json({ success: false, message: "Потрібен Page ID" });
     try {
-      const userId = extractOptionalAuth(req);
-      if (userId) {
-        const user = await db.get(`SELECT id FROM users WHERE id = ?`, [userId]);
-        if (!user) return res.status(401).json({ error: "User no longer exists" });
-      }
-      const pending = userId ? pendingFacebookOAuth.get(userId) : null;
-      const result = await selectFacebookPageManual(pageId.trim(), pending?.userToken, !userId);
-      // If caller provided a JWT (from new multi-tenant flow), save per-user token too
-      if (userId && result.page.token) {
+      const userId = currentUserId(req);
+      const pending = pendingFacebookOAuth.get(userId);
+      const result = await selectFacebookPageManual(pageId.trim(), pending?.userToken, false);
+      if (result.page.token) {
         await saveUserToken(db, userId, "facebook", {
           access_token: result.page.token,
           page_id: result.page.id,
@@ -1725,7 +1727,7 @@ async function startServer() {
     const redirectUri = getTikTokRedirectUri(req);
     const userId = extractTokenFromQuery(req);
     // encode userId in state so callback knows which user to save tokens for
-    const stateData = Buffer.from(JSON.stringify({ userId })).toString("base64");
+    const stateData = signOAuthState({ userId });
     res.redirect(getTikTokAuthUrl(redirectUri, stateData));
   });
 
@@ -1741,7 +1743,7 @@ async function startServer() {
       const tokens = await exchangeTikTokCode(code, getTikTokRedirectUri(req));
       // Save per-user token if userId was in state
       try {
-        const { userId: stateUserId } = JSON.parse(Buffer.from(stateRaw || "", "base64").toString());
+        const { userId: stateUserId } = verifyOAuthState<{ userId?: number }>(stateRaw || "");
         if (stateUserId) {
           await saveUserToken(db, stateUserId, "tiktok", {
             access_token: tokens.accessToken,
@@ -1851,7 +1853,7 @@ async function startServer() {
   app.get("/auth/olx", (req: Request, res: Response) => {
     const { getOlxAuthUrl } = require("./olx");
     const userId = extractTokenFromQuery(req);
-    const state = Buffer.from(JSON.stringify({ userId })).toString("base64");
+    const state = signOAuthState({ userId });
     res.redirect(getOlxAuthUrl(state));
   });
 
@@ -1864,7 +1866,7 @@ async function startServer() {
       const { completeOlxOAuth } = await import("./olx");
       const tokens = await completeOlxOAuth(code);
       try {
-        const { userId } = JSON.parse(Buffer.from(state || "", "base64").toString());
+        const { userId } = verifyOAuthState<{ userId?: number }>(state || "");
         if (userId) {
           await saveUserToken(db, userId, "olx", {
             access_token: tokens.accessToken,

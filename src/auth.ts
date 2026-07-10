@@ -55,3 +55,16 @@ export function extractOptionalAuth(req: Request): number | null {
     return null;
   }
 }
+
+// OAuth "state" round-trips through the third-party provider (Facebook/TikTok/OLX)
+// unmodified, so anyone can initiate that provider's consent screen directly and hand
+// back whatever state value they want — including one that claims a different userId
+// than the one actually authorizing. Signing it prevents a forged state from being
+// used to attach an attacker's own social account to someone else's Postly account.
+export function signOAuthState(payload: Record<string, unknown>): string {
+  return jwt.sign(payload, SECRET, { expiresIn: "15m" });
+}
+
+export function verifyOAuthState<T = Record<string, unknown>>(state: string): T {
+  return jwt.verify(state, SECRET) as T;
+}
