@@ -288,6 +288,27 @@ async function fillKeywords(page: Page, keywords: string[]) {
 async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжнародний") {
   if (!sizes || sizes.length === 0) return;
 
+  // The "Розмір" section only renders after Shafa finishes processing the chosen
+  // category (it fetches the category-specific size options), so poll for it instead
+  // of assuming the fixed pauses already spent on category/condition/brand/etc were enough.
+  const sizeSectionAppeared = await page
+    .waitForFunction(
+      `Array.from(document.querySelectorAll("*")).some(function(el) {
+        var t = (el.innerText || el.textContent || "").trim();
+        return t === "Розмір *" || t === "Розмір" || t.indexOf("Розмір") === 0;
+      })`,
+      undefined,
+      { timeout: 8000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+  console.log(`[Shafa] "Розмір" section present in DOM: ${sizeSectionAppeared}`);
+  if (!sizeSectionAppeared) {
+    const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
+    await page.screenshot({ path: `${debugDir}/shafa-debug-no-size-section.png`, fullPage: true }).catch(() => {});
+    console.log("[Shafa] Size section never appeared — saved shafa-debug-no-size-section.png. Category selection likely didn't fully register.");
+  }
+
   // Scroll to size section
   const sizeHeader = page.getByText(/Розмір/i).first();
   if ((await sizeHeader.count()) > 0) {
