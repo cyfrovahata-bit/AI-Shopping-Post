@@ -317,21 +317,37 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
   }
 
   // Shafa's actual tab label differs from our internal "Українські" (site shows the
-  // singular adjective "Український", prefixed with a 🇺🇦 flag emoji) — match on a
-  // substring so the flag/pluralization mismatch doesn't cause the tab to never be found.
-  const tabMatch = sizeSystem === "Українські" ? "Український" : sizeSystem;
-  const sysBtn = page.getByRole("button", { name: new RegExp(tabMatch) });
-  const sysBtnCount = await sysBtn.count();
-  console.log(`[Shafa] Size system tab "${sizeSystem}" (regex /${tabMatch}/) matches: ${sysBtnCount}`);
-  if (sysBtnCount > 0) {
-    const box = await sysBtn.first().boundingBox();
-    if (box) {
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    } else {
-      await sysBtn.first().click();
+  // singular adjective "Український", prefixed with a 🇺🇦 flag emoji) and its raw HTML
+  // sometimes substitutes Latin lookalikes for Cyrillic С/Х — Playwright's accessible-name
+  // regex compares raw characters and can silently match an unrelated element elsewhere on
+  // the page, so find and click the tab the same homoglyph-normalizing way size buttons are
+  // matched, scoped to buttons near the "Розмір" label (not a page-wide accessible-name search).
+  const tabWord = sizeSystem === "Українські" ? "Український" : sizeSystem;
+  const tabResult = await page.evaluate(`(function() {
+    var word = ${JSON.stringify(tabWord)};
+    function norm(s) {
+      return s.replace(/Х/g,"X").replace(/х/g,"x").replace(/С/g,"C").replace(/с/g,"c")
+        .replace(/\\s+/g, "").trim();
     }
+    var target = norm(word);
+    var all = Array.from(document.querySelectorAll("button, [role='button']"));
+    var candidates = all.filter(function(b) { return b.offsetParent; });
+    var match = candidates.find(function(b) {
+      return norm((b.innerText||b.textContent||"").trim()).indexOf(target) !== -1;
+    });
+    if (!match) return { coords: null, text: null, count: candidates.length };
+    match.scrollIntoView({ block: "center", behavior: "instant" });
+    var r = match.getBoundingClientRect();
+    return { coords: { x: r.left + r.width/2, y: r.top + r.height/2 }, text: (match.innerText||match.textContent||"").trim() };
+  })()`) as { coords: { x: number; y: number } | null; text: string | null; count?: number };
+  console.log(`[Shafa] Size system tab "${sizeSystem}" match: ${tabResult.coords ? `found ("${tabResult.text}") at (${Math.round(tabResult.coords.x)},${Math.round(tabResult.coords.y)})` : "not found"}`);
+  if (tabResult.coords) {
+    await humanPause(300);
+    await page.mouse.click(tabResult.coords.x, tabResult.coords.y);
     await humanPause(800);
   }
+  const debugDirTab = fsSync.existsSync("/data") ? "/data" : ".";
+  await page.screenshot({ path: `${debugDirTab}/shafa-debug-size-tab-selected.png`, fullPage: true }).catch(() => {});
 
   // Normalize Cyrillic lookalikes to Latin (Shafa HTML uses mixed encoding) and
   // collapse the various dash characters (hyphen, non-breaking hyphen, en/em dash)
