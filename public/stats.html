@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Статистика — Postly</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .stats-wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 80px; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .kpi-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 18px 20px;
+    }
+    .kpi-card .kval { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1.1; }
+    .kpi-card .klabel { font-size: 12.5px; color: var(--text2); margin-top: 6px; }
+    .kpi-card .kval.accent { color: var(--accent); }
+
+    .stats-section {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r);
+      padding: 20px; margin-bottom: 16px;
+    }
+    .stats-section h2 { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+
+    .platform-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .platform-bar-row:last-child { margin-bottom: 0; }
+    .pbr-label { width: 100px; flex-shrink: 0; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .pbr-track { flex: 1; height: 20px; background: var(--bg3); border-radius: 6px; overflow: hidden; display: flex; }
+    .pbr-fill.published { background: var(--accent); }
+    .pbr-fill.failed { background: var(--red); }
+    .pbr-fill.pending { background: var(--orange); }
+    .pbr-count { width: 40px; flex-shrink: 0; text-align: right; font-size: 13px; color: var(--text2); font-variant-numeric: tabular-nums; }
+
+    .legend-row { display: flex; gap: 16px; margin-top: 14px; font-size: 12px; color: var(--text2); }
+    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+    .daily-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; }
+    .daily-bar { flex: 1; background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; position: relative; }
+    .daily-bar:hover::after {
+      content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
+      font-size: 11px; white-space: nowrap; margin-bottom: 4px; color: var(--text);
+    }
+    .daily-empty { color: var(--text3); font-size: 13px; text-align: center; padding: 30px 0; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text2); }
+    .empty-state .eico { font-size: 36px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo">
+          <div class="logo-icon">✦</div>
+          <span class="logo-name">Postly</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <span class="badge">Статистика</span>
+      </div>
+      <a href="/app.html" class="btn ghost">Кабінет</a>
+      <a href="/products.html" class="btn ghost">Історія</a>
+      <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
+      <span id="statsUserEmail" style="font-size:13px;color:#666"></span>
+      <button class="btn ghost" onclick="statsLogout()" id="statsLogoutBtn" style="display:none">Вийти</button>
+    </header>
+
+    <div class="page-body">
+      <div class="stats-wrap">
+
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kval" id="kpi-products">–</div>
+            <div class="klabel">Товарів створено</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kval" id="kpi-posts">–</div>
+            <div class="klabel">Публікацій усього</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kval accent" id="kpi-published">–</div>
+            <div class="klabel">Успішно опубліковано</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kval" id="kpi-connected">–</div>
+            <div class="klabel">Платформ підключено</div>
+          </div>
+        </div>
+
+        <div class="stats-section">
+          <h2>По платформах</h2>
+          <div id="platformBars"></div>
+          <div class="legend-row">
+            <span><span class="legend-dot" style="background:var(--accent)"></span>Опубліковано</span>
+            <span><span class="legend-dot" style="background:var(--orange)"></span>Очікує/чернетка</span>
+            <span><span class="legend-dot" style="background:var(--red)"></span>Помилка</span>
+          </div>
+        </div>
+
+        <div class="stats-section">
+          <h2>Публікації за останні 30 днів</h2>
+          <div id="dailyChart"></div>
+        </div>
+
+      </div>
+    </div>
+    <footer class="legal-footer">
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/data-deletion.html">Data Deletion</a>
+    </footer>
+  </div>
+
+  <script>
+    function authHeaders() {
+      const token = localStorage.getItem('authToken');
+      return token ? { Authorization: 'Bearer ' + token } : {};
+    }
+
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const response = await nativeFetch(...args);
+      const target = String(args[0] || "");
+      if (response.status === 401 && target.startsWith("/api/")) {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userEmail");
+        window.location.replace("/login.html");
+      }
+      return response;
+    };
+
+    function statsLogout() {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userEmail');
+      window.location.replace('/login.html');
+    }
+
+    const platformMeta = {
+      telegram:  { name: "Telegram",  icon: "✈️" },
+      facebook:  { name: "Facebook",  icon: "📘" },
+      instagram: { name: "Instagram", icon: "📸" },
+      tiktok:    { name: "TikTok",    icon: "🎵" },
+      shafa:     { name: "Shafa.ua",  icon: "🛍️" },
+      prom:      { name: "Prom.ua",   icon: "🟠" },
+      olx:       { name: "OLX",       icon: "🟢" },
+      rozetka:   { name: "Rozetka",   icon: "🌹" },
+    };
+
+    function renderPlatformBars(byPlatform) {
+      const box = document.getElementById("platformBars");
+      if (!byPlatform.length) {
+        box.innerHTML = `<div class="empty-state"><div class="eico">📊</div>Ще немає жодної публікації — почни з <a href="/app.html">першого товару</a>.</div>`;
+        return;
+      }
+      const max = Math.max(...byPlatform.map(p => p.total), 1);
+      box.innerHTML = byPlatform.map(p => {
+        const meta = platformMeta[p.platform] || { name: p.platform, icon: "•" };
+        const pubPct = (p.published / max) * 100;
+        const pendPct = (p.pending / max) * 100;
+        const failPct = (p.failed / max) * 100;
+        return `
+          <div class="platform-bar-row">
+            <div class="pbr-label">${meta.icon} ${meta.name}</div>
+            <div class="pbr-track">
+              <div class="pbr-fill published" style="width:${pubPct}%"></div>
+              <div class="pbr-fill pending" style="width:${pendPct}%"></div>
+              <div class="pbr-fill failed" style="width:${failPct}%"></div>
+            </div>
+            <div class="pbr-count">${p.total}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDailyChart(daily) {
+      const box = document.getElementById("dailyChart");
+      if (!daily.length) {
+        box.innerHTML = `<div class="daily-empty">Немає опублікованих постів за цей період</div>`;
+        return;
+      }
+      // last 30 entries
+      const recent = daily.slice(-30);
+      const max = Math.max(...recent.map(d => d.cnt), 1);
+      box.innerHTML = `<div class="daily-chart">${recent.map(d => {
+        const h = Math.max((d.cnt / max) * 100, 3);
+        return `<div class="daily-bar" style="height:${h}%" data-tip="${d.day}: ${d.cnt}"></div>`;
+      }).join("")}</div>`;
+    }
+
+    async function loadStats() {
+      const d = await fetch("/api/stats/summary", { headers: authHeaders() }).then(r => r.json());
+      document.getElementById("kpi-products").textContent = d.totalProducts;
+      document.getElementById("kpi-posts").textContent = d.totalPosts;
+      document.getElementById("kpi-published").textContent = d.byStatus?.published ?? 0;
+      document.getElementById("kpi-connected").textContent = `${d.connectedPlatforms} / ${d.totalPlatforms}`;
+      renderPlatformBars(d.byPlatform || []);
+      renderDailyChart(d.daily || []);
+    }
+
+    (function () {
+      const token = localStorage.getItem('authToken');
+      if (!token) { window.location.replace('/login.html'); return; }
+      const email = localStorage.getItem('userEmail') || '';
+      document.getElementById('statsUserEmail').textContent = email;
+      document.getElementById('statsLogoutBtn').style.display = '';
+      loadStats();
+    })();
+  </script>
+</body>
+</html>

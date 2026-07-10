@@ -1065,6 +1065,83 @@ async function startServer() {
     }
   });
 
+  // ── Statistics ───────────────────────────────────────────────────────────────
+
+  app.get("/api/stats/summary", ...requireUser, async (req: Request, res: Response) => {
+    const numericUserId = currentUserId(req);
+    const userId = String(numericUserId);
+
+    const totalsRow = await db.get(
+      `SELECT COUNT(*) AS totalProducts FROM products WHERE userId = ?`,
+      [userId]
+    );
+
+    const byPlatformStatus = await db.all(
+      `
+      SELECT pp.platform, pp.status, COUNT(*) AS cnt
+      FROM platform_posts pp
+      JOIN products p ON p.id = pp.productId
+      WHERE p.userId = ?
+      GROUP BY pp.platform, pp.status
+      `,
+      [userId]
+    );
+
+    const byPlatform: Record<string, { platform: string; total: number; published: number; failed: number; pending: number }> = {};
+    for (const row of byPlatformStatus) {
+      const entry = (byPlatform[row.platform] ||= { platform: row.platform, total: 0, published: 0, failed: 0, pending: 0 });
+      entry.total += row.cnt;
+      if (row.status === "published") entry.published += row.cnt;
+      else if (row.status === "failed") entry.failed += row.cnt;
+      else entry.pending += row.cnt;
+    }
+
+    const byStatusRows = await db.all(
+      `
+      SELECT pp.status, COUNT(*) AS cnt
+      FROM platform_posts pp
+      JOIN products p ON p.id = pp.productId
+      WHERE p.userId = ?
+      GROUP BY pp.status
+      `,
+      [userId]
+    );
+    const byStatus: Record<string, number> = { draft: 0, scheduled: 0, publishing: 0, published: 0, failed: 0 };
+    for (const row of byStatusRows) byStatus[row.status] = row.cnt;
+
+    const dailyRows = await db.all(
+      `
+      SELECT substr(pp.publishedAt, 1, 10) AS day, COUNT(*) AS cnt
+      FROM platform_posts pp
+      JOIN products p ON p.id = pp.productId
+      WHERE p.userId = ? AND pp.status = 'published' AND pp.publishedAt IS NOT NULL
+      GROUP BY day
+      ORDER BY day ASC
+      `,
+      [userId]
+    );
+
+    const socialStatus = await getUserSocialStatus(db, numericUserId);
+    const settings = await getUserSettings(db, numericUserId);
+    // Shafa's connection status isn't tracked per-user the way OAuth platforms are
+    // (it's session-cookie based), so it's excluded from this connected/total count
+    // rather than guessed at.
+    const platformKeys = ["facebook", "instagram", "tiktok", "prom", "olx", "rozetka"] as const;
+    const connectedCount =
+      platformKeys.filter((k) => (socialStatus as any)[k]).length +
+      (settings.telegramChatId ? 1 : 0);
+
+    res.json({
+      totalProducts: totalsRow?.totalProducts || 0,
+      totalPosts: byStatusRows.reduce((sum: number, r: any) => sum + r.cnt, 0),
+      byPlatform: Object.values(byPlatform).sort((a, b) => b.total - a.total),
+      byStatus,
+      daily: dailyRows,
+      connectedPlatforms: connectedCount,
+      totalPlatforms: platformKeys.length + 1, // + Telegram
+    });
+  });
+
   // ── Facebook OAuth ─────────────────────────────────────────────────────────
 
   // ── Per-user social token endpoints ────────────────────────────────────────

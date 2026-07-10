@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Кабінет — Postly</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+  <!-- Progress bar -->
+  <div class="progress-bar hidden" id="progressBar">
+    <div class="progress-track"><div class="progress-fill"></div></div>
+    <span class="progress-msg" id="progressMsg"></span>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo">
+          <div class="logo-icon">✦</div>
+          <span class="logo-name">Postly</span>
+        </div>
+        <div class="topbar-divider"></div>
+        <span class="badge">Кабінет</span>
+        <span class="topbar-desc">Публікація товарів для магазину одягу</span>
+      </div>
+      <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
+      <a href="/products.html" class="btn ghost">Історія</a>
+      <a href="/stats.html" class="btn ghost">Статистика</a>
+      <span id="userEmailLabel" style="font-size:13px;color:#666;margin-left:4px"></span>
+      <button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Вийти</button>
+    </header>
+
+    <div class="page-body">
+      <div class="layout">
+        <form id="productForm" class="card form-card">
+          <div class="section-title">
+            <div class="section-label">
+              <span class="ico">📦</span>
+              <h2>Новий товар</h2>
+            </div>
+            <button type="button" id="newProductBtn" class="btn ghost">Очистити</button>
+          </div>
+
+          <!-- Медіа -->
+          <div class="media-row">
+            <label class="upload-box" id="uploadBox">
+              <input type="file" id="photos" name="photos" accept="image/*" multiple />
+              <div class="upload-icon">🖼</div>
+              <strong>Фото товару</strong>
+              <small>До 6 зображень. Перше — головне.</small>
+            </label>
+
+            <label class="upload-box video-upload-box">
+              <input type="file" id="video" name="video" accept="video/mp4" />
+              <div class="upload-icon">▶</div>
+              <strong>Відео / Reels</strong>
+              <small>MP4 для Telegram, Instagram, Facebook.</small>
+            </label>
+          </div>
+
+          <div id="photoGallery" class="photo-gallery"></div>
+          <div id="videoPreview" class="photo-gallery"></div>
+
+          <div class="video-settings hidden" id="videoSettings">
+            <div class="video-settings-head">
+              <div>
+                <strong>Стиль оформлення Reels</strong>
+                <small>Стиль запам'ятовується для цього товару</small>
+              </div>
+              <label class="video-toggle">
+                <input type="checkbox" name="generateVideo" checked />
+                <span>Генерувати відео</span>
+              </label>
+            </div>
+
+            <div class="video-style-select" id="videoStyleSelect">
+              <label class="video-style-card active">
+                <input type="radio" name="videoStyle" value="fashion" checked />
+                <span class="style-preview fashion-preview">
+                  <b>Fashion</b>
+                  <em>1290 грн</em>
+                </span>
+                <strong>Fashion</strong>
+                <small>Для більшості товарів</small>
+              </label>
+
+              <label class="video-style-card">
+                <input type="radio" name="videoStyle" value="minimal" />
+                <span class="style-preview minimal-preview">
+                  <b>Minimal</b>
+                  <em>new drop</em>
+                </span>
+                <strong>Minimal</strong>
+                <small>Спокійний стиль</small>
+              </label>
+
+              <label class="video-style-card">
+                <input type="radio" name="videoStyle" value="premium" />
+                <span class="style-preview premium-preview">
+                  <b>Premium</b>
+                  <em>limited</em>
+                </span>
+                <strong>Premium</strong>
+                <small>Дорожча подача</small>
+              </label>
+
+              <label class="video-style-card">
+                <input type="radio" name="videoStyle" value="sale" />
+                <span class="style-preview sale-preview">
+                  <b>SALE</b>
+                  <em>-30%</em>
+                </span>
+                <strong>Sale</strong>
+                <small>Акції та знижки</small>
+              </label>
+            </div>
+          </div>
+
+          <!-- Основна інформація -->
+          <div class="form-divider">Основна інформація</div>
+
+          <div class="grid">
+            <label>
+              Назва товару
+              <input type="text" name="title" placeholder="Костюм з льону" required />
+            </label>
+            <label>
+              Модель / артикул
+              <input type="text" name="model" placeholder="097" />
+            </label>
+            <label>
+              Ціна
+              <input type="text" name="price" placeholder="980 грн" required />
+            </label>
+            <label>
+              Дроп ціна
+              <input type="text" name="dropPrice" placeholder="805 грн" />
+            </label>
+            <label>
+              Кольори
+              <input type="text" name="colors" placeholder="чорний, молочний" />
+            </label>
+          </div>
+
+          <div class="size-picker-wrap">
+            <div class="size-picker-label">Розміри</div>
+            <div class="size-picker-tabs" id="sizeTabs">
+              <button type="button" class="size-tab active" onclick="setSizeTab(this,'int')">Міжнародний</button>
+              <button type="button" class="size-tab" onclick="setSizeTab(this,'eur')">Європейський</button>
+              <button type="button" class="size-tab" onclick="setSizeTab(this,'ukr')">Українські</button>
+            </div>
+            <div class="size-grid" id="size-grid-int"></div>
+            <div class="size-grid" id="size-grid-eur" style="display:none"></div>
+            <div class="size-grid" id="size-grid-ukr" style="display:none"></div>
+            <input type="hidden" name="sizes" id="sizes-hidden" />
+            <input type="hidden" name="sizeSystem" id="sizeSystem-hidden" value="Міжнародний" />
+          </div>
+
+          <label>
+            Тканина / матеріал
+            <input type="text" name="fabric" placeholder="фактурний льон" />
+          </label>
+
+          <label>
+            Додатковий опис
+            <textarea name="description" rows="3" placeholder="Особливості посадки, комплектація, нюанси..."></textarea>
+          </label>
+
+          <!-- Платформи -->
+          <div class="form-divider">Платформи для публікації</div>
+
+          <div class="presets-bar">
+            <select id="presetSelect" class="preset-select">
+              <option value="">Шаблон налаштувань...</option>
+            </select>
+            <button type="button" id="savePresetBtn" class="btn ghost">Зберегти шаблон</button>
+          </div>
+
+          <fieldset class="platforms">
+            <legend>Платформи</legend>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="telegram" checked />
+              <span class="platform-icon">✈</span>
+              <span>Telegram</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="instagram" checked />
+              <span class="platform-icon">📸</span>
+              <span>Instagram</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="facebook" checked />
+              <span class="platform-icon">📘</span>
+              <span>Facebook</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="tiktok" />
+              <span class="platform-icon">🎵</span>
+              <span>TikTok</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="shafa" />
+              <span class="platform-icon">🛍</span>
+              <span>Shafa.ua</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="prom" />
+              <span class="platform-icon">🟠</span>
+              <span>Prom.ua</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="olx" />
+              <span class="platform-icon">🟢</span>
+              <span>OLX</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="selectedPlatforms" value="rozetka" />
+              <span class="platform-icon">🌹</span>
+              <span>Rozetka</span>
+            </label>
+          </fieldset>
+
+          <!-- Дії -->
+          <div class="actions sticky-actions">
+            <button type="button" id="previewBtn" class="btn primary">Прев'ю</button>
+            <button type="button" id="publishSelectedBtn" class="btn success">Опублікувати</button>
+            <button type="button" id="scheduleSelectedBtn" class="btn secondary">Запланувати</button>
+          </div>
+
+          <p id="statusMessage" class="status"></p>
+        </form>
+
+        <section class="card preview-panel hidden" id="previewPanel">
+          <div class="section-title">
+            <div class="section-label">
+              <span class="ico">👁</span>
+              <h2>Прев'ю</h2>
+            </div>
+            <span id="productIdBadge" class="small-badge"></span>
+          </div>
+
+          <div id="tabs" class="tabs"></div>
+          <div id="platformEditor" class="platform-editor"></div>
+        </section>
+      </div>
+    </div>
+    <footer class="legal-footer">
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+      <a href="/data-deletion.html">Data Deletion</a>
+    </footer>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+  // ── SIZE PICKER ─────────────────────────────────────────────────────────
+  const SIZES_DATA = {
+    int: { label: "Міжнародний", sizes: ["XXS","XS","S","M","L","XL","XXL","XXXL","4XL","5XL","6XL","7XL","8XL","9XL","XXS-XS","XS-S","S-M","M-L","L-XL","XL-XXL","One size","Інший"] },
+    eur: { label: "Європейський", sizes: ["32","34","36","38","40","42","44","46","48","50","52","54","56","58","60","62","64","One size","Інший"] },
+    ukr: { label: "Українські", sizes: ["38","40","42","44","46","48","50","52","54","56","58","60","62","64","66","68","70","40-42","42-44","42-48","44-46","46-48","48-50","50-52","52-54","54-56","56-58","58-60","60-62","62-64","64-66","66-68","68-70","One size","Інший"] },
+  };
+  let currentSizeSystem = "int";
+
+  function buildSizeGrids() {
+    for (const [key, data] of Object.entries(SIZES_DATA)) {
+      const grid = document.getElementById("size-grid-" + key);
+      if (!grid) continue;
+      grid.innerHTML = data.sizes.map(s =>
+        `<button type="button" class="size-btn" data-size="${s}" onclick="toggleSizeBtn(this)">${s}</button>`
+      ).join("");
+    }
+  }
+
+  function setSizeTab(btn, key) {
+    currentSizeSystem = key;
+    document.querySelectorAll(".size-tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".size-grid").forEach(g => g.style.display = "none");
+    document.getElementById("size-grid-" + key).style.display = "";
+    document.getElementById("sizeSystem-hidden").value = SIZES_DATA[key].label;
+    updateSizesHidden();
+  }
+
+  function toggleSizeBtn(btn) {
+    btn.classList.toggle("selected");
+    updateSizesHidden();
+  }
+
+  function updateSizesHidden() {
+    const grid = document.getElementById("size-grid-" + currentSizeSystem);
+    const selected = grid ? [...grid.querySelectorAll(".size-btn.selected")].map(b => b.dataset.size) : [];
+    document.getElementById("sizes-hidden").value = selected.join(", ");
+  }
+
+  function restoreSizePicker(sizesStr, sysLabel) {
+    const keyMap = { "Міжнародний": "int", "Європейський": "eur", "Українські": "ukr" };
+    const key = keyMap[sysLabel] || "int";
+    const tab = document.querySelector(`.size-tab[onclick*="'${key}'"]`);
+    if (tab) setSizeTab(tab, key);
+    const vals = (sizesStr || "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    const grid = document.getElementById("size-grid-" + key);
+    if (grid) grid.querySelectorAll(".size-btn").forEach(b => {
+      if (vals.includes(b.dataset.size)) b.classList.add("selected");
+    });
+    updateSizesHidden();
+  }
+
+  buildSizeGrids();
+  </script>
+  <style>
+  .size-picker-wrap { margin-top: 12px; }
+  .size-picker-label { font-size: 13px; font-weight: 500; color: var(--text2, #888); margin-bottom: 6px; }
+  .size-picker-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .size-tab { padding: 4px 14px; border: 1.5px solid var(--border, #e0e0e0); border-radius: 20px; cursor: pointer; background: transparent; font-size: 13px; color: var(--text, #333); transition: all .15s; }
+  .size-tab.active { border-color: var(--accent, #3b82f6); color: var(--accent, #3b82f6); background: color-mix(in srgb, var(--accent, #3b82f6) 10%, transparent); }
+  .size-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+  .size-btn { padding: 5px 11px; border: 1.5px solid var(--border, #e0e0e0); border-radius: 8px; cursor: pointer; background: transparent; font-size: 13px; color: var(--text, #333); transition: all .15s; }
+  .size-btn:hover { border-color: #aaa; }
+  .size-btn.selected { border-color: var(--accent, #3b82f6); background: var(--accent, #3b82f6); color: #fff; }
+  </style>
+  <script>
+  // Auth check
+  (function() {
+    const token = localStorage.getItem('authToken');
+    if (!token) { window.location.replace('/login.html'); return; }
+    const email = localStorage.getItem('userEmail') || '';
+    const emailEl = document.getElementById('userEmailLabel');
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (emailEl) emailEl.textContent = email;
+    if (logoutBtn) logoutBtn.style.display = '';
+  })();
+  function logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userEmail');
+    window.location.replace('/login.html');
+  }
+  </script>
+</body>
+</html>

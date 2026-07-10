@@ -3,339 +3,293 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Postly</title>
+  <title>Postly — одне фото, пости одразу на 8 платформах</title>
+  <meta name="description" content="Завантаж фото товару — AI напише тексти і опублікує на Telegram, Facebook, Instagram, TikTok, Shafa, Prom, OLX і Rozetka одночасно." />
   <link rel="stylesheet" href="./style.css" />
+  <style>
+    body { overflow-x: hidden; }
+
+    .landing-header {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+      background: rgba(13, 17, 23, 0.85);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .landing-header .logo { display: flex; align-items: center; gap: 8px; }
+    .landing-header .actions { display: flex; align-items: center; gap: 10px; }
+
+    .hero {
+      max-width: 980px; margin: 0 auto;
+      padding: 88px 24px 64px;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 999px;
+      background: var(--accent-bg); border: 1px solid rgba(29,176,134,.3);
+      color: var(--accent); font-size: 13px; font-weight: 600; margin-bottom: 24px;
+    }
+    .hero h1 {
+      font-size: clamp(32px, 5.5vw, 56px);
+      font-weight: 800; letter-spacing: -1px; line-height: 1.12;
+      margin-bottom: 20px;
+    }
+    .hero h1 .accent { color: var(--accent); }
+    .hero p.sub {
+      font-size: clamp(15px, 2vw, 19px); color: var(--text2);
+      max-width: 640px; margin: 0 auto 36px; line-height: 1.6;
+    }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .hero-cta .btn { height: 48px; padding: 0 28px; font-size: 15px; }
+    .hero-note { font-size: 13px; color: var(--text3); }
+
+    .hero-visual {
+      max-width: 900px; margin: 56px auto 0;
+      border-radius: 20px; border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--bg2), var(--bg));
+      padding: 28px; box-shadow: var(--shadow);
+      position: relative; overflow: hidden;
+    }
+    .hero-visual::before {
+      content: ""; position: absolute; inset: -40% -20% auto -20%; height: 260px;
+      background: radial-gradient(closest-side, var(--accent-glow), transparent);
+      pointer-events: none;
+    }
+    .flow-row { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
+    .flow-step {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px 20px; min-width: 140px; text-align: center;
+    }
+    .flow-step .fico { font-size: 28px; margin-bottom: 8px; }
+    .flow-step .flabel { font-size: 13px; font-weight: 700; color: var(--text); }
+    .flow-step .fsub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .flow-arrow { color: var(--accent); font-size: 20px; flex-shrink: 0; }
+
+    .platforms-row {
+      max-width: 1000px; margin: 0 auto; padding: 0 24px 80px;
+      text-align: center;
+    }
+    .platforms-row .label { font-size: 13px; color: var(--text3); margin-bottom: 20px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+    .platform-pills { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .platform-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 999px;
+      padding: 9px 18px; font-size: 14px; font-weight: 600; color: var(--text);
+    }
+    .platform-pill .pico { font-size: 17px; }
+
+    .section { max-width: 1080px; margin: 0 auto; padding: 64px 24px; }
+    .section-head { text-align: center; max-width: 640px; margin: 0 auto 44px; }
+    .section-head .kicker { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
+    .section-head h2 { font-size: clamp(24px, 3.5vw, 34px); font-weight: 800; letter-spacing: -.5px; margin-bottom: 12px; }
+    .section-head p { color: var(--text2); font-size: 15px; line-height: 1.6; }
+
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .step-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+      padding: 26px 22px; position: relative;
+    }
+    .step-card .snum {
+      width: 32px; height: 32px; border-radius: 10px; background: var(--accent); color: #000;
+      display: grid; place-items: center; font-weight: 800; font-size: 14px; margin-bottom: 16px;
+    }
+    .step-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+    .step-card p { font-size: 13.5px; color: var(--text2); line-height: 1.6; }
+
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .feature-card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 16px;
+      padding: 24px; transition: border-color .15s, transform .15s;
+    }
+    .feature-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .feature-card .fico { font-size: 26px; margin-bottom: 14px; }
+    .feature-card h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 8px; }
+    .feature-card p { font-size: 13.5px; color: var(--text2); line-height: 1.6; }
+
+    .cta-band {
+      max-width: 900px; margin: 40px auto 80px; padding: 48px 32px;
+      background: linear-gradient(135deg, var(--accent-bg), transparent);
+      border: 1px solid rgba(29,176,134,.35); border-radius: 24px;
+      text-align: center;
+    }
+    .cta-band h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 800; margin-bottom: 10px; letter-spacing: -.4px; }
+    .cta-band p { color: var(--text2); margin-bottom: 26px; font-size: 15px; }
+    .cta-band .btn { height: 48px; padding: 0 30px; font-size: 15px; }
+
+    .landing-footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 24px 40px;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .landing-footer .flinks { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .landing-footer .flinks a { color: var(--text2); font-size: 13px; }
+    .landing-footer .flinks a:hover { color: var(--text); text-decoration: none; }
+    .landing-footer .fcopy { color: var(--text3); font-size: 12px; }
+  </style>
 </head>
 <body>
-  <!-- Toast container -->
-  <div class="toast-container" id="toastContainer"></div>
-  <!-- Progress bar -->
-  <div class="progress-bar hidden" id="progressBar">
-    <div class="progress-track"><div class="progress-fill"></div></div>
-    <span class="progress-msg" id="progressMsg"></span>
-  </div>
+  <header class="landing-header">
+    <div class="logo">
+      <div class="logo-icon">✦</div>
+      <span class="logo-name">Postly</span>
+    </div>
+    <div class="actions" id="headerActions">
+      <!-- filled by JS depending on auth state -->
+    </div>
+  </header>
 
-  <div class="app">
-    <header class="topbar">
-      <div class="topbar-left">
-        <div class="logo">
-          <div class="logo-icon">✦</div>
-          <span class="logo-name">Postly</span>
+  <section class="hero">
+    <span class="hero-eyebrow">✦ AI генерує тексти під кожну платформу окремо</span>
+    <h1>Одне фото товару —<br>пости одразу на <span class="accent">8 платформах</span></h1>
+    <p class="sub">
+      Завантаж фото — Postly сам напише продаючий текст під кожну соцмережу й маркетплейс та опублікує
+      у твої власні акаунти. Більше жодного копіювання одного й того самого поста вручну по 8 разів.
+    </p>
+    <div class="hero-cta">
+      <a href="/login.html?tab=register" class="btn primary" id="heroCtaBtn">Спробувати безкоштовно</a>
+      <a href="#how" class="btn secondary">Як це працює</a>
+    </div>
+    <div class="hero-note">Реєстрація за хвилину · публікуєш у свої власні акаунти, не спільні</div>
+
+    <div class="hero-visual">
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="fico">🖼</div>
+          <div class="flabel">Фото товару</div>
+          <div class="fsub">до 6 знімків</div>
         </div>
-        <div class="topbar-divider"></div>
-        <span class="badge">Shopping</span>
-        <span class="topbar-desc">Публікація товарів для магазину одягу</span>
-      </div>
-      <a href="/setup.html" class="btn ghost">⚙ Налаштування</a>
-      <a href="/products" class="btn secondary">Історія</a>
-      <span id="userEmailLabel" style="font-size:13px;color:#666;margin-left:4px"></span>
-      <button class="btn ghost" id="logoutBtn" onclick="logout()" style="display:none">Вийти</button>
-    </header>
-
-    <div class="page-body">
-      <div class="layout">
-        <form id="productForm" class="card form-card">
-          <div class="section-title">
-            <div class="section-label">
-              <span class="ico">📦</span>
-              <h2>Новий товар</h2>
-            </div>
-            <button type="button" id="newProductBtn" class="btn ghost">Очистити</button>
-          </div>
-
-          <!-- Медіа -->
-          <div class="media-row">
-            <label class="upload-box" id="uploadBox">
-              <input type="file" id="photos" name="photos" accept="image/*" multiple />
-              <div class="upload-icon">🖼</div>
-              <strong>Фото товару</strong>
-              <small>До 6 зображень. Перше — головне.</small>
-            </label>
-
-            <label class="upload-box video-upload-box">
-              <input type="file" id="video" name="video" accept="video/mp4" />
-              <div class="upload-icon">▶</div>
-              <strong>Відео / Reels</strong>
-              <small>MP4 для Telegram, Instagram, Facebook.</small>
-            </label>
-          </div>
-
-          <div id="photoGallery" class="photo-gallery"></div>
-          <div id="videoPreview" class="photo-gallery"></div>
-
-          <div class="video-settings hidden" id="videoSettings">
-            <div class="video-settings-head">
-              <div>
-                <strong>Стиль оформлення Reels</strong>
-                <small>Стиль запам'ятовується для цього товару</small>
-              </div>
-              <label class="video-toggle">
-                <input type="checkbox" name="generateVideo" checked />
-                <span>Генерувати відео</span>
-              </label>
-            </div>
-
-            <div class="video-style-select" id="videoStyleSelect">
-              <label class="video-style-card active">
-                <input type="radio" name="videoStyle" value="fashion" checked />
-                <span class="style-preview fashion-preview">
-                  <b>Fashion</b>
-                  <em>1290 грн</em>
-                </span>
-                <strong>Fashion</strong>
-                <small>Для більшості товарів</small>
-              </label>
-
-              <label class="video-style-card">
-                <input type="radio" name="videoStyle" value="minimal" />
-                <span class="style-preview minimal-preview">
-                  <b>Minimal</b>
-                  <em>new drop</em>
-                </span>
-                <strong>Minimal</strong>
-                <small>Спокійний стиль</small>
-              </label>
-
-              <label class="video-style-card">
-                <input type="radio" name="videoStyle" value="premium" />
-                <span class="style-preview premium-preview">
-                  <b>Premium</b>
-                  <em>limited</em>
-                </span>
-                <strong>Premium</strong>
-                <small>Дорожча подача</small>
-              </label>
-
-              <label class="video-style-card">
-                <input type="radio" name="videoStyle" value="sale" />
-                <span class="style-preview sale-preview">
-                  <b>SALE</b>
-                  <em>-30%</em>
-                </span>
-                <strong>Sale</strong>
-                <small>Акції та знижки</small>
-              </label>
-            </div>
-          </div>
-
-          <!-- Основна інформація -->
-          <div class="form-divider">Основна інформація</div>
-
-          <div class="grid">
-            <label>
-              Назва товару
-              <input type="text" name="title" placeholder="Костюм з льону" required />
-            </label>
-            <label>
-              Модель / артикул
-              <input type="text" name="model" placeholder="097" />
-            </label>
-            <label>
-              Ціна
-              <input type="text" name="price" placeholder="980 грн" required />
-            </label>
-            <label>
-              Дроп ціна
-              <input type="text" name="dropPrice" placeholder="805 грн" />
-            </label>
-            <label>
-              Кольори
-              <input type="text" name="colors" placeholder="чорний, молочний" />
-            </label>
-          </div>
-
-          <div class="size-picker-wrap">
-            <div class="size-picker-label">Розміри</div>
-            <div class="size-picker-tabs" id="sizeTabs">
-              <button type="button" class="size-tab active" onclick="setSizeTab(this,'int')">Міжнародний</button>
-              <button type="button" class="size-tab" onclick="setSizeTab(this,'eur')">Європейський</button>
-              <button type="button" class="size-tab" onclick="setSizeTab(this,'ukr')">Українські</button>
-            </div>
-            <div class="size-grid" id="size-grid-int"></div>
-            <div class="size-grid" id="size-grid-eur" style="display:none"></div>
-            <div class="size-grid" id="size-grid-ukr" style="display:none"></div>
-            <input type="hidden" name="sizes" id="sizes-hidden" />
-            <input type="hidden" name="sizeSystem" id="sizeSystem-hidden" value="Міжнародний" />
-          </div>
-
-          <label>
-            Тканина / матеріал
-            <input type="text" name="fabric" placeholder="фактурний льон" />
-          </label>
-
-          <label>
-            Додатковий опис
-            <textarea name="description" rows="3" placeholder="Особливості посадки, комплектація, нюанси..."></textarea>
-          </label>
-
-          <!-- Платформи -->
-          <div class="form-divider">Платформи для публікації</div>
-
-          <div class="presets-bar">
-            <select id="presetSelect" class="preset-select">
-              <option value="">Шаблон налаштувань...</option>
-            </select>
-            <button type="button" id="savePresetBtn" class="btn ghost">Зберегти шаблон</button>
-          </div>
-
-          <fieldset class="platforms">
-            <legend>Платформи</legend>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="telegram" checked />
-              <span class="platform-icon">✈</span>
-              <span>Telegram</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="instagram" checked />
-              <span class="platform-icon">📸</span>
-              <span>Instagram</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="facebook" checked />
-              <span class="platform-icon">📘</span>
-              <span>Facebook</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="tiktok" />
-              <span class="platform-icon">🎵</span>
-              <span>TikTok</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="shafa" />
-              <span class="platform-icon">🛍</span>
-              <span>Shafa.ua</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="prom" />
-              <span class="platform-icon">🟠</span>
-              <span>Prom.ua</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="olx" />
-              <span class="platform-icon">🟢</span>
-              <span>OLX</span>
-            </label>
-            <label class="check">
-              <input type="checkbox" name="selectedPlatforms" value="rozetka" />
-              <span class="platform-icon">🌹</span>
-              <span>Rozetka</span>
-            </label>
-          </fieldset>
-
-          <!-- Дії -->
-          <div class="actions sticky-actions">
-            <button type="button" id="previewBtn" class="btn primary">Прев'ю</button>
-            <button type="button" id="publishSelectedBtn" class="btn success">Опублікувати</button>
-            <button type="button" id="scheduleSelectedBtn" class="btn secondary">Запланувати</button>
-          </div>
-
-          <p id="statusMessage" class="status"></p>
-        </form>
-
-        <section class="card preview-panel hidden" id="previewPanel">
-          <div class="section-title">
-            <div class="section-label">
-              <span class="ico">👁</span>
-              <h2>Прев'ю</h2>
-            </div>
-            <span id="productIdBadge" class="small-badge"></span>
-          </div>
-
-          <div id="tabs" class="tabs"></div>
-          <div id="platformEditor" class="platform-editor"></div>
-        </section>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="fico">✦</div>
+          <div class="flabel">AI генерує тексти</div>
+          <div class="fsub">окремо під кожну платформу</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="fico">🚀</div>
+          <div class="flabel">Публікується всюди</div>
+          <div class="fsub">одним кліком</div>
+        </div>
       </div>
     </div>
-    <footer class="legal-footer">
-      <a href="/privacy.html">Privacy Policy</a>
-      <a href="/terms.html">Terms of Service</a>
-      <a href="/data-deletion.html">Data Deletion</a>
-    </footer>
+  </section>
+
+  <section class="platforms-row">
+    <div class="label">Публікуємо на</div>
+    <div class="platform-pills">
+      <div class="platform-pill"><span class="pico">✈️</span>Telegram</div>
+      <div class="platform-pill"><span class="pico">📘</span>Facebook</div>
+      <div class="platform-pill"><span class="pico">📸</span>Instagram</div>
+      <div class="platform-pill"><span class="pico">🎵</span>TikTok</div>
+      <div class="platform-pill"><span class="pico">🛍️</span>Shafa.ua</div>
+      <div class="platform-pill"><span class="pico">🟠</span>Prom.ua</div>
+      <div class="platform-pill"><span class="pico">🟢</span>OLX</div>
+      <div class="platform-pill"><span class="pico">🌹</span>Rozetka</div>
+    </div>
+  </section>
+
+  <section class="section" id="how">
+    <div class="section-head">
+      <div class="kicker">Як це працює</div>
+      <h2>Від фото до публікації — 4 кроки</h2>
+      <p>Без окремого пароля для кожної платформи, без ручного передруковування опису двадцять разів поспіль.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="snum">1</div>
+        <h3>Завантаж фото</h3>
+        <p>До 6 фото товару (і відео за бажанням) — прямо з телефону чи компʼютера.</p>
+      </div>
+      <div class="step-card">
+        <div class="snum">2</div>
+        <h3>AI пише тексти</h3>
+        <p>Окремий текст під кожну платформу — свій стиль, довжина та формат для Instagram, Telegram, Shafa тощо.</p>
+      </div>
+      <div class="step-card">
+        <div class="snum">3</div>
+        <h3>Обери платформи</h3>
+        <p>Постав галочки, де публікувати саме цей товар — усюди або вибірково.</p>
+      </div>
+      <div class="step-card">
+        <div class="snum">4</div>
+        <h3>Готово</h3>
+        <p>Публікуй одразу або заплануй на потрібний час — товар з'явиться скрізь автоматично.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div class="kicker">Чому Postly</div>
+      <h2>Зроблено для продавців, а не для маркетологів</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="fico">⏱️</div>
+        <h3>Економія годин щодня</h3>
+        <p>Одне завантаження замість восьми окремих публікацій вручну на кожній платформі.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fico">🔒</div>
+        <h3>Твої власні акаунти</h3>
+        <p>Публікація йде від твого імені у твої власні сторінки й кабінети — ми ніколи не постимо від себе.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fico">✦</div>
+        <h3>AI розуміє контекст</h3>
+        <p>Бачить фото товару і сам підбирає кольори, розміри, стиль опису під кожну платформу.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fico">🇺🇦</div>
+        <h3>Українські маркетплейси з коробки</h3>
+        <p>Shafa.ua, Prom.ua, OLX і Rozetka — поруч із Facebook, Instagram, TikTok і Telegram.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fico">📅</div>
+        <h3>Публікація за розкладом</h3>
+        <p>Не обов'язково постити просто зараз — заплануй на зручний час.</p>
+      </div>
+      <div class="feature-card">
+        <div class="fico">📊</div>
+        <h3>Все в одному кабінеті</h3>
+        <p>Історія публікацій і статистика по кожній платформі завжди перед очима.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="cta-band">
+    <h2>Готовий перестати постити вручну?</h2>
+    <p>Зареєструйся, підключи свої акаунти й опублікуй перший товар за кілька хвилин.</p>
+    <a href="/login.html?tab=register" class="btn primary">Почати безкоштовно →</a>
   </div>
 
-  <script src="./app.js"></script>
+  <footer class="landing-footer">
+    <div class="flinks">
+      <a href="/privacy.html">Політика конфіденційності</a>
+      <a href="/terms.html">Умови використання</a>
+      <a href="/data-deletion.html">Видалення даних</a>
+      <a href="mailto:cyfrovahata@gmail.com">Підтримка</a>
+    </div>
+    <div class="fcopy">© Postly</div>
+  </footer>
+
   <script>
-  // ── SIZE PICKER ─────────────────────────────────────────────────────────
-  const SIZES_DATA = {
-    int: { label: "Міжнародний", sizes: ["XXS","XS","S","M","L","XL","XXL","XXXL","4XL","5XL","6XL","7XL","8XL","9XL","XXS-XS","XS-S","S-M","M-L","L-XL","XL-XXL","One size","Інший"] },
-    eur: { label: "Європейський", sizes: ["32","34","36","38","40","42","44","46","48","50","52","54","56","58","60","62","64","One size","Інший"] },
-    ukr: { label: "Українські", sizes: ["38","40","42","44","46","48","50","52","54","56","58","60","62","64","66","68","70","40-42","42-44","42-48","44-46","46-48","48-50","50-52","52-54","54-56","56-58","58-60","60-62","62-64","64-66","66-68","68-70","One size","Інший"] },
-  };
-  let currentSizeSystem = "int";
-
-  function buildSizeGrids() {
-    for (const [key, data] of Object.entries(SIZES_DATA)) {
-      const grid = document.getElementById("size-grid-" + key);
-      if (!grid) continue;
-      grid.innerHTML = data.sizes.map(s =>
-        `<button type="button" class="size-btn" data-size="${s}" onclick="toggleSizeBtn(this)">${s}</button>`
-      ).join("");
-    }
-  }
-
-  function setSizeTab(btn, key) {
-    currentSizeSystem = key;
-    document.querySelectorAll(".size-tab").forEach(t => t.classList.remove("active"));
-    btn.classList.add("active");
-    document.querySelectorAll(".size-grid").forEach(g => g.style.display = "none");
-    document.getElementById("size-grid-" + key).style.display = "";
-    document.getElementById("sizeSystem-hidden").value = SIZES_DATA[key].label;
-    updateSizesHidden();
-  }
-
-  function toggleSizeBtn(btn) {
-    btn.classList.toggle("selected");
-    updateSizesHidden();
-  }
-
-  function updateSizesHidden() {
-    const grid = document.getElementById("size-grid-" + currentSizeSystem);
-    const selected = grid ? [...grid.querySelectorAll(".size-btn.selected")].map(b => b.dataset.size) : [];
-    document.getElementById("sizes-hidden").value = selected.join(", ");
-  }
-
-  function restoreSizePicker(sizesStr, sysLabel) {
-    const keyMap = { "Міжнародний": "int", "Європейський": "eur", "Українські": "ukr" };
-    const key = keyMap[sysLabel] || "int";
-    const tab = document.querySelector(`.size-tab[onclick*="'${key}'"]`);
-    if (tab) setSizeTab(tab, key);
-    const vals = (sizesStr || "").split(/[,;]/).map(s => s.trim()).filter(Boolean);
-    const grid = document.getElementById("size-grid-" + key);
-    if (grid) grid.querySelectorAll(".size-btn").forEach(b => {
-      if (vals.includes(b.dataset.size)) b.classList.add("selected");
-    });
-    updateSizesHidden();
-  }
-
-  buildSizeGrids();
-  </script>
-  <style>
-  .size-picker-wrap { margin-top: 12px; }
-  .size-picker-label { font-size: 13px; font-weight: 500; color: var(--text2, #888); margin-bottom: 6px; }
-  .size-picker-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
-  .size-tab { padding: 4px 14px; border: 1.5px solid var(--border, #e0e0e0); border-radius: 20px; cursor: pointer; background: transparent; font-size: 13px; color: var(--text, #333); transition: all .15s; }
-  .size-tab.active { border-color: var(--accent, #3b82f6); color: var(--accent, #3b82f6); background: color-mix(in srgb, var(--accent, #3b82f6) 10%, transparent); }
-  .size-grid { display: flex; flex-wrap: wrap; gap: 5px; }
-  .size-btn { padding: 5px 11px; border: 1.5px solid var(--border, #e0e0e0); border-radius: 8px; cursor: pointer; background: transparent; font-size: 13px; color: var(--text, #333); transition: all .15s; }
-  .size-btn:hover { border-color: #aaa; }
-  .size-btn.selected { border-color: var(--accent, #3b82f6); background: var(--accent, #3b82f6); color: #fff; }
-  </style>
-  <script>
-  // Auth check
-  (function() {
-    const token = localStorage.getItem('authToken');
-    if (!token) { window.location.replace('/login.html'); return; }
-    const email = localStorage.getItem('userEmail') || '';
-    const emailEl = document.getElementById('userEmailLabel');
-    const logoutBtn = document.getElementById('logoutBtn');
-    if (emailEl) emailEl.textContent = email;
-    if (logoutBtn) logoutBtn.style.display = '';
-  })();
-  function logout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userEmail');
-    window.location.replace('/login.html');
-  }
+    (function () {
+      const token = localStorage.getItem('authToken');
+      const actions = document.getElementById('headerActions');
+      if (token) {
+        window.location.replace('/app.html');
+        return;
+      }
+      actions.innerHTML = `
+        <a href="mailto:cyfrovahata@gmail.com" class="btn ghost">Підтримка</a>
+        <a href="/login.html" class="btn ghost">Увійти</a>
+        <a href="/login.html?tab=register" class="btn primary">Зареєструватися</a>
+      `;
+    })();
   </script>
 </body>
 </html>

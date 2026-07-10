@@ -63,7 +63,12 @@
 <script>
   // Redirect if already logged in
   const tok = localStorage.getItem('authToken');
-  if (tok) window.location.replace('/');
+  if (tok) window.location.replace('/app.html');
+
+  // Open register tab directly if linked with ?tab=register
+  if (new URLSearchParams(window.location.search).get('tab') === 'register') {
+    setTab('register');
+  }
 
   function setTab(tab) {
     document.getElementById('loginForm').style.display = tab === 'login' ? '' : 'none';
@@ -98,7 +103,7 @@
       if (!res.ok) throw new Error(data.error || 'Помилка входу');
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userEmail', data.email);
-      window.location.replace('/');
+      window.location.replace('/app.html');
     } catch (err) {
       showError(err.message);
       btn.disabled = false;
@@ -125,7 +130,7 @@
       if (!res.ok) throw new Error(data.error || 'Помилка реєстрації');
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userEmail', data.email);
-      window.location.replace('/');
+      window.location.replace('/app.html');
     } catch (err) {
       showError(err.message);
       btn.disabled = false;
