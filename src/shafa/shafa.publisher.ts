@@ -829,11 +829,16 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
 
     await page.screenshot({ path: `${debugDir}/shafa-after-click.png`, fullPage: true }).catch(() => {});
 
-    // Чекаємо переходу — Shafa робить редирект після успішної публікації
+    // Чекаємо переходу — Shafa робить редирект після успішної публікації.
+    // Успішне створення веде на /uk/new/<id>/promotion-packages (з ID товару),
+    // тому перевіряти можна лише на "все ще на голій формі створення" (без ID),
+    // а не на будь-яке входження "/new" — інакше сторінка з пропозицією
+    // платного просування помилково сприймається як провал.
+    const isCreateFormUrl = (u: string) => /\/new\/?(\?.*)?$/.test(u);
     let finalUrl = page.url();
     try {
       await page.waitForURL(
-        url => !url.toString().includes("/new"),
+        url => !isCreateFormUrl(url.toString()),
         { timeout: 30000 }
       );
       finalUrl = page.url();
@@ -860,7 +865,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       })()`).catch(() => "");
       console.log(`[Shafa] Page text dump:`, pageText);
 
-      if (finalUrl.includes("/new")) {
+      if (isCreateFormUrl(finalUrl)) {
         const errMsg = formErrors.length ? formErrors.join("; ") : "Форма не відправилась — URL не змінився після сабміту";
         throw new Error(errMsg);
       }
