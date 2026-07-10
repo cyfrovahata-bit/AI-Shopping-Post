@@ -1,7 +1,7 @@
 import { publishInstagramPost } from "../instagram";
 import { sendTelegramPost } from "../telegram";
 import { publishFacebookPost } from "../facebook";
-import { publishToShafa, mapProductToShafa, ShafaSessionExpiredError } from "../shafa";
+import { publishToShafa, mapProductToShafa, ShafaSessionExpiredError, shafaSessionPathForUser, shafaDebugPrefixForUser } from "../shafa";
 import { publishTikTokVideo, publishTikTokPhotos } from "../tiktok";
 import { publishPromPost } from "../prom";
 import { publishOlxPost } from "../olx";
@@ -318,8 +318,15 @@ ${JSON.stringify([...SHAFA_COLORS])}
       }
     }
 
+    const numericUserId = (extras as any)?.numericUserId as number | null | undefined;
+    if (!numericUserId) {
+      throw new Error("Shafa вимагає підключеного акаунта користувача. Залогінься в Налаштуваннях.");
+    }
+
     try {
-      const result = await publishToShafa(shafaProduct);
+      const sessionPath = shafaSessionPathForUser(numericUserId);
+      const debugPrefix = shafaDebugPrefixForUser(numericUserId);
+      const result = await publishToShafa(shafaProduct, sessionPath, debugPrefix);
       return { externalPostId: result.externalPostId };
     } catch (err) {
       if (err instanceof ShafaSessionExpiredError) {

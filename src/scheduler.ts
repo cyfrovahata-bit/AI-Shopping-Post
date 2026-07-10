@@ -168,7 +168,7 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
           imageUrls: product.imageUrls,
           videoPath: preparedVideo.videoPath,
           videoUrl: preparedVideo.videoUrl,
-          extras: { ...extras, userTokens },
+          extras: { ...extras, userTokens, numericUserId },
         }),
       maxAttempts,
       4000

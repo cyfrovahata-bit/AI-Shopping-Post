@@ -1646,10 +1646,17 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  // ── Shafa setup ───────────────────────────────────────────────────────────
+  // ── Shafa setup (per-user Playwright session — no shared dev app) ──────────
+  //
+  // Unlike the OAuth platforms, Shafa has no API of its own: each user's own
+  // login/password drives a real browser session, and that session (and its debug
+  // screenshots) live in a file keyed by userId — never a single shared file — so
+  // one user's Shafa connection can never publish, or even show status for, another
+  // user's account.
 
-  app.get("/api/shafa/status", (_req: Request, res: Response) => {
-    const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
+  app.get("/api/shafa/status", ...requireUser, async (req: Request, res: Response) => {
+    const { shafaSessionPathForUser } = await import("./shafa/shafa.publisher");
+    const sessionPath = shafaSessionPathForUser(currentUserId(req));
     let sessionValid = false;
     try {
       const raw = fs.readFileSync(sessionPath, "utf8");
@@ -1660,35 +1667,46 @@ async function startServer() {
     res.json({ sessionValid });
   });
 
-  app.post("/api/shafa/login", async (req: Request, res: Response) => {
+  app.post("/api/shafa/login", ...requireUser, async (req: Request, res: Response) => {
     const { email: login, password } = req.body as { email?: string; password?: string };
     if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін та пароль" });
     try {
-      const { loginShafaAndSaveSession } = await import("./shafa/shafa.publisher");
-      // Credentials are NOT saved — only session cookies are stored
-      const result = await loginShafaAndSaveSession(login, password);
+      const { loginShafaAndSaveSession, shafaSessionPathForUser, shafaDebugPrefixForUser } = await import("./shafa/shafa.publisher");
+      const userId = currentUserId(req);
+      // Credentials are NOT saved — only this user's own session cookies are stored
+      const result = await loginShafaAndSaveSession(login, password, shafaSessionPathForUser(userId), shafaDebugPrefixForUser(userId));
       res.json({ success: true, username: result.username });
     } catch (err: any) {
       res.json({ success: false, message: err.message || "Помилка логіну" });
     }
   });
 
-  app.post("/api/shafa/disconnect", (_req: Request, res: Response) => {
-    const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
-    try { require("fs").unlinkSync(sessionPath); } catch { /* ok */ }
+  app.post("/api/shafa/disconnect", ...requireUser, async (req: Request, res: Response) => {
+    const { shafaSessionPathForUser } = await import("./shafa/shafa.publisher");
+    try { fs.unlinkSync(shafaSessionPathForUser(currentUserId(req))); } catch { /* ok */ }
     res.json({ success: true });
   });
 
-  app.get("/api/shafa/debug-screenshot", (req: Request, res: Response) => {
-    const name = String(req.query.name || "shafa-debug-new-page");
+  // Plain <a target="_blank"> links can't send an Authorization header, so this one
+  // route also accepts the JWT as ?token= (same mechanism already used for the OAuth
+  // redirect flows) instead of requireUser's Bearer-header-only check.
+  app.get("/api/shafa/debug-screenshot", async (req: Request, res: Response) => {
+    const userId = extractTokenFromQuery(req);
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const { shafaDebugPrefixForUser } = await import("./shafa/shafa.publisher");
+    // Only the short screenshot name is client-controlled; the per-user prefix is
+    // always derived from the authenticated session, so one user can never fetch
+    // another user's debug screenshot by guessing/editing the query param.
+    const name = String(req.query.name || "debug-new-page").replace(/[^a-zA-Z0-9-]/g, "");
+    const debugPrefix = shafaDebugPrefixForUser(userId);
     const candidates = [
-      `/data/${name}.png`,
-      `./${name}.png`,
+      `/data/${debugPrefix}${name}.png`,
+      `./${debugPrefix}${name}.png`,
     ];
     for (const p of candidates) {
       if (fs.existsSync(p)) return res.sendFile(path.resolve(p));
     }
-    res.status(404).json({ error: "Скріншот не знайдено", tried: candidates });
+    res.status(404).json({ error: "Скріншот не знайдено" });
   });
 
   // ── TikTok OAuth ──────────────────────────────────────────────────────────

@@ -620,21 +620,21 @@
           </div>
         </div>
 
-        <!-- Debug screenshots -->
+        <!-- Debug screenshots (per-user — the shared token gets appended by JS below) -->
         <div class="card" style="margin-top:12px">
           <div style="font-weight:600;margin-bottom:8px">Debug скріншоти публікації</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <a href="/api/shafa/debug-screenshot?name=shafa-before-submit" target="_blank" class="btn ghost" style="font-size:12px">Before submit</a>
-            <a href="/api/shafa/debug-screenshot?name=shafa-after-click" target="_blank" class="btn ghost" style="font-size:12px">After click</a>
-            <a href="/api/shafa/debug-screenshot?name=shafa-submit-error" target="_blank" class="btn ghost" style="font-size:12px">Submit error</a>
-            <a href="/api/shafa/debug-screenshot?name=shafa-after-submit" target="_blank" class="btn ghost" style="font-size:12px">After submit</a>
-            <a href="/api/shafa/debug-screenshot?name=shafa-debug-no-size-section" target="_blank" class="btn ghost" style="font-size:12px">Розмір не з'явився</a>
-            <a href="/api/shafa/debug-screenshot?name=shafa-debug-size-tab-selected" target="_blank" class="btn ghost" style="font-size:12px">Після вибору вкладки розміру</a>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" class="shafa-debug-links">
+            <a href="/api/shafa/debug-screenshot?name=before-submit" target="_blank" class="btn ghost" style="font-size:12px">Before submit</a>
+            <a href="/api/shafa/debug-screenshot?name=after-click" target="_blank" class="btn ghost" style="font-size:12px">After click</a>
+            <a href="/api/shafa/debug-screenshot?name=submit-error" target="_blank" class="btn ghost" style="font-size:12px">Submit error</a>
+            <a href="/api/shafa/debug-screenshot?name=after-submit" target="_blank" class="btn ghost" style="font-size:12px">After submit</a>
+            <a href="/api/shafa/debug-screenshot?name=debug-no-size-section" target="_blank" class="btn ghost" style="font-size:12px">Розмір не з'явився</a>
+            <a href="/api/shafa/debug-screenshot?name=debug-size-tab-selected" target="_blank" class="btn ghost" style="font-size:12px">Після вибору вкладки розміру</a>
           </div>
           <div style="font-weight:600;margin:14px 0 8px">Debug скріншоти логіну</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <a href="/api/shafa/debug-screenshot?name=shafa-debug-login" target="_blank" class="btn ghost" style="font-size:12px">Login page</a>
-            <a href="/api/shafa/debug-screenshot?name=shafa-debug-after-login" target="_blank" class="btn ghost" style="font-size:12px">After login</a>
+          <div style="display:flex;gap:8px;flex-wrap:wrap" class="shafa-debug-links">
+            <a href="/api/shafa/debug-screenshot?name=debug-login" target="_blank" class="btn ghost" style="font-size:12px">Login page</a>
+            <a href="/api/shafa/debug-screenshot?name=debug-after-login" target="_blank" class="btn ghost" style="font-size:12px">After login</a>
           </div>
         </div>
 
@@ -1447,18 +1447,18 @@ async function igSaveSiteUrl() {
 // ── SHAFA ─────────────────────────────────────────────────────────────────
 
 async function loadShafaStatus() {
-  const s = await fetch("/api/shafa/status").then(r => r.json());
+  const s = await fetch("/api/shafa/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("shafa-status");
   const card = document.getElementById("shafa-connect-card");
   if (s.sessionValid) {
-    setDot("shafa", "red");
-    box.className = "status-panel warn";
-    box.innerHTML = `<div class="status-icon">⚠️</div>
+    setDot("shafa", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
       <div class="status-body">
-        <strong>Shafa.ua не підключено для цього користувача</strong>
-        <div class="detail" style="color:var(--text2)">На сервері може бути стара глобальна сесія, але вона не вважається твоїм підключенням.</div>
+        <strong>Shafa.ua підключено</strong>
         <div class="status-actions" style="margin-top:8px">
-          <button class="btn ghost" onclick="openShafaLogin()">Підключити заново</button>
+          <button class="btn ghost" onclick="openShafaLogin()">Перелогінитись</button>
+          <button class="btn ghost" onclick="shafaDisconnect()">Відключити</button>
         </div>
       </div>`;
     if (card) card.style.display = "";
@@ -1477,11 +1477,7 @@ function openShafaLogin() {
   document.getElementById("shafa-modal-err").style.display = "none";
   document.getElementById("shafa-modal-loading").style.display = "none";
   document.getElementById("shafa-modal-btn").disabled = true;
-  // pre-fill if credentials already saved
-  fetch("/api/shafa/status").then(r => r.json()).then(s => {
-    if (s.email) document.getElementById("shafa-modal-email").value = s.email;
-    shafaModalChanged();
-  });
+  shafaModalChanged();
 }
 
 function closeShafaModal() {
@@ -1504,7 +1500,7 @@ async function shafaDoLogin() {
   btn.disabled = true;
   loading.style.display = "block";
   const r = await fetch("/api/shafa/login", {
-    method: "POST", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ email, password }),
   }).then(r => r.json());
   loading.style.display = "none";
@@ -1521,7 +1517,7 @@ async function shafaDoLogin() {
 
 async function shafaDisconnect() {
   if (!confirm("Відключити Shafa.ua?")) return;
-  await fetch("/api/shafa/disconnect", { method: "POST" });
+  await fetch("/api/shafa/disconnect", { method: "POST", headers: authHeaders() });
   await loadShafaStatus();
   document.getElementById("shafa-connect-card").style.display = "";
 }
@@ -2248,6 +2244,12 @@ async function tiktokUserDisconnect() {
   const logoutBtn = document.getElementById('setupLogoutBtn');
   if (emailEl) emailEl.textContent = email;
   if (logoutBtn) logoutBtn.style.display = '';
+
+  // Shafa debug screenshots are per-user now and require auth — plain <a target="_blank">
+  // links can't send an Authorization header, so the token rides along as ?token=.
+  document.querySelectorAll(".shafa-debug-links a[href]").forEach((a) => {
+    a.setAttribute("href", a.getAttribute("href") + "&token=" + encodeURIComponent(authToken));
+  });
 
   handleUrlParams();
   await Promise.all([

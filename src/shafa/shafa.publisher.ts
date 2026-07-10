@@ -10,6 +10,31 @@ async function fileExists(p: string) {
   try { await fs.access(p); return true; } catch { return false; }
 }
 
+const debugDir = () => (fsSync.existsSync("/data") ? "/data" : ".");
+
+// Debug screenshots are namespaced per user (debugPrefix = "shafa-<userId>-") so one
+// user's Shafa automation run doesn't overwrite or leak into another's debug view.
+function debugScreenshotPath(debugPrefix: string, name: string): string {
+  return `${debugDir()}/${debugPrefix}${name}.png`;
+}
+
+// Each user gets their own Playwright storageState file and debug-screenshot prefix —
+// previously the whole app shared a single /data/shafa-session.json, meaning every
+// user's Shafa publish ran as whoever had logged in last.
+const sessionsDir = () => {
+  const dir = process.env.SHAFA_SESSION_DIR || (fsSync.existsSync("/data") ? "/data/shafa-sessions" : "./shafa-sessions");
+  if (!fsSync.existsSync(dir)) fsSync.mkdirSync(dir, { recursive: true });
+  return dir;
+};
+
+export function shafaSessionPathForUser(userId: number): string {
+  return `${sessionsDir()}/${userId}.json`;
+}
+
+export function shafaDebugPrefixForUser(userId: number): string {
+  return `shafa-${userId}-`;
+}
+
 async function humanPause(baseMs: number) {
   const jitter = baseMs * 0.4 * (Math.random() - 0.5);
   await new Promise<void>(r => setTimeout(r, Math.round(baseMs + jitter)));
@@ -309,7 +334,7 @@ async function fillKeywords(page: Page, keywords: string[]) {
 
 // ─── Розміри (кнопки) ─────────────────────────────────────────────────────
 
-async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжнародний") {
+async function selectSizes(page: Page, sizes: string[] | undefined, sizeSystem = "Міжнародний", debugPrefix = "shafa-") {
   if (!sizes || sizes.length === 0) return;
 
   // The "Розмір" section only renders after Shafa finishes processing the chosen
@@ -328,9 +353,8 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
     .catch(() => false);
   console.log(`[Shafa] "Розмір" section present in DOM: ${sizeSectionAppeared}`);
   if (!sizeSectionAppeared) {
-    const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
-    await page.screenshot({ path: `${debugDir}/shafa-debug-no-size-section.png`, fullPage: true }).catch(() => {});
-    console.log("[Shafa] Size section never appeared — saved shafa-debug-no-size-section.png. Category selection likely didn't fully register.");
+    await page.screenshot({ path: debugScreenshotPath(debugPrefix, "debug-no-size-section"), fullPage: true }).catch(() => {});
+    console.log("[Shafa] Size section never appeared — saved debug-no-size-section screenshot. Category selection likely didn't fully register.");
   }
 
   // Scroll to size section
@@ -370,8 +394,7 @@ async function selectSizes(page: Page, sizes?: string[], sizeSystem = "Міжн�
     await page.mouse.click(tabResult.coords.x, tabResult.coords.y);
     await humanPause(800);
   }
-  const debugDirTab = fsSync.existsSync("/data") ? "/data" : ".";
-  await page.screenshot({ path: `${debugDirTab}/shafa-debug-size-tab-selected.png`, fullPage: true }).catch(() => {});
+  await page.screenshot({ path: debugScreenshotPath(debugPrefix, "debug-size-tab-selected"), fullPage: true }).catch(() => {});
 
   // Normalize Cyrillic lookalikes to Latin (Shafa HTML uses mixed encoding) and
   // collapse the various dash characters (hyphen, non-breaking hyphen, en/em dash)
@@ -608,12 +631,11 @@ async function fillPrice(page: Page, price: string) {
 
 // ─── Основний потік ───────────────────────────────────────────────────────
 
-async function fillShafaForm(page: Page, product: ShafaProduct) {
+async function fillShafaForm(page: Page, product: ShafaProduct, debugPrefix: string) {
   await page.goto("https://shafa.ua/uk/new", { waitUntil: "domcontentloaded", timeout: 90000 });
   await humanPause(3000);
   console.log(`[Shafa] After goto /uk/new — url: ${page.url()}`);
-  const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
-  await page.screenshot({ path: `${debugDir}/shafa-debug-new-page.png`, fullPage: false }).catch(() => {});
+  await page.screenshot({ path: debugScreenshotPath(debugPrefix, "debug-new-page"), fullPage: false }).catch(() => {});
 
   await dismissModals(page);
   await uploadImages(page, product.imagePaths);
@@ -631,7 +653,7 @@ async function fillShafaForm(page: Page, product: ShafaProduct) {
   await fillKeywords(page, product.keywords);
 
   // ── Основні характеристики ──
-  await selectSizes(page, product.sizes, product.sizeSystem);
+  await selectSizes(page, product.sizes, product.sizeSystem, debugPrefix);
   await selectColors(page, product.colors);
 
   // ── Додаткові характеристики — текстові поля ──
@@ -676,13 +698,12 @@ async function saveSession(context: BrowserContext, sessionPath: string) {
 
 async function loginToShafa(
   page: Page, context: BrowserContext,
-  sessionPath: string, login: string, password: string
+  sessionPath: string, login: string, password: string, debugPrefix: string
 ) {
   await page.goto("https://shafa.ua/uk/login", { waitUntil: "domcontentloaded" });
   await humanPause(2000);
   console.log(`[Shafa] Login page url: ${page.url()}`);
-  const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
-  await page.screenshot({ path: `${debugDir}/shafa-debug-login.png` }).catch(() => {});
+  await page.screenshot({ path: debugScreenshotPath(debugPrefix, "debug-login") }).catch(() => {});
 
   const loginInput = page.locator('input[placeholder*="логін"], input[placeholder*="логин"], input[name="login"], input[name="email"], input[type="email"]').first();
   await loginInput.waitFor({ timeout: 15000 });
@@ -696,14 +717,18 @@ async function loginToShafa(
   await page.getByRole("button", { name: /Увійти|Войти/i }).click();
   await page.waitForTimeout(6000);
   console.log(`[Shafa] After login url: ${page.url()}`);
-  await page.screenshot({ path: `${debugDir}/shafa-debug-after-login.png` }).catch(() => {});
+  await page.screenshot({ path: debugScreenshotPath(debugPrefix, "debug-after-login") }).catch(() => {});
   await saveSession(context, sessionPath);
 }
 
 // ─── Логін (окрема публічна функція для UI) ───────────────────────────────
-
-export async function loginShafaAndSaveSession(login: string, password: string): Promise<{ username?: string }> {
-  const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
+//
+// sessionPath and debugPrefix are per-user — the caller (server.ts) derives both from
+// the authenticated userId, so each user's Shafa login/session/debug screenshots are
+// fully isolated from every other user's.
+export async function loginShafaAndSaveSession(
+  login: string, password: string, sessionPath: string, debugPrefix: string
+): Promise<{ username?: string }> {
   const browser = await chromium.launch({
     headless: true,
     args: [
@@ -719,7 +744,7 @@ export async function loginShafaAndSaveSession(login: string, password: string):
     else route.continue();
   });
   try {
-    await loginToShafa(page, context, sessionPath, login, password);
+    await loginToShafa(page, context, sessionPath, login, password, debugPrefix);
     // Verify login succeeded
     const authorized = await isAuthorized(page);
     if (!authorized) throw new Error("Не вдалося увійти — перевір логін та пароль");
@@ -753,8 +778,9 @@ export class ShafaSessionExpiredError extends Error {
   constructor() { super("SHAFA_SESSION_EXPIRED"); this.name = "ShafaSessionExpiredError"; }
 }
 
-export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublishResult> {
-  const sessionPath = process.env.SHAFA_SESSION_PATH || "/data/shafa-session.json";
+export async function publishToShafa(
+  product: ShafaProduct, sessionPath: string, debugPrefix: string
+): Promise<ShafaPublishResult> {
   if (!(await fileExists(sessionPath))) throw new ShafaSessionExpiredError();
 
   const browser = await chromium.launch({
@@ -794,7 +820,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       throw new ShafaSessionExpiredError();
     }
 
-    await fillShafaForm(page, product);
+    await fillShafaForm(page, product, debugPrefix);
 
     // Закриваємо будь-які відкриті dropdown перед сабмітом
     await page.keyboard.press("Escape");
@@ -803,10 +829,8 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     await humanPause(800);
     await dismissModals(page);
 
-    const debugDir = fsSync.existsSync("/data") ? "/data" : ".";
-
     // Скріншот перед сабмітом
-    await page.screenshot({ path: `${debugDir}/shafa-before-submit.png`, fullPage: true }).catch(() => {});
+    await page.screenshot({ path: debugScreenshotPath(debugPrefix, "before-submit"), fullPage: true }).catch(() => {});
 
     // Натискаємо "Додати річ" через координати миші (React-сумісний спосіб)
     const submitCoords = await page.evaluate(`(function() {
@@ -851,7 +875,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     let formErrors = (await getFormErrors()) as string[];
     if (formErrors.length) console.log(`[Shafa] Form errors after click:`, formErrors);
 
-    await page.screenshot({ path: `${debugDir}/shafa-after-click.png`, fullPage: true }).catch(() => {});
+    await page.screenshot({ path: debugScreenshotPath(debugPrefix, "after-click"), fullPage: true }).catch(() => {});
 
     // Чекаємо переходу — Shafa робить редирект після успішної публікації.
     // Успішне створення веде на /uk/new/<id>/promotion-packages (з ID товару),
@@ -873,7 +897,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
       formErrors = (await getFormErrors()) as string[];
       if (formErrors.length) console.log(`[Shafa] Form errors after timeout:`, formErrors);
       console.log(`[Shafa] No redirect after 30s, current url: ${finalUrl}`);
-      await page.screenshot({ path: `${debugDir}/shafa-submit-error.png`, fullPage: true }).catch(() => {});
+      await page.screenshot({ path: debugScreenshotPath(debugPrefix, "submit-error"), fullPage: true }).catch(() => {});
 
       // Дамп всього видимого тексту сторінки для діагностики
       const pageText = await page.evaluate(`(function() {
@@ -899,7 +923,7 @@ export async function publishToShafa(product: ShafaProduct): Promise<ShafaPublis
     // Save updated session
     await saveSession(context, sessionPath).catch(() => {});
 
-    await page.screenshot({ path: `${debugDir}/shafa-after-submit.png`, fullPage: true }).catch(() => {});
+    await page.screenshot({ path: debugScreenshotPath(debugPrefix, "after-submit"), fullPage: true }).catch(() => {});
     return { externalPostId: finalUrl };
   } finally {
     await browser.close();

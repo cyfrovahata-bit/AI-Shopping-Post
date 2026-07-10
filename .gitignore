@@ -4,5 +4,6 @@ src/uploads
 .env
 dist.env
 shafa-session.json
+shafa-sessions/
 *.png
 test-images/
