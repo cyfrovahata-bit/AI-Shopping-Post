@@ -21,7 +21,25 @@ function headers(token: string) {
   return {
     "Authorization": `Bearer ${token}`,
     "Content-Type": "application/json",
+    // Prom's edge sometimes blocks requests with a generic/missing User-Agent
+    // (returns an HTML challenge/error page instead of JSON).
+    "User-Agent": "Mozilla/5.0 (compatible; Postly/1.0; +https://postly.pp.ua)",
   };
+}
+
+// Parses a Prom API response, surfacing a clear error if it's not actually JSON
+// (Prom returns HTML for some gateway/anti-bot errors and invalid tokens).
+async function parsePromResponse(r: any): Promise<any> {
+  const rawText = await r.text();
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    throw new Error(
+      rawText.trim().startsWith("<")
+        ? `Prom API повернув не-JSON відповідь (HTTP ${r.status}) — можливо, невірний токен, або Prom тимчасово заблокував запит`
+        : `Prom API повернув невідому відповідь (HTTP ${r.status}): ${rawText.slice(0, 200)}`
+    );
+  }
 }
 
 export async function promTestConnection(token: string): Promise<{ ok: boolean; shopName?: string; error?: string }> {
@@ -30,7 +48,7 @@ export async function promTestConnection(token: string): Promise<{ ok: boolean; 
     const r = await fetch(`${API_BASE}/products/list`, {
       headers: headers(token) as any,
     });
-    const d = await r.json() as any;
+    const d = await parsePromResponse(r);
     if (!r.ok) return { ok: false, error: d.error_message || d.message || `HTTP ${r.status}` };
     return { ok: true };
   } catch (e) {
@@ -42,7 +60,7 @@ export async function promTestConnection(token: string): Promise<{ ok: boolean; 
 export async function promSearchCategories(token: string, query: string): Promise<{ id: number; name: string; fullName: string }[]> {
   try {
     const r = await fetch(`${API_BASE}/categories/list`, { headers: headers(token) as any });
-    const d = await r.json() as any;
+    const d = await parsePromResponse(r);
     if (!d.categories) return [];
     const q = query.toLowerCase();
     return (d.categories as any[])
