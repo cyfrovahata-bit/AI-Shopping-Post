@@ -34,6 +34,7 @@ async function parsePromResponse(r: any): Promise<any> {
   try {
     return JSON.parse(rawText);
   } catch {
+    console.log(`[Prom] non-JSON response, status ${r.status}, url ${r.url}:`, rawText.slice(0, 2000));
     throw new Error(
       rawText.trim().startsWith("<")
         ? `Prom API повернув не-JSON відповідь (HTTP ${r.status}) — можливо, невірний токен, або Prom тимчасово заблокував запит`
