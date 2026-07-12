@@ -93,14 +93,29 @@ const DUPLICATE_ACCOUNT_MESSAGES: Record<string, string> = {
   open_id: "Цей TikTok-акаунт вже підключено до іншого акаунта Postly.",
 };
 
+const DUPLICATE_PLATFORM_MESSAGES: Record<string, string> = {
+  prom: "Цей акаунт Prom.ua вже підключено до іншого акаунта Postly.",
+  olx: "Цей акаунт OLX вже підключено до іншого акаунта Postly.",
+  rozetka: "Цей акаунт Rozetka вже підключено до іншого акаунта Postly.",
+  shafa: "Цей акаунт Shafa.ua вже підключено до іншого акаунта Postly.",
+};
+
+// Stable identity signal for platforms whose access token never changes for the
+// lifetime of the connection (Prom/Rozetka personal API tokens) — unlike OAuth
+// access tokens that rotate on refresh, hashing these directly is a reliable proxy
+// for "same external account" without needing an extra API call to fetch a real ID.
+export function hashForIdentity(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
 export async function saveUserToken(db: any, userId: number, platform: string, data: Record<string, any>) {
   const now = new Date().toISOString();
   const meta = data.meta !== undefined ? JSON.stringify(data.meta) : null;
   try {
     await db.run(`
       INSERT INTO user_social_tokens
-        (user_id, platform, access_token, refresh_token, page_id, page_name, open_id, instagram_user_id, instagram_username, expires_at, refresh_expires_at, login, meta, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        (user_id, platform, access_token, refresh_token, page_id, page_name, open_id, instagram_user_id, instagram_username, expires_at, refresh_expires_at, login, meta, external_account_id, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(user_id, platform) DO UPDATE SET
         access_token       = excluded.access_token,
         refresh_token      = excluded.refresh_token,
@@ -113,6 +128,7 @@ export async function saveUserToken(db: any, userId: number, platform: string, d
         refresh_expires_at = excluded.refresh_expires_at,
         login              = excluded.login,
         meta               = excluded.meta,
+        external_account_id = excluded.external_account_id,
         updated_at         = excluded.updated_at
     `, [
       userId, platform,
@@ -120,14 +136,18 @@ export async function saveUserToken(db: any, userId: number, platform: string, d
       data.page_id ?? null, data.page_name ?? null,
       data.open_id ?? null, data.instagram_user_id ?? null, data.instagram_username ?? null,
       data.expires_at ?? null, data.refresh_expires_at ?? null,
-      data.login ?? null, meta,
+      data.login ?? null, meta, data.external_account_id ?? null,
       now, now,
     ]);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("UNIQUE constraint failed")) {
       const column = Object.keys(DUPLICATE_ACCOUNT_MESSAGES).find((col) => msg.includes(col));
-      throw new Error(column ? DUPLICATE_ACCOUNT_MESSAGES[column] : "Цей акаунт платформи вже підключено до іншого користувача Postly.");
+      throw new Error(
+        (column && DUPLICATE_ACCOUNT_MESSAGES[column]) ||
+        DUPLICATE_PLATFORM_MESSAGES[platform] ||
+        "Цей акаунт платформи вже підключено до іншого користувача Postly."
+      );
     }
     throw err;
   }

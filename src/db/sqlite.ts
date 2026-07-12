@@ -161,6 +161,14 @@ export async function initDb() {
   await ensureColumn(db, "user_settings", "telegram_chat_id", "TEXT");
   await ensureColumn(db, "user_social_tokens", "login", "TEXT");
   await ensureColumn(db, "user_social_tokens", "meta", "TEXT");
+  // Generic one-account-one-user identifier for platforms without a dedicated
+  // column like page_id/instagram_user_id/open_id: Prom/Rozetka (hash of their
+  // static personal API token — stable for the token's whole lifetime, unlike
+  // OAuth tokens that rotate), OLX (its own numeric user id from /users/me,
+  // since OLX tokens DO rotate on refresh and a token hash would stop matching),
+  // and Shafa (the seller username scraped after login — Shafa has no real API,
+  // so this is a bookkeeping-only row; the actual session lives in a per-user file).
+  await ensureColumn(db, "user_social_tokens", "external_account_id", "TEXT");
 
   // Same one-account-one-user reasoning as the social platform indexes above —
   // added here, after the column exists, since telegram_chat_id is only added via
@@ -168,6 +176,11 @@ export async function initDb() {
   await ensureUniqueIndex(db, "idx_unique_telegram_chat",
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_telegram_chat
      ON user_settings(telegram_chat_id) WHERE telegram_chat_id IS NOT NULL AND telegram_chat_id != ''`
+  );
+  await ensureUniqueIndex(db, "idx_unique_external_account",
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_external_account
+     ON user_social_tokens(platform, external_account_id)
+     WHERE external_account_id IS NOT NULL AND external_account_id != ''`
   );
 
   await db.exec(`

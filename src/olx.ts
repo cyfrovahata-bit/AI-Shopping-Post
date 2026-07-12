@@ -13,14 +13,17 @@ function headers(token: string, contentType = "application/json") {
   };
 }
 
-export async function olxTestConnection(token: string): Promise<{ ok: boolean; name?: string; error?: string }> {
+export async function olxTestConnection(token: string): Promise<{ ok: boolean; name?: string; accountId?: string; error?: string }> {
   if (!token) return { ok: false, error: "Токен не задано" };
   try {
     const r = await fetch(`${API_BASE}/users/me`, { headers: headers(token) as any });
     const d = await r.json() as any;
     if (!r.ok) return { ok: false, error: d.error?.message || `HTTP ${r.status}` };
     const name = d.data?.name || d.data?.email || "OK";
-    return { ok: true, name };
+    // OLX access tokens rotate on refresh, so (unlike Prom/Rozetka) a token hash isn't
+    // a stable identity signal — the numeric OLX user id is, and doesn't change.
+    const accountId = d.data?.id != null ? String(d.data.id) : undefined;
+    return { ok: true, name, accountId };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

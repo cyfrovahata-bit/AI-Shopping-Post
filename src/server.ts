@@ -29,7 +29,7 @@ import {
   writeEnvVars,
 } from "./facebook-auth";
 import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, signOAuthState, verifyOAuthState } from "./auth";
-import { saveUserToken, deleteUserToken, getUserSocialStatus, getUserTokens, updateUserTokenMeta } from "./user-tokens";
+import { saveUserToken, deleteUserToken, getUserSocialStatus, getUserTokens, updateUserTokenMeta, hashForIdentity } from "./user-tokens";
 
 dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
@@ -1682,11 +1682,25 @@ async function startServer() {
   app.post("/api/shafa/login", ...requireUser, async (req: Request, res: Response) => {
     const { email: login, password } = req.body as { email?: string; password?: string };
     if (!login || !password) return res.status(400).json({ success: false, message: "Потрібні логін та пароль" });
+    const userId = currentUserId(req);
     try {
       const { loginShafaAndSaveSession, shafaSessionPathForUser, shafaDebugPrefixForUser } = await import("./shafa/shafa.publisher");
-      const userId = currentUserId(req);
+      const sessionPath = shafaSessionPathForUser(userId);
       // Credentials are NOT saved — only this user's own session cookies are stored
-      const result = await loginShafaAndSaveSession(login, password, shafaSessionPathForUser(userId), shafaDebugPrefixForUser(userId));
+      const result = await loginShafaAndSaveSession(login, password, sessionPath, shafaDebugPrefixForUser(userId));
+      // Shafa has no real API, so there's no token to store here — just a bookkeeping
+      // row (external_account_id = the scraped seller username) so the same Shafa
+      // account can't end up connected under two different Postly users at once.
+      if (result.username) {
+        try {
+          await saveUserToken(db, userId, "shafa", { external_account_id: result.username });
+        } catch (dupErr) {
+          // Roll back the session file just written — we're rejecting this
+          // connection, so it must not be left usable for publishing.
+          try { fs.unlinkSync(sessionPath); } catch { /* ok */ }
+          throw dupErr;
+        }
+      }
       res.json({ success: true, username: result.username });
     } catch (err: any) {
       res.json({ success: false, message: err.message || "Помилка логіну" });
@@ -1696,6 +1710,8 @@ async function startServer() {
   app.post("/api/shafa/disconnect", ...requireUser, async (req: Request, res: Response) => {
     const { shafaSessionPathForUser } = await import("./shafa/shafa.publisher");
     try { fs.unlinkSync(shafaSessionPathForUser(currentUserId(req))); } catch { /* ok */ }
+    // Also clear the bookkeeping row so the username frees up for reconnection.
+    await deleteUserToken(db, currentUserId(req), "shafa");
     res.json({ success: true });
   });
 
@@ -1826,14 +1842,21 @@ async function startServer() {
   app.post("/api/prom/save", ...requireUser, async (req: Request, res: Response) => {
     const { token } = req.body as { token: string };
     if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
-    // Save unconditionally — the verification call (/products/list) can fail for reasons
-    // unrelated to whether the token actually works for publishing (e.g. narrower scope,
-    // a transient block on that specific endpoint), so a failed check here shouldn't block
-    // saving a token that may well work fine for real publishing.
-    await saveUserToken(db, currentUserId(req), "prom", { access_token: token });
-    const { promTestConnection } = await import("./prom");
-    const result = await promTestConnection(token);
-    res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
+    try {
+      // Save unconditionally — the verification call (/products/list) can fail for reasons
+      // unrelated to whether the token actually works for publishing (e.g. narrower scope,
+      // a transient block on that specific endpoint), so a failed check here shouldn't block
+      // saving a token that may well work fine for real publishing.
+      // external_account_id: Prom's personal API token is static for the life of the
+      // connection (no OAuth refresh rotation), so its hash reliably identifies "the
+      // same Prom shop" without needing a separate account-info API call.
+      await saveUserToken(db, currentUserId(req), "prom", { access_token: token, external_account_id: hashForIdentity(token) });
+      const { promTestConnection } = await import("./prom");
+      const result = await promTestConnection(token);
+      res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   app.post("/api/prom/verify", ...requireUser, async (req: Request, res: Response) => {
@@ -1897,18 +1920,24 @@ async function startServer() {
       return res.redirect(`/setup.html?tab=olx&olxError=${encodeURIComponent(error || "no code")}`);
     }
     try {
-      const { completeOlxOAuth } = await import("./olx");
+      const { completeOlxOAuth, olxTestConnection } = await import("./olx");
       const tokens = await completeOlxOAuth(code);
+      // State parsing failure is expected/ignorable (no state passed at all) — but a
+      // save failure (e.g. this OLX account already connected elsewhere) must surface
+      // to the user, not be silently swallowed here.
+      let stateUserId: number | undefined;
       try {
-        const { userId } = verifyOAuthState<{ userId?: number }>(state || "");
-        if (userId) {
-          await saveUserToken(db, userId, "olx", {
-            access_token: tokens.accessToken,
-            refresh_token: tokens.refreshToken,
-            expires_at: tokens.expiresAt,
-          });
-        }
-      } catch { /* no state — nothing to save per-user */ }
+        stateUserId = verifyOAuthState<{ userId?: number }>(state || "").userId;
+      } catch { /* no/invalid state — proceed without per-user save */ }
+      if (stateUserId) {
+        const check = await olxTestConnection(tokens.accessToken);
+        await saveUserToken(db, stateUserId, "olx", {
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          expires_at: tokens.expiresAt,
+          external_account_id: check.accountId,
+        });
+      }
       res.redirect("/setup.html?tab=olx&olxSuccess=1");
     } catch (e) {
       res.redirect(`/setup.html?tab=olx&olxError=${encodeURIComponent((e as Error).message)}`);
@@ -1928,12 +1957,16 @@ async function startServer() {
   app.post("/api/rozetka/save", ...requireUser, async (req: Request, res: Response) => {
     const { token } = req.body as { token: string };
     if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
-    // Save unconditionally, same reasoning as Prom — a failed check call shouldn't
-    // block saving a token that may well work fine for real publishing.
-    await saveUserToken(db, currentUserId(req), "rozetka", { access_token: token });
-    const { rozetkaTestConnection } = await import("./rozetka");
-    const result = await rozetkaTestConnection(token);
-    res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
+    try {
+      // Save unconditionally, same reasoning as Prom — a failed check call shouldn't
+      // block saving a token that may well work fine for real publishing.
+      await saveUserToken(db, currentUserId(req), "rozetka", { access_token: token, external_account_id: hashForIdentity(token) });
+      const { rozetkaTestConnection } = await import("./rozetka");
+      const result = await rozetkaTestConnection(token);
+      res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   app.post("/api/rozetka/verify", ...requireUser, async (req: Request, res: Response) => {
