@@ -87,35 +87,50 @@ export async function getUserTokens(db: any, userId: number): Promise<SocialToke
   return result;
 }
 
+const DUPLICATE_ACCOUNT_MESSAGES: Record<string, string> = {
+  page_id: "Ця Facebook-сторінка вже підключена до іншого акаунта Postly.",
+  instagram_user_id: "Цей Instagram-акаунт вже підключено до іншого акаунта Postly.",
+  open_id: "Цей TikTok-акаунт вже підключено до іншого акаунта Postly.",
+};
+
 export async function saveUserToken(db: any, userId: number, platform: string, data: Record<string, any>) {
   const now = new Date().toISOString();
   const meta = data.meta !== undefined ? JSON.stringify(data.meta) : null;
-  await db.run(`
-    INSERT INTO user_social_tokens
-      (user_id, platform, access_token, refresh_token, page_id, page_name, open_id, instagram_user_id, instagram_username, expires_at, refresh_expires_at, login, meta, created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(user_id, platform) DO UPDATE SET
-      access_token       = excluded.access_token,
-      refresh_token      = excluded.refresh_token,
-      page_id            = excluded.page_id,
-      page_name          = excluded.page_name,
-      open_id            = excluded.open_id,
-      instagram_user_id  = excluded.instagram_user_id,
-      instagram_username = excluded.instagram_username,
-      expires_at         = excluded.expires_at,
-      refresh_expires_at = excluded.refresh_expires_at,
-      login              = excluded.login,
-      meta               = excluded.meta,
-      updated_at         = excluded.updated_at
-  `, [
-    userId, platform,
-    encryptValue(data.access_token), encryptValue(data.refresh_token),
-    data.page_id ?? null, data.page_name ?? null,
-    data.open_id ?? null, data.instagram_user_id ?? null, data.instagram_username ?? null,
-    data.expires_at ?? null, data.refresh_expires_at ?? null,
-    data.login ?? null, meta,
-    now, now,
-  ]);
+  try {
+    await db.run(`
+      INSERT INTO user_social_tokens
+        (user_id, platform, access_token, refresh_token, page_id, page_name, open_id, instagram_user_id, instagram_username, expires_at, refresh_expires_at, login, meta, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(user_id, platform) DO UPDATE SET
+        access_token       = excluded.access_token,
+        refresh_token      = excluded.refresh_token,
+        page_id            = excluded.page_id,
+        page_name          = excluded.page_name,
+        open_id            = excluded.open_id,
+        instagram_user_id  = excluded.instagram_user_id,
+        instagram_username = excluded.instagram_username,
+        expires_at         = excluded.expires_at,
+        refresh_expires_at = excluded.refresh_expires_at,
+        login              = excluded.login,
+        meta               = excluded.meta,
+        updated_at         = excluded.updated_at
+    `, [
+      userId, platform,
+      encryptValue(data.access_token), encryptValue(data.refresh_token),
+      data.page_id ?? null, data.page_name ?? null,
+      data.open_id ?? null, data.instagram_user_id ?? null, data.instagram_username ?? null,
+      data.expires_at ?? null, data.refresh_expires_at ?? null,
+      data.login ?? null, meta,
+      now, now,
+    ]);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("UNIQUE constraint failed")) {
+      const column = Object.keys(DUPLICATE_ACCOUNT_MESSAGES).find((col) => msg.includes(col));
+      throw new Error(column ? DUPLICATE_ACCOUNT_MESSAGES[column] : "Цей акаунт платформи вже підключено до іншого користувача Postly.");
+    }
+    throw err;
+  }
 }
 
 export async function deleteUserToken(db: any, userId: number, platform: string) {

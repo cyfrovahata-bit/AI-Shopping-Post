@@ -17,6 +17,22 @@ async function ensureColumn(
   }
 }
 
+// CREATE UNIQUE INDEX fails outright if data already on disk violates it (e.g. two
+// rows that predate this constraint sharing the same page_id from earlier testing).
+// That would crash every future startup on a live database, so creation failure here
+// is logged and skipped rather than thrown — the constraint just won't be enforced
+// until whoever owns the DB manually de-duplicates the offending rows.
+async function ensureUniqueIndex(db: any, name: string, sql: string) {
+  try {
+    await db.exec(sql);
+  } catch (err) {
+    console.error(
+      `[db] Could not create unique index ${name} — likely pre-existing duplicate rows. ` +
+      `The app will still run, but this constraint isn't enforced yet. Error: ${err instanceof Error ? err.message : err}`
+    );
+  }
+}
+
 export async function initDb() {
   // Same reasoning as uploadsDir in server.ts: default to the persistent Railway
   // volume when one is mounted, instead of a path inside the ephemeral container
@@ -90,6 +106,24 @@ export async function initDb() {
     );
   `);
 
+  // One real external account (Facebook Page / Instagram Business account / TikTok
+  // account) can only ever be connected to a single Postly user at a time — without
+  // this, two different users could both connect the same page and their publishes
+  // would silently collide. page_id/instagram_user_id/open_id aren't encrypted (only
+  // access_token/refresh_token are), so a plain partial unique index works directly.
+  await ensureUniqueIndex(db, "idx_unique_fb_page",
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_fb_page
+     ON user_social_tokens(page_id) WHERE platform = 'facebook' AND page_id IS NOT NULL`
+  );
+  await ensureUniqueIndex(db, "idx_unique_ig_user",
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_ig_user
+     ON user_social_tokens(instagram_user_id) WHERE platform = 'instagram' AND instagram_user_id IS NOT NULL`
+  );
+  await ensureUniqueIndex(db, "idx_unique_tiktok_open",
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_tiktok_open
+     ON user_social_tokens(open_id) WHERE platform = 'tiktok' AND open_id IS NOT NULL`
+  );
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -127,6 +161,14 @@ export async function initDb() {
   await ensureColumn(db, "user_settings", "telegram_chat_id", "TEXT");
   await ensureColumn(db, "user_social_tokens", "login", "TEXT");
   await ensureColumn(db, "user_social_tokens", "meta", "TEXT");
+
+  // Same one-account-one-user reasoning as the social platform indexes above —
+  // added here, after the column exists, since telegram_chat_id is only added via
+  // ensureColumn (ALTER TABLE) rather than being in the original CREATE TABLE.
+  await ensureUniqueIndex(db, "idx_unique_telegram_chat",
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_telegram_chat
+     ON user_settings(telegram_chat_id) WHERE telegram_chat_id IS NOT NULL AND telegram_chat_id != ''`
+  );
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS product_images (

@@ -1417,15 +1417,19 @@ async function startServer() {
   app.post("/api/facebook/set-instagram", ...requireUser, async (req: Request, res: Response) => {
     const { instagramId, instagramUsername } = req.body as { instagramId: string; instagramUsername?: string };
     if (!instagramId) return res.status(400).json({ success: false, message: "Потрібен Instagram ID" });
-    const tokens = await import("./user-tokens").then(m => m.getUserTokens(db, currentUserId(req)));
-    const fbToken = tokens.facebook?.accessToken;
-    if (!fbToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook" });
-    await saveUserToken(db, currentUserId(req), "instagram", {
-      access_token: fbToken,
-      instagram_user_id: instagramId.trim(),
-      instagram_username: instagramUsername?.trim().replace(/^@/, "") || "",
-    });
-    res.json({ success: true });
+    try {
+      const tokens = await import("./user-tokens").then(m => m.getUserTokens(db, currentUserId(req)));
+      const fbToken = tokens.facebook?.accessToken;
+      if (!fbToken) return res.status(400).json({ success: false, message: "Спочатку підключи Facebook" });
+      await saveUserToken(db, currentUserId(req), "instagram", {
+        access_token: fbToken,
+        instagram_user_id: instagramId.trim(),
+        instagram_username: instagramUsername?.trim().replace(/^@/, "") || "",
+      });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   // GET /api/facebook/saved-creds — return saved App ID (not secret) for pre-filling form
@@ -1633,17 +1637,25 @@ async function startServer() {
   app.post("/api/telegram/save", ...requireUser, async (req: Request, res: Response) => {
     const { chatId } = req.body as { chatId?: string };
     const now = new Date().toISOString();
-    await db.run(
-      `
-      INSERT INTO user_settings (user_id, telegram_chat_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        telegram_chat_id = excluded.telegram_chat_id,
-        updated_at = excluded.updated_at
-      `,
-      [currentUserId(req), toText(chatId), now, now]
-    );
-    res.json({ success: true });
+    try {
+      await db.run(
+        `
+        INSERT INTO user_settings (user_id, telegram_chat_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          telegram_chat_id = excluded.telegram_chat_id,
+          updated_at = excluded.updated_at
+        `,
+        [currentUserId(req), toText(chatId), now, now]
+      );
+      res.json({ success: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const friendly = msg.includes("UNIQUE constraint failed")
+        ? "Цей Telegram-канал уже підключено до іншого акаунта Postly."
+        : msg;
+      res.status(400).json({ success: false, message: friendly });
+    }
   });
 
   // ── Shafa setup (per-user Playwright session — no shared dev app) ──────────
@@ -1759,19 +1771,23 @@ async function startServer() {
     try {
       const { exchangeTikTokCode } = await import("./tiktok");
       const tokens = await exchangeTikTokCode(code, getTikTokRedirectUri(req));
-      // Save per-user token if userId was in state
+      // Save per-user token if userId was in state. State parsing/verification
+      // failure is expected and ignorable (no state was passed at all) — but a
+      // save failure (e.g. this TikTok account is already connected to another
+      // Postly user) must surface to the user, not be silently swallowed here.
+      let stateUserId: number | undefined;
       try {
-        const { userId: stateUserId } = verifyOAuthState<{ userId?: number }>(stateRaw || "");
-        if (stateUserId) {
-          await saveUserToken(db, stateUserId, "tiktok", {
-            access_token: tokens.accessToken,
-            refresh_token: tokens.refreshToken,
-            open_id: tokens.openId,
-            expires_at: tokens.expiresAt,
-            refresh_expires_at: tokens.refreshExpiresAt,
-          });
-        }
-      } catch { /* state parse error — ignore, token still saved to .env */ }
+        stateUserId = verifyOAuthState<{ userId?: number }>(stateRaw || "").userId;
+      } catch { /* no/invalid state — proceed without per-user save */ }
+      if (stateUserId) {
+        await saveUserToken(db, stateUserId, "tiktok", {
+          access_token: tokens.accessToken,
+          refresh_token: tokens.refreshToken,
+          open_id: tokens.openId,
+          expires_at: tokens.expiresAt,
+          refresh_expires_at: tokens.refreshExpiresAt,
+        });
+      }
       res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',success:true},'*');window.close();</script>`);
     } catch (err: any) {
       res.send(`<script>window.opener?.postMessage({type:'tiktok-auth',error:${JSON.stringify(err.message||'error')}},'*');window.close();</script>`);
