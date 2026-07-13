@@ -7,6 +7,7 @@ export interface TelegramCreds { chatId: string }
 export interface PromCreds { accessToken: string; categoryId?: number; categoryName?: string }
 export interface OlxCreds { accessToken: string; refreshToken?: string; expiresAt?: number; categoryId?: number }
 export interface RozetkaCreds { accessToken: string; categoryId?: number; categoryName?: string }
+export interface KastaCreds { accessToken: string; kindId?: number; affiliationId?: number; categoryName?: string }
 
 export interface SocialTokens {
   facebook?: FbCreds;
@@ -16,6 +17,7 @@ export interface SocialTokens {
   prom?: PromCreds;
   olx?: OlxCreds;
   rozetka?: RozetkaCreds;
+  kasta?: KastaCreds;
 }
 
 function parseMeta(raw: unknown): Record<string, any> {
@@ -82,6 +84,9 @@ export async function getUserTokens(db: any, userId: number): Promise<SocialToke
     } else if (r.platform === "rozetka" && accessToken) {
       const meta = parseMeta(r.meta);
       result.rozetka = { accessToken, categoryId: meta.categoryId, categoryName: meta.categoryName };
+    } else if (r.platform === "kasta" && accessToken) {
+      const meta = parseMeta(r.meta);
+      result.kasta = { accessToken, kindId: meta.kindId, affiliationId: meta.affiliationId, categoryName: meta.categoryName };
     }
   }
   return result;
@@ -97,6 +102,7 @@ const DUPLICATE_PLATFORM_MESSAGES: Record<string, string> = {
   prom: "Цей акаунт Prom.ua вже підключено до іншого акаунта Postly.",
   olx: "Цей акаунт OLX вже підключено до іншого акаунта Postly.",
   rozetka: "Цей акаунт Rozetka вже підключено до іншого акаунта Postly.",
+  kasta: "Цей акаунт Kasta.ua вже підключено до іншого акаунта Postly.",
   shafa: "Цей акаунт Shafa.ua вже підключено до іншого акаунта Postly.",
 };
 
@@ -178,5 +184,7 @@ export async function getUserSocialStatus(db: any, userId: number) {
     promCategoryName: tokens.prom?.categoryName || null,
     olx: !!tokens.olx,
     rozetka: !!tokens.rozetka,
+    kasta: !!tokens.kasta,
+    kastaCategoryName: tokens.kasta?.categoryName || null,
   };
 }

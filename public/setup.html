@@ -202,6 +202,11 @@
           <span>Rozetka</span>
           <span class="conn-dot" id="dot-rozetka"></span>
         </button>
+        <button class="tab-btn" onclick="switchTab('kasta')" id="tab-kasta">
+          <span class="tab-icon">🛒</span>
+          <span>Kasta.ua</span>
+          <span class="conn-dot" id="dot-kasta"></span>
+        </button>
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -995,6 +1000,99 @@
                   AI заповнить детальну назву, опис, кольори, розміри і матеріали — все що потрібно для каталогу Rozetka.
                   <br><br>
                   <span style="color:var(--text2)">Кольори, розмір і матеріал підбираються автоматично під характеристики обраної категорії; інші характеристики поки що не заповнюються.</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: KASTA.UA                                                          -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-kasta">
+        <div class="card">
+          <div id="kasta-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+
+          <div style="padding:16px 20px 0">
+            <div class="info-box">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Активний договір постачальника з Kasta.ua.</li>
+                <li>Особистий токен HUB API, який видає Kasta (кожен постачальник отримує свій власний).</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left"><div class="step-num active" id="kasta-s1">1</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🤝 Стань постачальником Kasta.ua</div>
+                <div class="step-desc">Kasta — закритий маркетплейс з договірними умовами. Для доступу до API потрібен активний акаунт постачальника.</div>
+                <div class="info-box">
+                  <b>Якщо ще немає договору:</b>
+                  <ol>
+                    <li>Звернись до Kasta.ua як постачальник (розділ співпраці на сайті)</li>
+                    <li>Дочекайся підписання договору і видачі токена HUB API</li>
+                  </ol>
+                  <b style="display:block;margin-top:8px">Якщо токен вже є — переходь до кроку 2.</b>
+                </div>
+                <a href="https://hub.kasta.ua/api-docs/index.html" target="_blank" class="btn primary">Відкрити документацію Kasta HUB API →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="kasta-s2">2</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🔑 Встав токен HUB API</div>
+                <div class="step-desc">Токен видається Kasta напряму разом із договором постачальника і не має терміну дії.</div>
+                <div class="field">
+                  <label>Токен Kasta HUB API</label>
+                  <input type="password" id="kasta-token" placeholder="Встав токен сюди..." autocomplete="off" oninput="kastaChanged()" />
+                  <div class="hint">Довгий рядок символів, виданий Kasta</div>
+                </div>
+                <div id="kasta-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="kasta-err-text"></span></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="btn secondary" id="kasta-save-btn" onclick="kastaSave()" disabled>Зберегти токен</button>
+                  <button class="btn ghost" id="kasta-verify-btn" onclick="kastaVerify()" style="display:none">Перевірити</button>
+                </div>
+                <div id="kasta-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+                <div id="kasta-verify-res" style="display:none"></div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="kasta-s3">3</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">📂 Вибери категорію за замовчуванням (обовʼязково)</div>
+                <div class="step-desc">Kasta вимагає точну категорію (вид товару) для кожного товару — без неї публікація не пройде. Якщо у тебе магазин одного типу товарів, задай категорію один раз.</div>
+                <div class="field">
+                  <label>Пошук категорії</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="kasta-cat-search" placeholder="Жіночі сукні..." oninput="kastaCatSearch()" autocomplete="off" />
+                    <button class="btn ghost" onclick="kastaCatSearch()">Знайти</button>
+                  </div>
+                </div>
+                <div id="kasta-cat-results" style="display:none;max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid var(--border);border-radius:8px"></div>
+                <div id="kasta-cat-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:13px"></div>
+                <div class="hint">Обов'язково для успішної публікації — без категорії Kasta відхилить товар.</div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="kasta-s4">4</div></div>
+              <div class="step-body">
+                <div class="step-title">✅ Готово — товари публікуватимуться на Kasta.ua!</div>
+                <div class="step-desc">
+                  AI заповнить назву, опис, бренд, кольори, розміри і матеріали.
+                  <br><br>
+                  <span style="color:var(--text2)">Колір, розмір і матеріал підбираються автоматично під характеристики обраної категорії; якщо для категорії є ще обов'язкові характеристики (наприклад країна виробництва), яких немає в наших даних, Kasta відхилить публікацію з поясненням яких саме полів бракує.</span>
                 </div>
               </div>
             </div>
@@ -1958,6 +2056,149 @@ async function rozetkaDisconnect() {
   await loadRozetkaStatus();
 }
 
+// ── KASTA.UA ──────────────────────────────────────────────────────────────
+
+async function loadKastaStatus() {
+  const s = await fetch("/api/kasta/status", { headers: authHeaders() }).then(r => r.json());
+  const box = document.getElementById("kasta-status");
+  if (s.connected) {
+    setDot("kasta", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body">
+        <strong>Kasta.ua підключено</strong>
+        <div class="detail" style="color:var(--text2)">${s.categoryName ? "Категорія за замовчуванням: " + s.categoryName : "Товари публікуватимуться у твій кабінет постачальника."}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="kastaDisconnect()">Відключити</button></div>
+      </div>`;
+    document.getElementById("kasta-verify-btn").style.display = "none";
+    ["kasta-s1","kasta-s2"].forEach(markDone);
+  } else if (s.hasToken) {
+    setDot("kasta", "red");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body">
+        <strong>Токен збережено, але не вдалось перевірити</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || "Можливо, токен невірний або немає інтернету"}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="kastaVerify()">Перевірити ще раз</button></div>
+      </div>`;
+    markDone("kasta-s1"); markDone("kasta-s2");
+    document.getElementById("kasta-verify-btn").style.display = "";
+  } else {
+    setDot("kasta", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Kasta.ua не підключено</strong>
+      <div class="detail" style="color:var(--text2)">Введи токен на кроці 2.</div></div>`;
+  }
+}
+
+function kastaChanged() {
+  const token = document.getElementById("kasta-token").value.trim();
+  const btn = document.getElementById("kasta-save-btn");
+  const verBtn = document.getElementById("kasta-verify-btn");
+  const errBox = document.getElementById("kasta-err");
+  btn.disabled = true; errBox.style.display = "none";
+  if (!token) return;
+  if (token.length < 10) {
+    errBox.style.display = "flex";
+    document.getElementById("kasta-err-text").textContent = "Токен занадто короткий";
+    return;
+  }
+  btn.disabled = false;
+  verBtn.style.display = "";
+}
+
+async function kastaSave() {
+  const token = document.getElementById("kasta-token").value.trim();
+  const btn = document.getElementById("kasta-save-btn");
+  const hint = document.getElementById("kasta-save-hint");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/kasta/save", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ token }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти токен";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Збережено! Перевіряємо з'єднання...";
+    await kastaVerify();
+    await loadKastaStatus();
+  } else {
+    hint.style.display = "block"; hint.style.color = "#f85149";
+    hint.textContent = "Помилка: " + r.message;
+  }
+}
+
+let kastaCatSearchTimer = null;
+function kastaCatSearch() {
+  clearTimeout(kastaCatSearchTimer);
+  kastaCatSearchTimer = setTimeout(async () => {
+    const q = document.getElementById("kasta-cat-search").value.trim();
+    const box = document.getElementById("kasta-cat-results");
+    if (q.length < 2) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Шукаємо...</div>";
+    const d = await fetch(`/api/kasta/categories?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(r => r.json());
+    if (!d.categories?.length) {
+      box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Нічого не знайдено</div>";
+      return;
+    }
+    box.innerHTML = d.categories.map(c =>
+      `<div onclick="kastaSelectCategory(${c.kindId}, ${c.affiliationId}, '${c.name.replace(/'/g,"\\'")}')"
+           style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px"
+           onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <b>${c.name}</b>
+      </div>`
+    ).join("");
+  }, 350);
+}
+
+async function kastaSelectCategory(kindId, affiliationId, name) {
+  document.getElementById("kasta-cat-results").style.display = "none";
+  document.getElementById("kasta-cat-search").value = "";
+  const selectedDiv = document.getElementById("kasta-cat-selected");
+  selectedDiv.style.display = "block";
+  selectedDiv.innerHTML = `<b>Категорія:</b> ${name} <button class="btn ghost" style="padding:2px 8px;margin-left:8px;font-size:11px" onclick="kastaClearCategory()">✕</button>`;
+  const r = await fetch("/api/kasta/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ kindId, affiliationId, categoryName: name }),
+  }).then(r => r.json());
+  if (r.success) {
+    selectedDiv.innerHTML += " <span style='color:#3fb950;font-size:12px'>✓ збережено</span>";
+    markDone("kasta-s3");
+  }
+}
+
+function kastaClearCategory() {
+  fetch("/api/kasta/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ kindId: 0, affiliationId: 0, categoryName: "" }),
+  });
+  document.getElementById("kasta-cat-selected").style.display = "none";
+}
+
+async function kastaVerify() {
+  const res = document.getElementById("kasta-verify-res");
+  if (!res) return;
+  res.style.display = "block";
+  res.textContent = "Перевіряємо з'єднання з Kasta...";
+  const d = await fetch("/api/kasta/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
+  if (d.ok) {
+    res.innerHTML = `<div class="verify-badge ok">✅ З'єднання працює! Kasta HUB API активне.</div>`;
+    markDone("kasta-s2"); markDone("kasta-s3");
+    setDot("kasta", "green");
+  } else {
+    res.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
+    setDot("kasta", "red");
+  }
+}
+
+async function kastaDisconnect() {
+  if (!confirm("Відключити Kasta.ua? Токен буде видалено.")) return;
+  await fetch("/api/user/social/kasta", { method: "DELETE", headers: authHeaders() });
+  await loadKastaStatus();
+}
+
 // ── init ─────────────────────────────────────────────────────────────────
 
 // Handle redirect params from OAuth
@@ -2266,7 +2507,7 @@ async function tiktokUserDisconnect() {
   await Promise.all([
     loadFbUserStatus(), loadIgUserStatus(), loadTiktokUserStatus(),
     loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(),
-    loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(),
+    loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadKastaStatus(),
     loadShopInfo(), loadSavedCreds(),
   ]);
 })();

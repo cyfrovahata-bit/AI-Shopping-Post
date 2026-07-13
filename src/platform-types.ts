@@ -7,6 +7,7 @@ export type PlatformId =
   | "prom"
   | "rozetka"
   | "olx"
+  | "kasta"
   | "shafa";
 
 export type PlatformPostStatus =

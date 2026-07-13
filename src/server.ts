@@ -1135,7 +1135,7 @@ async function startServer() {
     // Shafa's connection status isn't tracked per-user the way OAuth platforms are
     // (it's session-cookie based), so it's excluded from this connected/total count
     // rather than guessed at.
-    const platformKeys = ["facebook", "instagram", "tiktok", "prom", "olx", "rozetka"] as const;
+    const platformKeys = ["facebook", "instagram", "tiktok", "prom", "olx", "rozetka", "kasta"] as const;
     const connectedCount =
       platformKeys.filter((k) => (socialStatus as any)[k]).length +
       (settings.telegramChatId ? 1 : 0);
@@ -1994,6 +1994,61 @@ async function startServer() {
   app.post("/api/rozetka/set-default-category", ...requireUser, async (req: Request, res: Response) => {
     const { categoryId, categoryName } = req.body as { categoryId: number; categoryName: string };
     await updateUserTokenMeta(db, currentUserId(req), "rozetka", { categoryId: categoryId || undefined, categoryName: categoryName || undefined });
+    res.json({ success: true });
+  });
+
+  app.get("/api/kasta/status", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.kasta) return res.json({ connected: false, hasToken: false });
+    const { kastaTestConnection } = await import("./kasta");
+    const result = await kastaTestConnection(tokens.kasta.accessToken);
+    res.json({ connected: result.ok, hasToken: true, error: result.error, categoryName: tokens.kasta.categoryName || null });
+  });
+
+  app.post("/api/kasta/save", ...requireUser, async (req: Request, res: Response) => {
+    const { token } = req.body as { token: string };
+    if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
+    try {
+      // Save unconditionally, same reasoning as Prom/Rozetka — a failed check call
+      // shouldn't block saving a token that may well work fine for real publishing.
+      await saveUserToken(db, currentUserId(req), "kasta", { access_token: token, external_account_id: hashForIdentity(token) });
+      const { kastaTestConnection } = await import("./kasta");
+      const result = await kastaTestConnection(token);
+      res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post("/api/kasta/verify", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.kasta) return res.json({ ok: false, error: "Kasta не підключено" });
+    const { kastaTestConnection } = await import("./kasta");
+    const result = await kastaTestConnection(tokens.kasta.accessToken);
+    res.json(result);
+  });
+
+  app.get("/api/kasta/categories", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.kasta) return res.status(400).json({ categories: [], message: "Спочатку підключи Kasta" });
+    const { kastaSearchCategories } = await import("./kasta");
+    const q = String(req.query.q || "");
+    if (!q || q.length < 2) return res.json({ categories: [] });
+    try {
+      const cats = await kastaSearchCategories(tokens.kasta.accessToken, q);
+      res.json({ categories: cats.map((c) => ({ kindId: c.kindId, affiliationId: c.affiliationId, name: c.name })) });
+    } catch (e) {
+      res.status(400).json({ categories: [], message: (e as Error).message });
+    }
+  });
+
+  app.post("/api/kasta/set-default-category", ...requireUser, async (req: Request, res: Response) => {
+    const { kindId, affiliationId, categoryName } = req.body as { kindId: number; affiliationId: number; categoryName: string };
+    await updateUserTokenMeta(db, currentUserId(req), "kasta", {
+      kindId: kindId || undefined,
+      affiliationId: affiliationId || undefined,
+      categoryName: categoryName || undefined,
+    });
     res.json({ success: true });
   });
 
