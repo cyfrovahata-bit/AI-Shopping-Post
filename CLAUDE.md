@@ -130,10 +130,21 @@ existence check and graceful fallback if it's ever missing.
 
 ## Environment variables
 
-See `.env.example` for the baseline (`OPENAI_API_KEY`, `OPENAI_MODEL`, `BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
-`ORDER_URL`, `INSTAGRAM_USER_ID`, `INSTAGRAM_ACCESS_TOKEN`, `SITE_URL`, `PORT`) — these are mostly legacy
-single-tenant fallbacks/shared-app config now that credentials are per-user. Also relevant:
-`JWT_SECRET`, `TOKEN_ENCRYPTION_KEY` (must be real random secrets in production — they protect session
-tokens and encrypted per-user social credentials), `DB_PATH`, `UPLOADS_DIR`, `FACEBOOK_APP_ID/APP_SECRET`,
-`TIKTOK_CLIENT_KEY/CLIENT_SECRET`, `OLX_CLIENT_ID/CLIENT_SECRET` (shared OAuth app credentials —
-Prom/Rozetka/Kasta need no app-level secret since sellers paste in their own personal tokens).
+(There is no `.env.example` in the repo — it was intentionally removed; this section is the
+canonical list.) Baseline / mostly-legacy single-tenant fallbacks & shared-app config, now that
+credentials are per-user: `OPENAI_API_KEY`, `OPENAI_MODEL`, `BOT_TOKEN`, `TELEGRAM_CHAT_ID`,
+`ORDER_URL`, `INSTAGRAM_USER_ID`, `INSTAGRAM_ACCESS_TOKEN`, `SITE_URL`, `PORT`.
+
+**Security-critical — must be set to real values in production:**
+- `JWT_SECRET` — signs session tokens. If unset it falls back to a hardcoded dev string that is
+  **public in this repo's source**, which would let anyone forge a valid login for any account.
+- `TOKEN_ENCRYPTION_KEY` — encrypts per-user social tokens at rest (falls back to `JWT_SECRET` if
+  unset; set both, ideally to different random values).
+- `ADMIN_EMAIL` — the one account allowed to reach shared/global config routes (TikTok/OLX app
+  credentials, site URL, the Facebook debug endpoint). `requireAdmin` **fails closed**: if
+  `ADMIN_EMAIL` is unset, those routes are disabled for everyone rather than open to any logged-in
+  user — so leaving it unset is safe, just means no one can use those admin-only routes.
+
+Other: `DB_PATH`, `UPLOADS_DIR`, `FACEBOOK_APP_ID/APP_SECRET`, `TIKTOK_CLIENT_KEY/CLIENT_SECRET`,
+`OLX_CLIENT_ID/CLIENT_SECRET` (shared OAuth app credentials — Prom/Rozetka/Kasta need no app-level
+secret since sellers paste in their own personal tokens).
