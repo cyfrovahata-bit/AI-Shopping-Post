@@ -1125,6 +1125,12 @@ window.fetch = async (...args) => {
   return response;
 };
 
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value == null ? "" : String(value);
+  return div.innerHTML;
+}
+
 function showGlobalAlert(html, type) {
   const a = document.getElementById("globalAlert");
   a.className = `alert alert-${type}`;
@@ -1396,8 +1402,8 @@ async function fbVerify() {
   if (!panel) return;
   panel.style.display = "block"; panel.textContent = "Перевіряємо...";
   const d = await fetch("/api/facebook/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
-  if (d.ok) panel.innerHTML = `<span style="color:#3fb950">✅ З'єднання працює! Сторінка «${d.pageName}»${d.fans ? ", підписників: "+d.fans : ""}</span>`;
-  else panel.innerHTML = `<span style="color:#f85149">❌ ${d.reason === "not_connected" ? "Не підключено" : d.reason}</span>`;
+  if (d.ok) panel.innerHTML = `<span style="color:#3fb950">✅ З'єднання працює! Сторінка «${escapeHtml(d.pageName)}»${d.fans ? ", підписників: "+escapeHtml(d.fans) : ""}</span>`;
+  else panel.innerHTML = `<span style="color:#f85149">❌ ${d.reason === "not_connected" ? "Не підключено" : escapeHtml(d.reason)}</span>`;
 }
 
 function handleFbPageChoose() {
@@ -1407,12 +1413,23 @@ function handleFbPageChoose() {
     const pages = JSON.parse(decodeURIComponent(p.get("pages")));
     const chooser = document.getElementById("fb-page-chooser");
     const list = document.getElementById("fb-pages-list");
-    list.innerHTML = pages.map(pg =>
-      `<button onclick="fbSelectPage('${pg.id}','${pg.name.replace(/'/g,"\\'")}',this)"
-        style="background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text);width:100%;margin-bottom:0">
-        <strong style="display:block;font-size:14px">${pg.name}</strong>
-        <small style="color:var(--text2)">ID: ${pg.id}</small>
-      </button>`).join("");
+    // Built via DOM methods (not innerHTML + string interpolation) — page id/name
+    // come straight from a URL query param, so they must never be treated as HTML.
+    list.innerHTML = "";
+    for (const pg of pages) {
+      const btn = document.createElement("button");
+      btn.style.cssText = "background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text);width:100%;margin-bottom:0";
+      btn.addEventListener("click", () => fbSelectPage(pg.id, pg.name, btn));
+      const strong = document.createElement("strong");
+      strong.style.cssText = "display:block;font-size:14px";
+      strong.textContent = pg.name;
+      const small = document.createElement("small");
+      small.style.color = "var(--text2)";
+      small.textContent = `ID: ${pg.id}`;
+      btn.appendChild(strong);
+      btn.appendChild(small);
+      list.appendChild(btn);
+    }
     chooser.style.display = "block";
     switchTab("fb");
   } catch {}
@@ -1426,12 +1443,12 @@ async function fbSelectPage(pageId, pageName, btn) {
     body: JSON.stringify({ pageId }),
   }).then(r => r.json());
   if (d.success) {
-    showGlobalAlert(`✅ Сторінку «${pageName}» підключено! ${d.instagram ? "Instagram @"+(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram — ні: " + describeIgReason(d.instagramError)}`, d.instagram ? "ok" : "warn");
+    showGlobalAlert(`✅ Сторінку «${escapeHtml(pageName)}» підключено! ${d.instagram ? "Instagram @"+escapeHtml(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram — ні: " + escapeHtml(describeIgReason(d.instagramError))}`, d.instagram ? "ok" : "warn");
     document.getElementById("fb-page-chooser").style.display = "none";
     await loadFbUserStatus();
     await loadIgUserStatus();
     await loadFbStatus();
-  } else { showGlobalAlert("Помилка: " + d.message, "err"); btn.disabled = false; btn.textContent = pageName; }
+  } else { showGlobalAlert("Помилка: " + escapeHtml(d.message), "err"); btn.disabled = false; btn.textContent = pageName; }
 }
 
 // ── TELEGRAM ──────────────────────────────────────────────────────────────
@@ -1638,7 +1655,7 @@ async function shafaSave() {}
 // ── TIKTOK ────────────────────────────────────────────────────────────────
 
 async function loadTiktokStatus() {
-  const s = await fetch("/api/tiktok/status").then(r => r.json());
+  const s = await fetch("/api/tiktok/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("tiktok-status");
   if (!box) return;
   if (s.connected) {
@@ -1676,6 +1693,7 @@ function tiktokConnect() {
   const url = `/auth/tiktok?token=${encodeURIComponent(token)}`;
   const win = window.open(url, "tiktok-auth", "width=600,height=700");
   window.addEventListener("message", async function handler(e) {
+    if (e.origin !== window.location.origin) return;
     if (e.data?.type !== "tiktok-auth") return;
     window.removeEventListener("message", handler);
     if (e.data.success) {
@@ -1683,14 +1701,14 @@ function tiktokConnect() {
       await loadTiktokUserStatus();
       await loadTiktokStatus();
     } else {
-      showGlobalAlert("❌ Помилка авторизації: " + (e.data.error || "невідома"), "error");
+      showGlobalAlert("❌ Помилка авторизації: " + escapeHtml(e.data.error || "невідома"), "error");
     }
   });
 }
 
 async function tiktokDisconnect() {
   if (!confirm("Відключити TikTok?")) return;
-  await fetch("/api/tiktok/disconnect", { method: "POST" });
+  await fetch("/api/tiktok/disconnect", { method: "POST", headers: authHeaders() });
   await loadTiktokStatus();
 }
 
@@ -2213,7 +2231,7 @@ function handleUrlParams() {
       return;
     }
     const pageName = decodeURIComponent(p.get("pageName")||"");
-    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igName ? "Instagram @"+igName+" теж підключено!" : "Instagram не підключено: " + describeIgReason(igReason)}`, "ok");
+    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${escapeHtml(pageName)}». ${igName ? "Instagram @"+escapeHtml(igName)+" теж підключено!" : "Instagram не підключено: " + escapeHtml(describeIgReason(igReason))}`, "ok");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
   if (p.get("needsPageId")) {
@@ -2233,7 +2251,7 @@ function handleUrlParams() {
       window.close();
       return;
     }
-    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${decodeURIComponent(p.get("fbError"))}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${escapeHtml(decodeURIComponent(p.get("fbError")))}`, "err");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
   if (p.get("igSuccess")) {
@@ -2242,7 +2260,7 @@ function handleUrlParams() {
       try { window.opener.postMessage({ type: "igDone", username: name }, "*"); } catch(e) {}
       window.close(); return;
     }
-    showGlobalAlert(`✅ <b>Instagram підключено!</b>${name ? " Акаунт @" + name + "." : ""}`, "ok");
+    showGlobalAlert(`✅ <b>Instagram підключено!</b>${name ? " Акаунт @" + escapeHtml(name) + "." : ""}`, "ok");
     switchTab("ig");
     window.history.replaceState({}, "", "/setup.html?tab=ig");
   }
@@ -2252,7 +2270,7 @@ function handleUrlParams() {
       try { window.opener.postMessage({ type: "igError", msg }, "*"); } catch(e) {}
       window.close(); return;
     }
-    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${msg}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${escapeHtml(msg)}`, "err");
     switchTab("ig");
     window.history.replaceState({}, "", "/setup.html?tab=ig");
   }
@@ -2261,7 +2279,7 @@ function handleUrlParams() {
     window.history.replaceState({}, "", "/setup.html?tab=olx");
   }
   if (p.get("olxError")) {
-    showGlobalAlert(`❌ <b>Помилка OLX:</b> ${decodeURIComponent(p.get("olxError"))}`, "err");
+    showGlobalAlert(`❌ <b>Помилка OLX:</b> ${escapeHtml(decodeURIComponent(p.get("olxError")))}`, "err");
     window.history.replaceState({}, "", "/setup.html?tab=olx");
   }
   const tab = p.get("tab") || "fb";
@@ -2341,13 +2359,14 @@ function describeIgReason(reason) {
 }
 
 window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
   if (e.data?.type === "fbDone") {
     loadFbUserStatus(); loadFbStatus();
     if (e.data.igName) {
       loadIgUserStatus();
-      showGlobalAlert(`✅ <b>Facebook підключено!</b> Instagram @${e.data.igName} теж підключено!`, "ok");
+      showGlobalAlert(`✅ <b>Facebook підключено!</b> Instagram @${escapeHtml(e.data.igName)} теж підключено!`, "ok");
     } else {
-      showGlobalAlert(`⚠️ <b>Facebook підключено</b>, але Instagram — ні: ${describeIgReason(e.data.igReason)}`, "warn");
+      showGlobalAlert(`⚠️ <b>Facebook підключено</b>, але Instagram — ні: ${escapeHtml(describeIgReason(e.data.igReason))}`, "warn");
     }
   }
   if (e.data?.type === "fbNeedsPageId") {
@@ -2355,15 +2374,15 @@ window.addEventListener("message", (e) => {
     showManualPageIdForm();
   }
   if (e.data?.type === "fbError") {
-    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${e.data.msg}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${escapeHtml(e.data.msg)}`, "err");
   }
   if (e.data?.type === "igDone") {
     loadIgUserStatus();
-    showGlobalAlert(`✅ <b>Instagram підключено!</b>${e.data.username ? " @" + e.data.username : ""}`, "ok");
+    showGlobalAlert(`✅ <b>Instagram підключено!</b>${e.data.username ? " @" + escapeHtml(e.data.username) : ""}`, "ok");
     switchTab("ig");
   }
   if (e.data?.type === "igError") {
-    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${e.data.msg}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${escapeHtml(e.data.msg)}`, "err");
   }
 });
 
