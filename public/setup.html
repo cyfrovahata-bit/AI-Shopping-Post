@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Налаштування — Postly</title>
   <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" type="image/png" href="/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
   <style>
     /* ── page layout ── */
     .setup-wrap { max-width: 680px; margin: 0 auto; padding: 0 16px 80px; }
@@ -139,7 +142,7 @@
   <header class="topbar">
     <div class="topbar-left">
       <div class="logo">
-        <div class="logo-icon">✦</div>
+        <img class="logo-icon" src="/logo-mark.png" alt="Postly" width="28" height="28" />
         <span class="logo-name">Postly</span>
       </div>
       <div class="topbar-divider"></div>
@@ -201,6 +204,11 @@
           <span class="tab-icon">🌹</span>
           <span>Rozetka</span>
           <span class="conn-dot" id="dot-rozetka"></span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('kasta')" id="tab-kasta">
+          <span class="tab-icon">🛒</span>
+          <span>Kasta.ua</span>
+          <span class="conn-dot" id="dot-kasta"></span>
         </button>
       </div>
 
@@ -1003,6 +1011,99 @@
         </div>
       </div>
 
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <!-- TAB: KASTA.UA                                                          -->
+      <!-- ══════════════════════════════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-kasta">
+        <div class="card">
+          <div id="kasta-status" class="status-panel">
+            <div class="status-icon">⏳</div>
+            <div class="status-body"><strong>Перевіряємо...</strong></div>
+          </div>
+
+          <div style="padding:16px 20px 0">
+            <div class="info-box">
+              <b>Вимоги перед підключенням:</b>
+              <ul style="margin:6px 0 0;padding-left:18px">
+                <li>Активний договір постачальника з Kasta.ua.</li>
+                <li>Особистий токен HUB API, який видає Kasta (кожен постачальник отримує свій власний).</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="steps">
+
+            <div class="step">
+              <div class="step-left"><div class="step-num active" id="kasta-s1">1</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🤝 Стань постачальником Kasta.ua</div>
+                <div class="step-desc">Kasta — закритий маркетплейс з договірними умовами. Для доступу до API потрібен активний акаунт постачальника.</div>
+                <div class="info-box">
+                  <b>Якщо ще немає договору:</b>
+                  <ol>
+                    <li>Звернись до Kasta.ua як постачальник (розділ співпраці на сайті)</li>
+                    <li>Дочекайся підписання договору і видачі токена HUB API</li>
+                  </ol>
+                  <b style="display:block;margin-top:8px">Якщо токен вже є — переходь до кроку 2.</b>
+                </div>
+                <a href="https://hub.kasta.ua/api-docs/index.html" target="_blank" class="btn primary">Відкрити документацію Kasta HUB API →</a>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="kasta-s2">2</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">🔑 Встав токен HUB API</div>
+                <div class="step-desc">Токен видається Kasta напряму разом із договором постачальника і не має терміну дії.</div>
+                <div class="field">
+                  <label>Токен Kasta HUB API</label>
+                  <input type="password" id="kasta-token" placeholder="Встав токен сюди..." autocomplete="off" oninput="kastaChanged()" />
+                  <div class="hint">Довгий рядок символів, виданий Kasta</div>
+                </div>
+                <div id="kasta-err" style="display:none" class="alert alert-err"><span class="aico">❌</span><span id="kasta-err-text"></span></div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                  <button class="btn secondary" id="kasta-save-btn" onclick="kastaSave()" disabled>Зберегти токен</button>
+                  <button class="btn ghost" id="kasta-verify-btn" onclick="kastaVerify()" style="display:none">Перевірити</button>
+                </div>
+                <div id="kasta-save-hint" style="display:none;font-size:12px;margin-top:6px"></div>
+                <div id="kasta-verify-res" style="display:none"></div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="kasta-s3">3</div><div class="step-line"></div></div>
+              <div class="step-body">
+                <div class="step-title">📂 Вибери категорію за замовчуванням (обовʼязково)</div>
+                <div class="step-desc">Kasta вимагає точну категорію (вид товару) для кожного товару — без неї публікація не пройде. Якщо у тебе магазин одного типу товарів, задай категорію один раз.</div>
+                <div class="field">
+                  <label>Пошук категорії</label>
+                  <div style="display:flex;gap:8px">
+                    <input type="text" id="kasta-cat-search" placeholder="Жіночі сукні..." oninput="kastaCatSearch()" autocomplete="off" />
+                    <button class="btn ghost" onclick="kastaCatSearch()">Знайти</button>
+                  </div>
+                </div>
+                <div id="kasta-cat-results" style="display:none;max-height:200px;overflow-y:auto;margin-top:6px;border:1px solid var(--border);border-radius:8px"></div>
+                <div id="kasta-cat-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:13px"></div>
+                <div class="hint">Обов'язково для успішної публікації — без категорії Kasta відхилить товар.</div>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-left"><div class="step-num" id="kasta-s4">4</div></div>
+              <div class="step-body">
+                <div class="step-title">✅ Готово — товари публікуватимуться на Kasta.ua!</div>
+                <div class="step-desc">
+                  AI заповнить назву, опис, бренд, кольори, розміри і матеріали.
+                  <br><br>
+                  <span style="color:var(--text2)">Колір, розмір і матеріал підбираються автоматично під характеристики обраної категорії; якщо для категорії є ще обов'язкові характеристики (наприклад країна виробництва), яких немає в наших даних, Kasta відхилить публікацію з поясненням яких саме полів бракує.</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div><!-- /setup-wrap -->
   </div>
   <footer class="legal-footer">
@@ -1026,6 +1127,12 @@ window.fetch = async (...args) => {
   }
   return response;
 };
+
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value == null ? "" : String(value);
+  return div.innerHTML;
+}
 
 function showGlobalAlert(html, type) {
   const a = document.getElementById("globalAlert");
@@ -1298,8 +1405,8 @@ async function fbVerify() {
   if (!panel) return;
   panel.style.display = "block"; panel.textContent = "Перевіряємо...";
   const d = await fetch("/api/facebook/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
-  if (d.ok) panel.innerHTML = `<span style="color:#3fb950">✅ З'єднання працює! Сторінка «${d.pageName}»${d.fans ? ", підписників: "+d.fans : ""}</span>`;
-  else panel.innerHTML = `<span style="color:#f85149">❌ ${d.reason === "not_connected" ? "Не підключено" : d.reason}</span>`;
+  if (d.ok) panel.innerHTML = `<span style="color:#3fb950">✅ З'єднання працює! Сторінка «${escapeHtml(d.pageName)}»${d.fans ? ", підписників: "+escapeHtml(d.fans) : ""}</span>`;
+  else panel.innerHTML = `<span style="color:#f85149">❌ ${d.reason === "not_connected" ? "Не підключено" : escapeHtml(d.reason)}</span>`;
 }
 
 function handleFbPageChoose() {
@@ -1309,12 +1416,23 @@ function handleFbPageChoose() {
     const pages = JSON.parse(decodeURIComponent(p.get("pages")));
     const chooser = document.getElementById("fb-page-chooser");
     const list = document.getElementById("fb-pages-list");
-    list.innerHTML = pages.map(pg =>
-      `<button onclick="fbSelectPage('${pg.id}','${pg.name.replace(/'/g,"\\'")}',this)"
-        style="background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text);width:100%;margin-bottom:0">
-        <strong style="display:block;font-size:14px">${pg.name}</strong>
-        <small style="color:var(--text2)">ID: ${pg.id}</small>
-      </button>`).join("");
+    // Built via DOM methods (not innerHTML + string interpolation) — page id/name
+    // come straight from a URL query param, so they must never be treated as HTML.
+    list.innerHTML = "";
+    for (const pg of pages) {
+      const btn = document.createElement("button");
+      btn.style.cssText = "background:var(--bg3);border:1.5px solid var(--border);border-radius:10px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--text);width:100%;margin-bottom:0";
+      btn.addEventListener("click", () => fbSelectPage(pg.id, pg.name, btn));
+      const strong = document.createElement("strong");
+      strong.style.cssText = "display:block;font-size:14px";
+      strong.textContent = pg.name;
+      const small = document.createElement("small");
+      small.style.color = "var(--text2)";
+      small.textContent = `ID: ${pg.id}`;
+      btn.appendChild(strong);
+      btn.appendChild(small);
+      list.appendChild(btn);
+    }
     chooser.style.display = "block";
     switchTab("fb");
   } catch {}
@@ -1328,12 +1446,12 @@ async function fbSelectPage(pageId, pageName, btn) {
     body: JSON.stringify({ pageId }),
   }).then(r => r.json());
   if (d.success) {
-    showGlobalAlert(`✅ Сторінку «${pageName}» підключено! ${d.instagram ? "Instagram @"+(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram — ні: " + describeIgReason(d.instagramError)}`, d.instagram ? "ok" : "warn");
+    showGlobalAlert(`✅ Сторінку «${escapeHtml(pageName)}» підключено! ${d.instagram ? "Instagram @"+escapeHtml(d.instagram.username||d.instagram.id)+" теж підключено." : "Instagram — ні: " + escapeHtml(describeIgReason(d.instagramError))}`, d.instagram ? "ok" : "warn");
     document.getElementById("fb-page-chooser").style.display = "none";
     await loadFbUserStatus();
     await loadIgUserStatus();
     await loadFbStatus();
-  } else { showGlobalAlert("Помилка: " + d.message, "err"); btn.disabled = false; btn.textContent = pageName; }
+  } else { showGlobalAlert("Помилка: " + escapeHtml(d.message), "err"); btn.disabled = false; btn.textContent = pageName; }
 }
 
 // ── TELEGRAM ──────────────────────────────────────────────────────────────
@@ -1540,7 +1658,7 @@ async function shafaSave() {}
 // ── TIKTOK ────────────────────────────────────────────────────────────────
 
 async function loadTiktokStatus() {
-  const s = await fetch("/api/tiktok/status").then(r => r.json());
+  const s = await fetch("/api/tiktok/status", { headers: authHeaders() }).then(r => r.json());
   const box = document.getElementById("tiktok-status");
   if (!box) return;
   if (s.connected) {
@@ -1578,6 +1696,7 @@ function tiktokConnect() {
   const url = `/auth/tiktok?token=${encodeURIComponent(token)}`;
   const win = window.open(url, "tiktok-auth", "width=600,height=700");
   window.addEventListener("message", async function handler(e) {
+    if (e.origin !== window.location.origin) return;
     if (e.data?.type !== "tiktok-auth") return;
     window.removeEventListener("message", handler);
     if (e.data.success) {
@@ -1585,14 +1704,14 @@ function tiktokConnect() {
       await loadTiktokUserStatus();
       await loadTiktokStatus();
     } else {
-      showGlobalAlert("❌ Помилка авторизації: " + (e.data.error || "невідома"), "error");
+      showGlobalAlert("❌ Помилка авторизації: " + escapeHtml(e.data.error || "невідома"), "error");
     }
   });
 }
 
 async function tiktokDisconnect() {
   if (!confirm("Відключити TikTok?")) return;
-  await fetch("/api/tiktok/disconnect", { method: "POST" });
+  await fetch("/api/tiktok/disconnect", { method: "POST", headers: authHeaders() });
   await loadTiktokStatus();
 }
 
@@ -1958,6 +2077,149 @@ async function rozetkaDisconnect() {
   await loadRozetkaStatus();
 }
 
+// ── KASTA.UA ──────────────────────────────────────────────────────────────
+
+async function loadKastaStatus() {
+  const s = await fetch("/api/kasta/status", { headers: authHeaders() }).then(r => r.json());
+  const box = document.getElementById("kasta-status");
+  if (s.connected) {
+    setDot("kasta", "green");
+    box.className = "status-panel ok";
+    box.innerHTML = `<div class="status-icon">✅</div>
+      <div class="status-body">
+        <strong>Kasta.ua підключено</strong>
+        <div class="detail" style="color:var(--text2)">${s.categoryName ? "Категорія за замовчуванням: " + s.categoryName : "Товари публікуватимуться у твій кабінет постачальника."}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="kastaDisconnect()">Відключити</button></div>
+      </div>`;
+    document.getElementById("kasta-verify-btn").style.display = "none";
+    ["kasta-s1","kasta-s2"].forEach(markDone);
+  } else if (s.hasToken) {
+    setDot("kasta", "red");
+    box.className = "status-panel warn";
+    box.innerHTML = `<div class="status-icon">⚠️</div>
+      <div class="status-body">
+        <strong>Токен збережено, але не вдалось перевірити</strong>
+        <div class="detail" style="color:var(--text2)">${s.error || "Можливо, токен невірний або немає інтернету"}</div>
+        <div class="status-actions"><button class="btn ghost" onclick="kastaVerify()">Перевірити ще раз</button></div>
+      </div>`;
+    markDone("kasta-s1"); markDone("kasta-s2");
+    document.getElementById("kasta-verify-btn").style.display = "";
+  } else {
+    setDot("kasta", "red");
+    box.className = "status-panel error";
+    box.innerHTML = `<div class="status-icon">❌</div>
+      <div class="status-body"><strong>Kasta.ua не підключено</strong>
+      <div class="detail" style="color:var(--text2)">Введи токен на кроці 2.</div></div>`;
+  }
+}
+
+function kastaChanged() {
+  const token = document.getElementById("kasta-token").value.trim();
+  const btn = document.getElementById("kasta-save-btn");
+  const verBtn = document.getElementById("kasta-verify-btn");
+  const errBox = document.getElementById("kasta-err");
+  btn.disabled = true; errBox.style.display = "none";
+  if (!token) return;
+  if (token.length < 10) {
+    errBox.style.display = "flex";
+    document.getElementById("kasta-err-text").textContent = "Токен занадто короткий";
+    return;
+  }
+  btn.disabled = false;
+  verBtn.style.display = "";
+}
+
+async function kastaSave() {
+  const token = document.getElementById("kasta-token").value.trim();
+  const btn = document.getElementById("kasta-save-btn");
+  const hint = document.getElementById("kasta-save-hint");
+  btn.disabled = true; btn.textContent = "Зберігаємо...";
+  const r = await fetch("/api/kasta/save", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ token }),
+  }).then(r => r.json());
+  btn.disabled = false; btn.textContent = "Зберегти токен";
+  if (r.success) {
+    hint.style.display = "block"; hint.style.color = "#3fb950";
+    hint.textContent = "✓ Збережено! Перевіряємо з'єднання...";
+    await kastaVerify();
+    await loadKastaStatus();
+  } else {
+    hint.style.display = "block"; hint.style.color = "#f85149";
+    hint.textContent = "Помилка: " + r.message;
+  }
+}
+
+let kastaCatSearchTimer = null;
+function kastaCatSearch() {
+  clearTimeout(kastaCatSearchTimer);
+  kastaCatSearchTimer = setTimeout(async () => {
+    const q = document.getElementById("kasta-cat-search").value.trim();
+    const box = document.getElementById("kasta-cat-results");
+    if (q.length < 2) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Шукаємо...</div>";
+    const d = await fetch(`/api/kasta/categories?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(r => r.json());
+    if (!d.categories?.length) {
+      box.innerHTML = "<div style='padding:8px 12px;color:var(--text2);font-size:13px'>Нічого не знайдено</div>";
+      return;
+    }
+    box.innerHTML = d.categories.map(c =>
+      `<div onclick="kastaSelectCategory(${c.kindId}, ${c.affiliationId}, '${c.name.replace(/'/g,"\\'")}')"
+           style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px"
+           onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background=''">
+        <b>${c.name}</b>
+      </div>`
+    ).join("");
+  }, 350);
+}
+
+async function kastaSelectCategory(kindId, affiliationId, name) {
+  document.getElementById("kasta-cat-results").style.display = "none";
+  document.getElementById("kasta-cat-search").value = "";
+  const selectedDiv = document.getElementById("kasta-cat-selected");
+  selectedDiv.style.display = "block";
+  selectedDiv.innerHTML = `<b>Категорія:</b> ${name} <button class="btn ghost" style="padding:2px 8px;margin-left:8px;font-size:11px" onclick="kastaClearCategory()">✕</button>`;
+  const r = await fetch("/api/kasta/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ kindId, affiliationId, categoryName: name }),
+  }).then(r => r.json());
+  if (r.success) {
+    selectedDiv.innerHTML += " <span style='color:#3fb950;font-size:12px'>✓ збережено</span>";
+    markDone("kasta-s3");
+  }
+}
+
+function kastaClearCategory() {
+  fetch("/api/kasta/set-default-category", {
+    method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ kindId: 0, affiliationId: 0, categoryName: "" }),
+  });
+  document.getElementById("kasta-cat-selected").style.display = "none";
+}
+
+async function kastaVerify() {
+  const res = document.getElementById("kasta-verify-res");
+  if (!res) return;
+  res.style.display = "block";
+  res.textContent = "Перевіряємо з'єднання з Kasta...";
+  const d = await fetch("/api/kasta/verify", { method: "POST", headers: authHeaders() }).then(r => r.json());
+  if (d.ok) {
+    res.innerHTML = `<div class="verify-badge ok">✅ З'єднання працює! Kasta HUB API активне.</div>`;
+    markDone("kasta-s2"); markDone("kasta-s3");
+    setDot("kasta", "green");
+  } else {
+    res.innerHTML = `<div class="verify-badge err">❌ Помилка: ${d.error}</div>`;
+    setDot("kasta", "red");
+  }
+}
+
+async function kastaDisconnect() {
+  if (!confirm("Відключити Kasta.ua? Токен буде видалено.")) return;
+  await fetch("/api/user/social/kasta", { method: "DELETE", headers: authHeaders() });
+  await loadKastaStatus();
+}
+
 // ── init ─────────────────────────────────────────────────────────────────
 
 // Handle redirect params from OAuth
@@ -1972,7 +2234,7 @@ function handleUrlParams() {
       return;
     }
     const pageName = decodeURIComponent(p.get("pageName")||"");
-    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${pageName}». ${igName ? "Instagram @"+igName+" теж підключено!" : "Instagram не підключено: " + describeIgReason(igReason)}`, "ok");
+    showGlobalAlert(`✅ <b>Facebook підключено!</b> Сторінка «${escapeHtml(pageName)}». ${igName ? "Instagram @"+escapeHtml(igName)+" теж підключено!" : "Instagram не підключено: " + escapeHtml(describeIgReason(igReason))}`, "ok");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
   if (p.get("needsPageId")) {
@@ -1992,7 +2254,7 @@ function handleUrlParams() {
       window.close();
       return;
     }
-    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${decodeURIComponent(p.get("fbError"))}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${escapeHtml(decodeURIComponent(p.get("fbError")))}`, "err");
     window.history.replaceState({}, "", "/setup.html?tab=fb");
   }
   if (p.get("igSuccess")) {
@@ -2001,7 +2263,7 @@ function handleUrlParams() {
       try { window.opener.postMessage({ type: "igDone", username: name }, "*"); } catch(e) {}
       window.close(); return;
     }
-    showGlobalAlert(`✅ <b>Instagram підключено!</b>${name ? " Акаунт @" + name + "." : ""}`, "ok");
+    showGlobalAlert(`✅ <b>Instagram підключено!</b>${name ? " Акаунт @" + escapeHtml(name) + "." : ""}`, "ok");
     switchTab("ig");
     window.history.replaceState({}, "", "/setup.html?tab=ig");
   }
@@ -2011,7 +2273,7 @@ function handleUrlParams() {
       try { window.opener.postMessage({ type: "igError", msg }, "*"); } catch(e) {}
       window.close(); return;
     }
-    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${msg}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${escapeHtml(msg)}`, "err");
     switchTab("ig");
     window.history.replaceState({}, "", "/setup.html?tab=ig");
   }
@@ -2020,7 +2282,7 @@ function handleUrlParams() {
     window.history.replaceState({}, "", "/setup.html?tab=olx");
   }
   if (p.get("olxError")) {
-    showGlobalAlert(`❌ <b>Помилка OLX:</b> ${decodeURIComponent(p.get("olxError"))}`, "err");
+    showGlobalAlert(`❌ <b>Помилка OLX:</b> ${escapeHtml(decodeURIComponent(p.get("olxError")))}`, "err");
     window.history.replaceState({}, "", "/setup.html?tab=olx");
   }
   const tab = p.get("tab") || "fb";
@@ -2100,13 +2362,14 @@ function describeIgReason(reason) {
 }
 
 window.addEventListener("message", (e) => {
+  if (e.origin !== window.location.origin) return;
   if (e.data?.type === "fbDone") {
     loadFbUserStatus(); loadFbStatus();
     if (e.data.igName) {
       loadIgUserStatus();
-      showGlobalAlert(`✅ <b>Facebook підключено!</b> Instagram @${e.data.igName} теж підключено!`, "ok");
+      showGlobalAlert(`✅ <b>Facebook підключено!</b> Instagram @${escapeHtml(e.data.igName)} теж підключено!`, "ok");
     } else {
-      showGlobalAlert(`⚠️ <b>Facebook підключено</b>, але Instagram — ні: ${describeIgReason(e.data.igReason)}`, "warn");
+      showGlobalAlert(`⚠️ <b>Facebook підключено</b>, але Instagram — ні: ${escapeHtml(describeIgReason(e.data.igReason))}`, "warn");
     }
   }
   if (e.data?.type === "fbNeedsPageId") {
@@ -2114,15 +2377,15 @@ window.addEventListener("message", (e) => {
     showManualPageIdForm();
   }
   if (e.data?.type === "fbError") {
-    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${e.data.msg}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Facebook:</b> ${escapeHtml(e.data.msg)}`, "err");
   }
   if (e.data?.type === "igDone") {
     loadIgUserStatus();
-    showGlobalAlert(`✅ <b>Instagram підключено!</b>${e.data.username ? " @" + e.data.username : ""}`, "ok");
+    showGlobalAlert(`✅ <b>Instagram підключено!</b>${e.data.username ? " @" + escapeHtml(e.data.username) : ""}`, "ok");
     switchTab("ig");
   }
   if (e.data?.type === "igError") {
-    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${e.data.msg}`, "err");
+    showGlobalAlert(`❌ <b>Помилка Instagram:</b> ${escapeHtml(e.data.msg)}`, "err");
   }
 });
 
@@ -2266,7 +2529,7 @@ async function tiktokUserDisconnect() {
   await Promise.all([
     loadFbUserStatus(), loadIgUserStatus(), loadTiktokUserStatus(),
     loadFbStatus(), loadTgStatus(), loadSiteUrl(), loadTiktokStatus(),
-    loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(),
+    loadShafaStatus(), loadPromStatus(), loadOlxStatus(), loadRozetkaStatus(), loadKastaStatus(),
     loadShopInfo(), loadSavedCreds(),
   ]);
 })();

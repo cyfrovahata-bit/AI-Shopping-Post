@@ -65,7 +65,21 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, limits: { fileSize: 300 * 1024 * 1024 } }); // 300 MB max
+// Uploaded files are served back out publicly from /uploads with no further
+// processing — without a type check, anyone could upload an .html or .svg file
+// (multer accepts anything by default) and get a same-origin URL that executes
+// arbitrary script when opened, turning the app into XSS-payload hosting. Only
+// actual image/video content types are accepted; everything else is rejected
+// before it ever touches disk.
+const ALLOWED_UPLOAD_MIME = /^(image\/(jpeg|png|webp|heic|heif|gif)|video\/(mp4|quicktime|webm))$/;
+const upload = multer({
+  storage,
+  limits: { fileSize: 300 * 1024 * 1024 }, // 300 MB max
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_UPLOAD_MIME.test(file.mimetype)) return cb(null, true);
+    cb(new Error("Дозволені лише файли зображень або відео"));
+  },
+});
 const uploadPhotos = upload.array("photos", 6);
 const uploadCompat = upload.fields([
   { name: "photos", maxCount: 6 },
@@ -148,7 +162,10 @@ function publicSiteUrl() {
 
 async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const adminEmail = toText(process.env.ADMIN_EMAIL).toLowerCase();
-  if (!adminEmail) return next();
+  // Fail closed, not open: if ADMIN_EMAIL isn't configured, no one is admin — these
+  // routes manage shared/global platform config (TikTok/OLX app secrets, site URL),
+  // so an unset ADMIN_EMAIL must never make them accessible to every logged-in user.
+  if (!adminEmail) return res.status(403).json({ success: false, message: "Адмінська функція недоступна: ADMIN_EMAIL не налаштовано" });
   try {
     const db = await initDb();
     const user = await db.get(`SELECT email FROM users WHERE id = ?`, [currentUserId(req)]);
@@ -1135,7 +1152,7 @@ async function startServer() {
     // Shafa's connection status isn't tracked per-user the way OAuth platforms are
     // (it's session-cookie based), so it's excluded from this connected/total count
     // rather than guessed at.
-    const platformKeys = ["facebook", "instagram", "tiktok", "prom", "olx", "rozetka"] as const;
+    const platformKeys = ["facebook", "instagram", "tiktok", "prom", "olx", "rozetka", "kasta"] as const;
     const connectedCount =
       platformKeys.filter((k) => (socialStatus as any)[k]).length +
       (settings.telegramChatId ? 1 : 0);
@@ -1475,7 +1492,11 @@ async function startServer() {
   });
 
   // GET /api/facebook/debug-ig — full Instagram publishing diagnostics
-  app.get("/api/facebook/debug-ig", async (_req: Request, res: Response) => {
+  // Diagnostic-only endpoint (not called from any page) — was reachable by anyone,
+  // no login required, and leaked the first 20 chars of the shared Facebook/Instagram
+  // tokens plus live Graph API responses (page/IG ids, granted permissions). Gated
+  // behind admin like the other shared-config routes.
+  app.get("/api/facebook/debug-ig", ...requireUser, requireAdmin, async (_req: Request, res: Response) => {
     const env = readEnv();
     const g = (k: string) => env[k] || process.env[k] || "";
     const userToken  = g("FACEBOOK_USER_TOKEN");
@@ -1750,7 +1771,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.get("/api/tiktok/status", (req: Request, res: Response) => {
+  app.get("/api/tiktok/status", ...requireUser, (req: Request, res: Response) => {
     const { getTikTokStatus } = require("./tiktok");
     const env = readEnv();
     const clientKey = env.TIKTOK_CLIENT_KEY || process.env.TIKTOK_CLIENT_KEY || "";
@@ -1810,7 +1831,10 @@ async function startServer() {
     }
   });
 
-  app.post("/api/tiktok/disconnect", (_req: Request, res: Response) => {
+  // Was reachable by anyone with no login required — any anonymous visitor could
+  // wipe the shared TikTok connection (persisted to disk via writeEnvVars) for the
+  // whole app. Gated behind login same as every other mutation here.
+  app.post("/api/tiktok/disconnect", ...requireUser, (_req: Request, res: Response) => {
     const { disconnectTikTok } = require("./tiktok");
     disconnectTikTok();
     res.json({ success: true });
@@ -1997,7 +2021,72 @@ async function startServer() {
     res.json({ success: true });
   });
 
+  app.get("/api/kasta/status", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.kasta) return res.json({ connected: false, hasToken: false });
+    const { kastaTestConnection } = await import("./kasta");
+    const result = await kastaTestConnection(tokens.kasta.accessToken);
+    res.json({ connected: result.ok, hasToken: true, error: result.error, categoryName: tokens.kasta.categoryName || null });
+  });
+
+  app.post("/api/kasta/save", ...requireUser, async (req: Request, res: Response) => {
+    const { token } = req.body as { token: string };
+    if (!token || token.length < 10) return res.status(400).json({ success: false, message: "Токен занадто короткий" });
+    try {
+      // Save unconditionally, same reasoning as Prom/Rozetka — a failed check call
+      // shouldn't block saving a token that may well work fine for real publishing.
+      await saveUserToken(db, currentUserId(req), "kasta", { access_token: token, external_account_id: hashForIdentity(token) });
+      const { kastaTestConnection } = await import("./kasta");
+      const result = await kastaTestConnection(token);
+      res.json({ success: true, verified: result.ok, verifyWarning: result.ok ? undefined : result.error });
+    } catch (err) {
+      res.status(400).json({ success: false, message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.post("/api/kasta/verify", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.kasta) return res.json({ ok: false, error: "Kasta не підключено" });
+    const { kastaTestConnection } = await import("./kasta");
+    const result = await kastaTestConnection(tokens.kasta.accessToken);
+    res.json(result);
+  });
+
+  app.get("/api/kasta/categories", ...requireUser, async (req: Request, res: Response) => {
+    const tokens = await getUserTokens(db, currentUserId(req));
+    if (!tokens.kasta) return res.status(400).json({ categories: [], message: "Спочатку підключи Kasta" });
+    const { kastaSearchCategories } = await import("./kasta");
+    const q = String(req.query.q || "");
+    if (!q || q.length < 2) return res.json({ categories: [] });
+    try {
+      const cats = await kastaSearchCategories(tokens.kasta.accessToken, q);
+      res.json({ categories: cats.map((c) => ({ kindId: c.kindId, affiliationId: c.affiliationId, name: c.name })) });
+    } catch (e) {
+      res.status(400).json({ categories: [], message: (e as Error).message });
+    }
+  });
+
+  app.post("/api/kasta/set-default-category", ...requireUser, async (req: Request, res: Response) => {
+    const { kindId, affiliationId, categoryName } = req.body as { kindId: number; affiliationId: number; categoryName: string };
+    await updateUserTokenMeta(db, currentUserId(req), "kasta", {
+      kindId: kindId || undefined,
+      affiliationId: affiliationId || undefined,
+      categoryName: categoryName || undefined,
+    });
+    res.json({ success: true });
+  });
+
   // ── End Facebook OAuth ──────────────────────────────────────────────────────
+
+  // Catches errors thrown/passed to next() by any route or middleware above
+  // (e.g. multer rejecting an upload) that weren't already handled with their own
+  // try/catch + JSON response. Without this, Express's default handler sends back
+  // the raw error stack — including absolute server file paths — to the client.
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("Unhandled route error:", err);
+    if (res.headersSent) return;
+    res.status(400).json({ success: false, message: err.message || "Помилка сервера" });
+  });
 
   const server = app.listen(PORT, () => {
     console.log(`Server started: http://localhost:${PORT}`);

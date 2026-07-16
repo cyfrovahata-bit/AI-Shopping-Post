@@ -6,4 +6,8 @@ dist.env
 shafa-session.json
 shafa-sessions/
 *.png
+# Brand assets are real site content, not throwaway debug screenshots — keep them.
+!public/logo-mark.png
+!public/logo-full.png
+!public/apple-touch-icon.png
 test-images/

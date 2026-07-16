@@ -6,6 +6,7 @@ import { publishTikTokVideo, publishTikTokPhotos } from "../tiktok";
 import { publishPromPost } from "../prom";
 import { publishOlxPost } from "../olx";
 import { publishRozetkaPost } from "../rozetka";
+import { publishKastaPost } from "../kasta";
 import { SHAFA_COLORS } from "../shafa/shafa.types";
 import { PlatformId, ProductInput, PublishingPlatform } from "../platform-types";
 
@@ -443,6 +444,41 @@ ${commonRules(product)}
   },
 };
 
+const kastaPlatform: PublishingPlatform = {
+  id: "kasta",
+  name: "Kasta.ua",
+  supportsPublishing: true,
+  generatePrompt(product) {
+    return `
+${commonRules(product)}
+
+Ти публікуєш товар на маркетплейсі Kasta.ua. Це платформа з детальним каталогом — потрібні точні назва, опис, бренд, кольори, розміри і матеріали.
+
+Правила для Kasta.ua:
+- Назва: до 200 символів, точна. Тип товару + матеріал + колір.
+- Опис: детальний, 150-400 слів. Без HTML — простий текст.
+- Бренд: якщо в даних товару є бренд — вкажи його; якщо ні — напиши "Без бренду".
+- Ключові слова: 15-20 слів через кому.
+- Кольори, розміри, матеріали — списками.
+
+Поверни тільки JSON (без markdown):
+{
+  "title": "назва до 200 символів",
+  "description": "опис товару...",
+  "keywords": "ключове1, ключове2, ...",
+  "brand": "назва бренду або Без бренду",
+  "colors": ["чорний", "молочний"],
+  "sizes": ["S", "M", "L", "XL"],
+  "materials": ["льон", "бавовна"]
+}
+`.trim();
+  },
+  async publish({ product, text, photoPaths, imageUrls, extras }) {
+    const creds = (extras?.userTokens as any)?.kasta;
+    return publishKastaPost({ product, text, photoPaths, imageUrls, extras, creds });
+  },
+};
+
 const tiktokPlatform: PublishingPlatform = {
   id: "tiktok",
   name: "TikTok",
@@ -481,10 +517,11 @@ export const platforms: Record<PlatformId, PublishingPlatform> = {
   prom: promPlatform,
   olx: olxPlatform,
   rozetka: rozеtkaPlatform,
+  kasta: kastaPlatform,
   viber: createFuturePlatform("viber", "Viber"),
 };
 
-export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "tiktok", "shafa", "prom", "olx", "rozetka"];
+export const enabledPlatformIds: PlatformId[] = ["telegram", "instagram", "facebook", "tiktok", "shafa", "prom", "olx", "rozetka", "kasta"];
 
 export function getPlatform(id: PlatformId) {
   const platform = platforms[id];

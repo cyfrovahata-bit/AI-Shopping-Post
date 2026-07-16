@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Facebook & Instagram — Postly</title>
   <link rel="stylesheet" href="/style.css" />
+  <link rel="icon" type="image/png" href="/logo-mark.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
   <style>
     .setup-card { max-width: 560px; margin: 32px auto; }
     .step { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
@@ -40,7 +43,7 @@
   <header class="topbar">
     <div class="topbar-left">
       <div class="logo">
-        <div class="logo-icon">✦</div>
+        <img class="logo-icon" src="/logo-mark.png" alt="Postly" width="28" height="28" />
         <span class="logo-name">Postly</span>
       </div>
       <div class="topbar-divider"></div>
@@ -131,8 +134,8 @@ async function loadStatus() {
         <div>
           <strong>Facebook підключено</strong><br>
           <span style="color:var(--text2);font-size:13px">
-            Сторінка: <b>${s.pageName || s.pageId}</b><br>
-            ${s.instagramUsername ? `Instagram: <b>@${s.instagramUsername}</b><br>` : s.instagramId ? `Instagram ID: <b>${s.instagramId}</b><br>` : '<span style="color:#e3b341">Instagram не знайдено (немає Business акаунту, прив\'язаного до Сторінки)</span><br>'}
+            Сторінка: <b>${escapeHtml(s.pageName || s.pageId)}</b><br>
+            ${s.instagramUsername ? `Instagram: <b>@${escapeHtml(s.instagramUsername)}</b><br>` : s.instagramId ? `Instagram ID: <b>${escapeHtml(s.instagramId)}</b><br>` : '<span style="color:#e3b341">Instagram не знайдено (немає Business акаунту, прив\'язаного до Сторінки)</span><br>'}
             ${s.userTokenDaysLeft !== null ? `Токен дійсний ще <b>${s.userTokenDaysLeft} днів</b>` : ""}
           </span>
         </div>
@@ -176,6 +179,12 @@ async function selectPage(pageId, pageName) {
   }
 }
 
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value == null ? "" : String(value);
+  return div.innerHTML;
+}
+
 function showAlert(msg, type) {
   const box = document.getElementById("alertBox");
   box.className = `alert alert-${type}`;
@@ -196,12 +205,21 @@ function handleParams() {
     const pages = JSON.parse(decodeURIComponent(p.get("pages")));
     const chooser = document.getElementById("pageChooser");
     const list = document.getElementById("pagesList");
-    list.innerHTML = pages.map(pg =>
-      `<button class="page-btn" onclick="selectPage('${pg.id}', '${pg.name.replace(/'/g,"\\'")}')">
-         <strong>${pg.name}</strong>
-         <small>ID: ${pg.id}</small>
-       </button>`
-    ).join("");
+    // Built via DOM methods (not innerHTML + string interpolation) — page id/name
+    // come straight from a URL query param, so they must never be treated as HTML.
+    list.innerHTML = "";
+    for (const pg of pages) {
+      const btn = document.createElement("button");
+      btn.className = "page-btn";
+      btn.addEventListener("click", () => selectPage(pg.id, pg.name));
+      const strong = document.createElement("strong");
+      strong.textContent = pg.name;
+      const small = document.createElement("small");
+      small.textContent = `ID: ${pg.id}`;
+      btn.appendChild(strong);
+      btn.appendChild(small);
+      list.appendChild(btn);
+    }
     chooser.classList.remove("hidden");
     window.history.replaceState({}, "", "/facebook-setup.html");
   }
