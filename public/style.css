@@ -84,7 +84,7 @@ a:hover { text-decoration: underline; }
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: linear-gradient(135deg, var(--accent), #0d7a5c);
+  object-fit: cover;
   display: grid;
   place-items: center;
   font-size: 14px;
