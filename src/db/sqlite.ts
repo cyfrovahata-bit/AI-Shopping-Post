@@ -220,6 +220,12 @@ export async function initDb() {
       ON platform_posts(status, scheduledAt);
   `);
 
+  // Platform-specific metadata stays on the individual post so scheduled
+  // publishes use the exact settings the creator explicitly approved. TikTok
+  // also needs its asynchronous processing state persisted across redeploys.
+  await ensureColumn(db, "platform_posts", "platformSettings", "TEXT");
+  await ensureColumn(db, "platform_posts", "platformStatus", "TEXT");
+
   const now = new Date().toISOString();
 
   await db.run(

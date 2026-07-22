@@ -1,7 +1,50 @@
 import { readEnv, writeEnvVars } from "./facebook-auth";
+import { execFile } from "child_process";
+import { promisify } from "util";
 
 const API = "https://open.tiktokapis.com/v2";
 const AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
+const execFileAsync = promisify(execFile);
+
+export const TIKTOK_PRIVACY_LEVELS = [
+  "PUBLIC_TO_EVERYONE",
+  "MUTUAL_FOLLOW_FRIENDS",
+  "FOLLOWER_OF_CREATOR",
+  "SELF_ONLY",
+] as const;
+
+export type TikTokPrivacyLevel = typeof TIKTOK_PRIVACY_LEVELS[number];
+
+export interface TikTokCreatorInfo {
+  creatorAvatarUrl: string;
+  creatorUsername: string;
+  creatorNickname: string;
+  privacyLevelOptions: TikTokPrivacyLevel[];
+  commentDisabled: boolean;
+  duetDisabled: boolean;
+  stitchDisabled: boolean;
+  maxVideoPostDurationSec: number;
+}
+
+export interface TikTokPostSettings {
+  privacyLevel: TikTokPrivacyLevel | "";
+  allowComment: boolean;
+  allowDuet: boolean;
+  allowStitch: boolean;
+  commercialContent: boolean;
+  yourBrand: boolean;
+  brandedContent: boolean;
+  musicUsageAccepted: boolean;
+}
+
+export interface TikTokPublishStatus {
+  status: string;
+  failReason?: string;
+  publiclyAvailablePostIds: string[];
+  uploadedBytes?: number;
+  downloadedBytes?: number;
+  raw: Record<string, unknown>;
+}
 
 export interface TikTokTokens {
   accessToken: string;
@@ -49,6 +92,10 @@ export function getTikTokAuthUrl(redirectUri: string, state = ""): string {
     scope: "video.upload,video.publish",
     redirect_uri: redirectUri,
     state,
+    // Always show TikTok's consent page. Besides giving users clear control,
+    // this makes the authorization step visible in the audit recording instead
+    // of silently reusing an existing TikTok session and showing a blank popup.
+    disable_auto_auth: "1",
   });
   return `${AUTH_URL}?${params}`;
 }
@@ -146,6 +193,117 @@ async function tiktokFetch(endpoint: string, body: Record<string, unknown>, retr
   return (data as any)?.data ?? data;
 }
 
+async function tiktokFetchWithTokens(
+  endpoint: string,
+  body: Record<string, unknown>,
+  tokens: TikTokTokens
+): Promise<Record<string, unknown>> {
+  const res = await fetch(`${API}${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${tokens.accessToken}`,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json() as any;
+  const error = data?.error;
+  if (!res.ok || (error && error.code !== "ok")) {
+    throw new Error(`TikTok API error: ${JSON.stringify(error || data)}`);
+  }
+  return data?.data ?? data;
+}
+
+function asPrivacyLevel(value: unknown): TikTokPrivacyLevel | "" {
+  return TIKTOK_PRIVACY_LEVELS.includes(value as TikTokPrivacyLevel)
+    ? value as TikTokPrivacyLevel
+    : "";
+}
+
+export function normalizeTikTokPostSettings(value: unknown): TikTokPostSettings {
+  const raw = value && typeof value === "object"
+    ? value as Record<string, unknown>
+    : {};
+  const commercialContent = raw.commercialContent === true;
+  return {
+    privacyLevel: asPrivacyLevel(raw.privacyLevel),
+    allowComment: raw.allowComment === true,
+    allowDuet: raw.allowDuet === true,
+    allowStitch: raw.allowStitch === true,
+    commercialContent,
+    yourBrand: commercialContent && raw.yourBrand === true,
+    brandedContent: commercialContent && raw.brandedContent === true,
+    musicUsageAccepted: raw.musicUsageAccepted === true,
+  };
+}
+
+export function validateTikTokPostSettings(
+  value: unknown,
+  creatorInfo?: TikTokCreatorInfo
+): TikTokPostSettings {
+  const settings = normalizeTikTokPostSettings(value);
+  if (!settings.privacyLevel) {
+    throw new Error("TikTok: вручну виберіть видимість публікації");
+  }
+  if (creatorInfo && !creatorInfo.privacyLevelOptions.includes(settings.privacyLevel)) {
+    throw new Error("TikTok: вибрана видимість більше недоступна для цього акаунта");
+  }
+  if (settings.allowComment && creatorInfo?.commentDisabled) {
+    throw new Error("TikTok: коментарі вимкнені в налаштуваннях акаунта");
+  }
+  if (settings.allowDuet && creatorInfo?.duetDisabled) {
+    throw new Error("TikTok: Duet вимкнений у налаштуваннях акаунта");
+  }
+  if (settings.allowStitch && creatorInfo?.stitchDisabled) {
+    throw new Error("TikTok: Stitch вимкнений у налаштуваннях акаунта");
+  }
+  if (settings.commercialContent && !settings.yourBrand && !settings.brandedContent) {
+    throw new Error("TikTok: вкажіть, чи контент просуває ваш бренд, сторонній бренд або обидва");
+  }
+  if (settings.brandedContent && settings.privacyLevel === "SELF_ONLY") {
+    throw new Error("TikTok: брендований контент не можна публікувати з видимістю «Лише я»");
+  }
+  if (!settings.musicUsageAccepted) {
+    throw new Error("TikTok: підтвердьте Music Usage Confirmation перед публікацією");
+  }
+  return settings;
+}
+
+export async function queryTikTokCreatorInfo(forcedTokens?: TikTokTokens): Promise<TikTokCreatorInfo> {
+  const data = forcedTokens
+    ? await tiktokFetchWithTokens("/post/publish/creator_info/query/", {}, forcedTokens)
+    : await tiktokFetch("/post/publish/creator_info/query/", {});
+  const rawOptions = Array.isArray((data as any)?.privacy_level_options)
+    ? (data as any).privacy_level_options
+    : [];
+  return {
+    creatorAvatarUrl: String((data as any)?.creator_avatar_url || ""),
+    creatorUsername: String((data as any)?.creator_username || ""),
+    creatorNickname: String((data as any)?.creator_nickname || ""),
+    privacyLevelOptions: rawOptions
+      .map(asPrivacyLevel)
+      .filter(Boolean) as TikTokPrivacyLevel[],
+    commentDisabled: (data as any)?.comment_disabled === true,
+    duetDisabled: (data as any)?.duet_disabled === true,
+    stitchDisabled: (data as any)?.stitch_disabled === true,
+    maxVideoPostDurationSec: Number((data as any)?.max_video_post_duration_sec || 0),
+  };
+}
+
+export async function getVideoDurationSeconds(videoPath: string): Promise<number> {
+  const { stdout } = await execFileAsync("ffprobe", [
+    "-v", "error",
+    "-show_entries", "format=duration",
+    "-of", "default=noprint_wrappers=1:nokey=1",
+    videoPath,
+  ]);
+  const duration = Number(String(stdout).trim());
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error("TikTok: не вдалося визначити тривалість відео");
+  }
+  return duration;
+}
+
 async function fetchPublishStatus(publishId: string, forcedTokens?: TikTokTokens): Promise<Record<string, unknown>> {
   if (forcedTokens) {
     const res = await fetch(`${API}/post/publish/status/fetch/`, {
@@ -162,36 +320,69 @@ async function fetchPublishStatus(publishId: string, forcedTokens?: TikTokTokens
   return tiktokFetch("/post/publish/status/fetch/", { publish_id: publishId });
 }
 
-async function pollPublishStatus(publishId: string, forcedTokens?: TikTokTokens, maxWaitMs = 120_000): Promise<string> {
-  const start = Date.now();
-  while (Date.now() - start < maxWaitMs) {
-    const d = await fetchPublishStatus(publishId, forcedTokens);
-    const status = (d as any)?.status;
-    console.log(`[TikTok] publish status: ${status}`);
-    if (status === "PUBLISH_COMPLETE") return publishId;
-    if (status === "FAILED") throw new Error(`TikTok publish failed: ${JSON.stringify(d)}`);
-    await new Promise(r => setTimeout(r, 5000));
-  }
-  throw new Error("TikTok: timeout waiting for publish");
+export async function getTikTokPublishStatus(
+  publishId: string,
+  forcedTokens?: TikTokTokens
+): Promise<TikTokPublishStatus> {
+  const data = await fetchPublishStatus(publishId, forcedTokens);
+  const postIds = (data as any)?.publicaly_available_post_id
+    ?? (data as any)?.publicly_available_post_id
+    ?? [];
+  return {
+    status: String((data as any)?.status || "UNKNOWN"),
+    failReason: (data as any)?.fail_reason ? String((data as any).fail_reason) : undefined,
+    publiclyAvailablePostIds: Array.isArray(postIds) ? postIds.map(String) : [],
+    uploadedBytes: Number.isFinite(Number((data as any)?.uploaded_bytes))
+      ? Number((data as any).uploaded_bytes)
+      : undefined,
+    downloadedBytes: Number.isFinite(Number((data as any)?.downloaded_bytes))
+      ? Number((data as any).downloaded_bytes)
+      : undefined,
+    raw: data,
+  };
 }
 
-export async function publishTikTokVideo(videoUrl: string, caption: string, forcedTokens?: TikTokTokens): Promise<string> {
+export async function publishTikTokVideo(
+  videoUrl: string,
+  caption: string,
+  forcedTokens: TikTokTokens | undefined,
+  postSettings: unknown,
+  videoPath?: string
+): Promise<string> {
   console.log("[TikTok] Publishing video via PULL_FROM_URL");
   if (!forcedTokens) {
     throw new Error("TikTok не підключено. Підключіть свій акаунт у Налаштуваннях.");
   }
-  const res = await fetch(`${API}/post/publish/video/init/`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${forcedTokens.accessToken}`, "Content-Type": "application/json; charset=UTF-8" },
-    body: JSON.stringify({
-      post_info: { title: caption.slice(0, 2200), privacy_level: "SELF_ONLY", disable_duet: false, disable_comment: false, disable_stitch: false, video_cover_timestamp_ms: 1000 },
+  const creatorInfo = await queryTikTokCreatorInfo(forcedTokens);
+  const settings = validateTikTokPostSettings(postSettings, creatorInfo);
+  if (videoPath && creatorInfo.maxVideoPostDurationSec > 0) {
+    const duration = await getVideoDurationSeconds(videoPath);
+    if (duration > creatorInfo.maxVideoPostDurationSec + 0.05) {
+      throw new Error(
+        `TikTok: відео триває ${Math.ceil(duration)} с, але цей акаунт дозволяє максимум ${creatorInfo.maxVideoPostDurationSec} с`
+      );
+    }
+  }
+  const data = await tiktokFetchWithTokens(
+    "/post/publish/video/init/",
+    {
+      post_info: {
+        title: caption.slice(0, 2200),
+        privacy_level: settings.privacyLevel,
+        disable_duet: !settings.allowDuet,
+        disable_comment: !settings.allowComment,
+        disable_stitch: !settings.allowStitch,
+        video_cover_timestamp_ms: 1000,
+        brand_content_toggle: settings.brandedContent,
+        brand_organic_toggle: settings.yourBrand,
+      },
       source_info: { source: "PULL_FROM_URL", video_url: videoUrl },
-    }),
-  });
-  const data = await res.json() as any;
-  const publishId = data?.data?.publish_id as string;
+    },
+    forcedTokens
+  );
+  const publishId = (data as any)?.publish_id as string;
   if (!publishId) throw new Error(`TikTok: no publish_id: ${JSON.stringify(data)}`);
-  return pollPublishStatus(publishId, forcedTokens);
+  return publishId;
 }
 
 export async function publishTikTokPhotos(photoPaths: string[], caption: string): Promise<string> {
@@ -250,7 +441,7 @@ export async function publishTikTokPhotos(photoPaths: string[], caption: string)
     console.log(`[TikTok] Photo ${i + 1}/${paths.length} uploaded`);
   }
 
-  return pollPublishStatus(publishId);
+  return publishId;
 }
 
 export function getTikTokStatus(): { connected: boolean; openId?: string; expiresAt?: number } {

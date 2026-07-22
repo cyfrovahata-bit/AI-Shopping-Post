@@ -14,7 +14,7 @@ import { initDb } from "./db/sqlite";
 import { editTelegramPost } from "./telegram";
 import { enabledPlatformIds, isPlatformId } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
-import { publishPlatformPost, startScheduler } from "./scheduler";
+import { publishPlatformPost, startScheduler, syncTikTokPublishingPost } from "./scheduler";
 import {
   createReelsStyleVideo,
   filePathToPublicUrl,
@@ -30,6 +30,13 @@ import {
 } from "./facebook-auth";
 import { authMiddleware, hashPassword, verifyPassword, signToken, extractTokenFromQuery, signOAuthState, verifyOAuthState } from "./auth";
 import { saveUserToken, deleteUserToken, getUserSocialStatus, getUserTokens, updateUserTokenMeta, hashForIdentity } from "./user-tokens";
+import {
+  getVideoDurationSeconds,
+  normalizeTikTokPostSettings,
+  queryTikTokCreatorInfo,
+  refreshTikTokTokenRaw,
+  validateTikTokPostSettings,
+} from "./tiktok";
 
 dotenv.config();
 // On Railway: load persisted tokens from Volume (survives container restarts)
@@ -297,7 +304,7 @@ async function getImages(db: any, productId: number) {
 }
 
 async function getPlatformPosts(db: any, productId: number) {
-  return db.all(
+  const posts = await db.all(
     `
     SELECT *
     FROM platform_posts
@@ -306,6 +313,28 @@ async function getPlatformPosts(db: any, productId: number) {
     `,
     [productId]
   );
+  return posts.map(presentPlatformPost);
+}
+
+function parseStoredObject(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "object") return value as Record<string, unknown>;
+  if (typeof value !== "string") return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function presentPlatformPost(post: any) {
+  if (!post) return post;
+  return {
+    ...post,
+    platformSettings: parseStoredObject(post.platformSettings),
+    platformStatus: parseStoredObject(post.platformStatus),
+  };
 }
 
 async function getProductDetails(db: any, productId: number) {
@@ -352,6 +381,26 @@ async function getUserSettings(db: any, userId: number) {
     instagramUrl: settings?.instagram_url || g("INSTAGRAM_URL"),
     telegramChatId: settings?.telegram_chat_id || "",
   };
+}
+
+async function getValidUserTikTokTokens(db: any, userId: number) {
+  const userTokens = await getUserTokens(db, userId);
+  let tokens = userTokens.tiktok;
+  if (!tokens) {
+    throw new Error("TikTok не підключено. Підключіть свій акаунт у Налаштуваннях.");
+  }
+  if (tokens.expiresAt < Date.now() + 60_000) {
+    const refreshed = await refreshTikTokTokenRaw(tokens.refreshToken);
+    await saveUserToken(db, userId, "tiktok", {
+      access_token: refreshed.accessToken,
+      refresh_token: refreshed.refreshToken,
+      open_id: refreshed.openId,
+      expires_at: refreshed.expiresAt,
+      refresh_expires_at: refreshed.refreshExpiresAt,
+    });
+    tokens = refreshed;
+  }
+  return tokens;
 }
 
 async function withUserSettings(db: any, userId: number, product: ProductInput): Promise<ProductInput> {
@@ -694,6 +743,12 @@ async function startServer() {
       const scheduledAt = req.body.scheduledAt
         ? new Date(String(req.body.scheduledAt)).toISOString()
         : null;
+      let platformSettings = post.platformSettings || null;
+      if (post.platform === "tiktok" && req.body.platformSettings !== undefined) {
+        const settings = normalizeTikTokPostSettings(req.body.platformSettings);
+        if (status === "scheduled") validateTikTokPostSettings(settings);
+        platformSettings = JSON.stringify(settings);
+      }
       const now = new Date().toISOString();
 
       await db.run(
@@ -702,11 +757,12 @@ async function startServer() {
         SET text = ?,
             status = ?,
             scheduledAt = ?,
+            platformSettings = ?,
             errorMessage = NULL,
             updatedAt = ?
         WHERE id = ?
         `,
-        [text, status, scheduledAt, now, id]
+        [text, status, scheduledAt, platformSettings, now, id]
       );
 
       if (
@@ -724,7 +780,7 @@ async function startServer() {
 
       return res.json({
         success: true,
-        platformPost: updated,
+        platformPost: presentPlatformPost(updated),
       });
     } catch (error) {
       console.error("Update platform post error:", error);
@@ -747,15 +803,19 @@ async function startServer() {
         return res.status(404).json({ success: false, message: "Пост платформи не знайдено" });
       }
 
-      if (req.body.text) {
+      if (req.body.text || (post.platform === "tiktok" && req.body.platformSettings !== undefined)) {
+        const platformSettings = post.platform === "tiktok" && req.body.platformSettings !== undefined
+          ? JSON.stringify(validateTikTokPostSettings(req.body.platformSettings))
+          : post.platformSettings;
         await db.run(
           `
           UPDATE platform_posts
           SET text = ?,
+              platformSettings = ?,
               updatedAt = ?
           WHERE id = ?
           `,
-          [toText(req.body.text), new Date().toISOString(), id]
+          [toText(req.body.text) || post.text, platformSettings, new Date().toISOString(), id]
         );
       }
 
@@ -770,7 +830,7 @@ async function startServer() {
       return res.json({
         success: true,
         result,
-        platformPost,
+        platformPost: presentPlatformPost(platformPost),
       });
     } catch (error) {
       console.error("Publish platform post error:", error);
@@ -778,6 +838,27 @@ async function startServer() {
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : "Помилка публікації",
+      });
+    }
+  });
+
+  app.get("/api/platform-posts/:id/status", ...requireUser, async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      let post = await getOwnedPlatformPost(db, id, currentUserId(req));
+      if (!post) {
+        return res.status(404).json({ success: false, message: "Пост платформи не знайдено" });
+      }
+      if (post.platform === "tiktok" && post.status === "publishing") {
+        await syncTikTokPublishingPost(db, id);
+        post = await getOwnedPlatformPost(db, id, currentUserId(req));
+      }
+      return res.json({ success: true, platformPost: presentPlatformPost(post) });
+    } catch (error) {
+      console.error("Platform post status error:", error);
+      return res.status(502).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Не вдалося перевірити статус публікації",
       });
     }
   });
@@ -1778,6 +1859,36 @@ async function startServer() {
     const hasKeys = !!clientKey;
     const redirectUri = getTikTokRedirectUri(req);
     res.json({ ...getTikTokStatus(), hasKeys, clientKeyHint: clientKey ? clientKey.slice(0, 6) + "…" : "", redirectUri });
+  });
+
+  app.get("/api/tiktok/creator-info", ...requireUser, async (req: Request, res: Response) => {
+    try {
+      const userId = currentUserId(req);
+      const tokens = await getValidUserTikTokTokens(db, userId);
+      const creatorInfo = await queryTikTokCreatorInfo(tokens);
+      let videoDurationSec: number | null = null;
+
+      const productId = Number(req.query.productId || 0);
+      if (productId) {
+        const details = await getOwnedProductDetails(db, productId, userId);
+        if (!details) {
+          return res.status(404).json({ success: false, message: "Товар не знайдено" });
+        }
+        const product = details.product;
+        const videoPath = product.useProcessedVideo !== 0 && product.processedVideoPath
+          ? product.processedVideoPath
+          : product.videoPath;
+        if (videoPath) videoDurationSec = await getVideoDurationSeconds(videoPath);
+      }
+
+      return res.json({ success: true, creatorInfo, videoDurationSec });
+    } catch (error) {
+      console.error("TikTok creator info error:", error);
+      return res.status(502).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Не вдалося отримати дані TikTok-акаунта",
+      });
+    }
   });
 
   app.get("/auth/tiktok", (req: Request, res: Response) => {

@@ -218,7 +218,12 @@ const platformNames = {
   telegram:  "Telegram",
   instagram: "Instagram",
   facebook:  "Facebook",
+  tiktok:    "TikTok",
   shafa:     "Shafa.ua",
+  prom:      "Prom.ua",
+  olx:       "OLX",
+  rozetka:   "Rozetka",
+  kasta:     "Kasta.ua",
 };
 
 // Побудовано на основі реальної структури каталогу Shafa (sitemap-catalogs-items.xml),
@@ -460,6 +465,14 @@ let platformPosts     = [];
 let activePlatform    = "telegram";
 let selectedPhotoFiles = [];
 let selectedVideoFile  = null;
+let tiktokCreatorState = {
+  postId: null,
+  info: null,
+  videoDurationSec: null,
+  loading: false,
+  error: "",
+};
+const tiktokStatusPollers = new Map();
 
 function setInputFiles(input, files) {
   const dt = new DataTransfer();
@@ -502,6 +515,95 @@ function syncCurrentTextarea() {
   const textarea = platformEditor.querySelector(".post-textarea");
   const post = currentPost();
   if (textarea && post) post.text = textarea.value;
+}
+
+const TIKTOK_PRIVACY_LABELS = {
+  PUBLIC_TO_EVERYONE: "Усі",
+  MUTUAL_FOLLOW_FRIENDS: "Друзі (взаємні підписки)",
+  FOLLOWER_OF_CREATOR: "Підписники",
+  SELF_ONLY: "Лише я",
+};
+
+function getTikTokSettings(post) {
+  const raw = post?.platformSettings && typeof post.platformSettings === "object"
+    ? post.platformSettings
+    : {};
+  const commercialContent = raw.commercialContent === true;
+  const settings = {
+    privacyLevel: String(raw.privacyLevel || ""),
+    allowComment: raw.allowComment === true,
+    allowDuet: raw.allowDuet === true,
+    allowStitch: raw.allowStitch === true,
+    commercialContent,
+    yourBrand: commercialContent && raw.yourBrand === true,
+    brandedContent: commercialContent && raw.brandedContent === true,
+    musicUsageAccepted: raw.musicUsageAccepted === true,
+  };
+  if (post) post.platformSettings = settings;
+  return settings;
+}
+
+function syncTikTokSettingsFromForm(post) {
+  if (!post || post.platform !== "tiktok") return getTikTokSettings(post);
+  const privacyLevel = platformEditor.querySelector("#tiktokPrivacy")?.value || "";
+  const commercialContent = !!platformEditor.querySelector("#tiktokCommercial")?.checked;
+  const settings = {
+    privacyLevel,
+    allowComment: !!platformEditor.querySelector("#tiktokAllowComment")?.checked,
+    allowDuet: !!platformEditor.querySelector("#tiktokAllowDuet")?.checked,
+    allowStitch: !!platformEditor.querySelector("#tiktokAllowStitch")?.checked,
+    commercialContent,
+    yourBrand: commercialContent && !!platformEditor.querySelector("#tiktokYourBrand")?.checked,
+    brandedContent: commercialContent && privacyLevel !== "SELF_ONLY" && !!platformEditor.querySelector("#tiktokBrandedContent")?.checked,
+    musicUsageAccepted: !!platformEditor.querySelector("#tiktokMusicAccepted")?.checked,
+  };
+  post.platformSettings = settings;
+  return settings;
+}
+
+function validateTikTokSettingsForPublish(post) {
+  const settings = getTikTokSettings(post);
+  const info = tiktokCreatorState.postId === post.id ? tiktokCreatorState.info : null;
+  if (!currentProduct?.videoUrl && !currentProduct?.processedVideoUrl) {
+    throw new Error("TikTok: для публікації додайте відео");
+  }
+  if (!info) throw new Error("TikTok: дочекайтеся завантаження даних підключеного акаунта");
+  if (!settings.privacyLevel) throw new Error("TikTok: вручну виберіть видимість публікації");
+  if (!info.privacyLevelOptions.includes(settings.privacyLevel)) {
+    throw new Error("TikTok: ця видимість недоступна для підключеного акаунта");
+  }
+  if (settings.commercialContent && !settings.yourBrand && !settings.brandedContent) {
+    throw new Error("TikTok: вкажіть, чи контент просуває ваш бренд, сторонній бренд або обидва");
+  }
+  if (settings.brandedContent && settings.privacyLevel === "SELF_ONLY") {
+    throw new Error("TikTok: брендований контент не можна публікувати з видимістю «Лише я»");
+  }
+  if (!settings.musicUsageAccepted) {
+    throw new Error("TikTok: підтвердьте Music Usage Confirmation");
+  }
+  const duration = Number(tiktokCreatorState.videoDurationSec || 0);
+  const maxDuration = Number(info.maxVideoPostDurationSec || 0);
+  if (duration && maxDuration && duration > maxDuration + 0.05) {
+    throw new Error(`TikTok: відео триває ${Math.ceil(duration)} с, максимум для акаунта — ${maxDuration} с`);
+  }
+  return settings;
+}
+
+function getTikTokPublishBlockReason(post) {
+  if (!post || post.platform !== "tiktok") return "";
+  const settings = getTikTokSettings(post);
+  const info = tiktokCreatorState.postId === post.id ? tiktokCreatorState.info : null;
+  if (!currentProduct?.videoUrl && !currentProduct?.processedVideoUrl) return "Для публікації в TikTok додайте відео";
+  if (!info) return "Дочекайтеся завантаження даних TikTok-акаунта";
+  if (!settings.privacyLevel) return "Вручну виберіть видимість публікації";
+  if (settings.commercialContent && !settings.yourBrand && !settings.brandedContent) {
+    return "Вкажіть, чи контент просуває ваш бренд, сторонній бренд або обидва";
+  }
+  if (!settings.musicUsageAccepted) return "Підтвердьте Music Usage Confirmation";
+  const duration = Number(tiktokCreatorState.videoDurationSec || 0);
+  const maxDuration = Number(info.maxVideoPostDurationSec || 0);
+  if (duration && maxDuration && duration > maxDuration + 0.05) return "Відео перевищує ліміт тривалості TikTok";
+  return "";
 }
 
 // ── 1. DRAG-AND-DROP PHOTO REORDER ───────────────────────
@@ -622,6 +724,13 @@ function renderSavedGallery() {
 }
 
 function renderTabs() {
+  const statusLabels = {
+    draft: "Чернетка",
+    scheduled: "Заплановано",
+    publishing: "Обробляється",
+    published: "Опубліковано",
+    failed: "Помилка",
+  };
   tabs.innerHTML = platformPosts.map(post => `
     <button
       type="button"
@@ -629,26 +738,200 @@ function renderTabs() {
       data-platform="${post.platform}"
     >
       ${platformNames[post.platform] || post.platform}
-      <span>${post.status}</span>
+      <span>${statusLabels[post.status] || post.status}</span>
     </button>
   `).join("");
+}
+
+function renderTikTokProcessingState(post) {
+  if (post.status !== "publishing") return "";
+  const apiStatus = post.platformStatus?.status || "PROCESSING_DOWNLOAD";
+  const labels = {
+    PROCESSING_UPLOAD: "TikTok завантажує відео",
+    PROCESSING_DOWNLOAD: "TikTok завантажує та обробляє відео",
+    PUBLISH_COMPLETE: "TikTok завершив публікацію",
+  };
+  return `
+    <div class="tiktok-processing" role="status">
+      <span class="tiktok-spinner" aria-hidden="true"></span>
+      <div>
+        <strong>${labels[apiStatus] || "TikTok обробляє публікацію"}</strong>
+        <small>Це може тривати кілька хвилин. Postly автоматично перевіряє статус.</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderTikTokExtras(post) {
+  const settings = getTikTokSettings(post);
+  const stateMatches = tiktokCreatorState.postId === post.id;
+  const info = stateMatches ? tiktokCreatorState.info : null;
+  const error = stateMatches ? tiktokCreatorState.error : "";
+
+  if (error) {
+    return `
+      <section class="tiktok-settings-card">
+        <div class="tiktok-alert error-text">${escapeHtml(error)}</div>
+        <button type="button" class="btn secondary refresh-tiktok-info">Спробувати ще раз</button>
+      </section>
+    `;
+  }
+  if (!info) {
+    return `
+      <section class="tiktok-settings-card tiktok-loading-card" aria-busy="true">
+        <span class="tiktok-spinner" aria-hidden="true"></span>
+        <div><strong>Отримуємо актуальні налаштування TikTok…</strong><small>Перевіряємо акаунт, доступну видимість і дозволи.</small></div>
+      </section>
+    `;
+  }
+
+  const duration = Number(tiktokCreatorState.videoDurationSec || 0);
+  const maxDuration = Number(info.maxVideoPostDurationSec || 0);
+  const durationTooLong = duration && maxDuration && duration > maxDuration + 0.05;
+  const brandedPrivate = settings.privacyLevel === "SELF_ONLY";
+  const disclosureText = settings.brandedContent
+    ? `Публікація матиме позначку «Paid partnership».`
+    : settings.yourBrand
+      ? `Публікація матиме позначку «Promotional content».`
+      : "";
+  const agreementLead = settings.brandedContent
+    ? `Публікуючи, ви погоджуєтеся з `
+    : `Публікуючи, ви погоджуєтеся з `;
+
+  return `
+    <section class="tiktok-settings-card">
+      <div class="tiktok-account-row">
+        ${info.creatorAvatarUrl ? `<img src="${escapeHtml(info.creatorAvatarUrl)}" alt="" class="tiktok-avatar">` : `<span class="tiktok-avatar tiktok-avatar-fallback">♪</span>`}
+        <div>
+          <small>Публікація в акаунт</small>
+          <strong>${escapeHtml(info.creatorNickname || info.creatorUsername || "TikTok")}</strong>
+          ${info.creatorUsername ? `<span>@${escapeHtml(info.creatorUsername)}</span>` : ""}
+        </div>
+        <button type="button" class="btn ghost refresh-tiktok-info" title="Оновити дані акаунта">Оновити</button>
+      </div>
+
+      ${duration ? `
+        <div class="tiktok-duration ${durationTooLong ? "is-error" : ""}">
+          Відео: ${Math.ceil(duration)} с · ліміт акаунта: ${maxDuration || "—"} с
+          ${durationTooLong ? `<strong>Відео задовге для цього акаунта.</strong>` : ""}
+        </div>
+      ` : ""}
+
+      <div class="tiktok-field">
+        <label for="tiktokPrivacy">Хто може переглядати відео</label>
+        <select id="tiktokPrivacy" class="tiktok-control">
+          <option value="">— Виберіть вручну —</option>
+          ${info.privacyLevelOptions.map(value => `
+            <option value="${value}" ${settings.privacyLevel === value ? "selected" : ""} ${settings.brandedContent && value === "SELF_ONLY" ? "disabled" : ""}>
+              ${TIKTOK_PRIVACY_LABELS[value] || value}
+            </option>
+          `).join("")}
+        </select>
+        <small>Postly не вибирає видимість замість вас.</small>
+      </div>
+
+      <fieldset class="tiktok-fieldset">
+        <legend>Дозволити взаємодії</legend>
+        <label class="tiktok-choice ${info.commentDisabled ? "is-disabled" : ""}">
+          <input type="checkbox" id="tiktokAllowComment" ${settings.allowComment ? "checked" : ""} ${info.commentDisabled ? "disabled" : ""}>
+          <span><strong>Коментарі</strong>${info.commentDisabled ? `<small>Вимкнено в налаштуваннях TikTok</small>` : ""}</span>
+        </label>
+        <label class="tiktok-choice ${info.duetDisabled ? "is-disabled" : ""}">
+          <input type="checkbox" id="tiktokAllowDuet" ${settings.allowDuet ? "checked" : ""} ${info.duetDisabled ? "disabled" : ""}>
+          <span><strong>Duet</strong>${info.duetDisabled ? `<small>Недоступно для цього акаунта</small>` : ""}</span>
+        </label>
+        <label class="tiktok-choice ${info.stitchDisabled ? "is-disabled" : ""}">
+          <input type="checkbox" id="tiktokAllowStitch" ${settings.allowStitch ? "checked" : ""} ${info.stitchDisabled ? "disabled" : ""}>
+          <span><strong>Stitch</strong>${info.stitchDisabled ? `<small>Недоступно для цього акаунта</small>` : ""}</span>
+        </label>
+        <small class="tiktok-help">Усі дозволи вимкнені за замовчуванням — увімкніть потрібні вручну.</small>
+      </fieldset>
+
+      <div class="tiktok-commercial">
+        <label class="tiktok-choice tiktok-switch-row">
+          <input type="checkbox" id="tiktokCommercial" ${settings.commercialContent ? "checked" : ""}>
+          <span><strong>Комерційний контент</strong><small>Контент просуває вас, бренд, товар або послугу</small></span>
+        </label>
+        ${settings.commercialContent ? `
+          <div class="tiktok-commercial-options">
+            <label class="tiktok-choice">
+              <input type="checkbox" id="tiktokYourBrand" ${settings.yourBrand ? "checked" : ""}>
+              <span><strong>Ваш бренд</strong><small>Просування себе або власного бізнесу</small></span>
+            </label>
+            <label class="tiktok-choice ${brandedPrivate ? "is-disabled" : ""}">
+              <input type="checkbox" id="tiktokBrandedContent" ${settings.brandedContent ? "checked" : ""} ${brandedPrivate ? "disabled" : ""}>
+              <span><strong>Брендований контент</strong><small>${brandedPrivate ? "Недоступно з видимістю «Лише я»" : "Просування стороннього бренду або партнера"}</small></span>
+            </label>
+            ${settings.commercialContent && !settings.yourBrand && !settings.brandedContent ? `<div class="tiktok-alert">Виберіть хоча б один тип комерційного контенту.</div>` : ""}
+            ${disclosureText ? `<div class="tiktok-disclosure">${disclosureText}</div>` : ""}
+          </div>
+        ` : ""}
+      </div>
+
+      <label class="tiktok-choice tiktok-consent">
+        <input type="checkbox" id="tiktokMusicAccepted" ${settings.musicUsageAccepted ? "checked" : ""}>
+        <span>
+          <strong>Підтверджую передавання відео в TikTok</strong>
+          <small>${agreementLead}${settings.brandedContent ? `<a href="https://www.tiktok.com/legal/page/global/bc-policy/en" target="_blank" rel="noopener">Branded Content Policy</a> та ` : ""}<a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" rel="noopener">Music Usage Confirmation</a>.</small>
+        </span>
+      </label>
+
+      <p class="tiktok-processing-note">Після відправлення TikTok може обробляти відео кілька хвилин. Postly покаже «Опубліковано» лише після підтвердження TikTok.</p>
+    </section>
+  `;
+}
+
+async function loadTikTokCreatorInfo(post, force = false) {
+  if (!post || post.platform !== "tiktok" || !currentProduct) return;
+  if (!force && tiktokCreatorState.postId === post.id && (tiktokCreatorState.info || tiktokCreatorState.loading)) return;
+  tiktokCreatorState = { postId: post.id, info: null, videoDurationSec: null, loading: true, error: "" };
+  if (currentPost()?.id === post.id) renderPlatformEditor();
+  try {
+    const response = await fetch(`/api/tiktok/creator-info?productId=${encodeURIComponent(currentProduct.id)}`, {
+      headers: authHeaders(),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося отримати дані TikTok");
+    tiktokCreatorState = {
+      postId: post.id,
+      info: data.creatorInfo,
+      videoDurationSec: data.videoDurationSec,
+      loading: false,
+      error: "",
+    };
+  } catch (error) {
+    tiktokCreatorState = {
+      postId: post.id,
+      info: null,
+      videoDurationSec: null,
+      loading: false,
+      error: error.message || "Не вдалося отримати дані TikTok",
+    };
+  }
+  if (currentPost()?.id === post.id) renderPlatformEditor();
 }
 
 function renderPlatformEditor() {
   const post = currentPost();
   if (!post) { platformEditor.innerHTML = ""; return; }
+  const tiktokBlockReason = getTikTokPublishBlockReason(post);
+  const publishBlocked = post.status === "publishing" || !!tiktokBlockReason;
+  const statusLabels = { draft: "Чернетка", scheduled: "Заплановано", publishing: "Обробляється", published: "Опубліковано", failed: "Помилка" };
 
   productIdBadge.textContent = currentProduct ? `#${currentProduct.id}` : "";
   platformEditor.innerHTML = `
     ${renderSavedGallery()}
     <div class="platform-status">
-      <span class="status-pill ${post.status}">${post.status}</span>
+      <span class="status-pill ${post.status}">${statusLabels[post.status] || post.status}</span>
       ${post.errorMessage ? `<strong style="color:var(--red);font-size:13px">${escapeHtml(post.errorMessage)}</strong>` : ""}
     </div>
 
+    ${renderTikTokProcessingState(post)}
+
     <label>
-      Текст для ${platformNames[post.platform] || post.platform}
-      <textarea class="post-textarea" rows="14">${escapeHtml(post.text)}</textarea>
+      ${post.platform === "tiktok" ? "Опис і хештеги для TikTok" : `Текст для ${platformNames[post.platform] || post.platform}`}
+      <textarea class="post-textarea" rows="14" ${post.platform === "tiktok" ? `maxlength="2200"` : ""}>${escapeHtml(post.text)}</textarea>
+      ${post.platform === "tiktok" ? `<small class="tiktok-caption-count">${post.text.length} / 2200 символів · текст можна відредагувати</small>` : ""}
     </label>
 
     <div class="preview-text ${post.platform === "telegram" ? "telegram-preview" : ""}">
@@ -658,6 +941,7 @@ function renderPlatformEditor() {
     </div>
 
     ${post.platform === "shafa" ? renderShafaExtras() : ""}
+    ${post.platform === "tiktok" ? renderTikTokExtras(post) : ""}
 
     <div class="schedule-row">
       <label>
@@ -668,12 +952,13 @@ function renderPlatformEditor() {
 
     <div class="actions">
       <button type="button" class="btn secondary regenerate-platform">Перегенерувати</button>
-      <button type="button" class="btn success publish-platform">Опублікувати зараз</button>
-      <button type="button" class="btn primary schedule-platform">Запланувати</button>
+      <button type="button" class="btn success publish-platform" ${publishBlocked ? "disabled" : ""} ${tiktokBlockReason ? `title="${escapeHtml(tiktokBlockReason)}"` : ""}>${post.status === "publishing" ? "Обробляється в TikTok…" : "Опублікувати зараз"}</button>
+      <button type="button" class="btn primary schedule-platform" ${post.platform === "tiktok" && tiktokBlockReason ? `disabled title="${escapeHtml(tiktokBlockReason)}"` : ""}>Запланувати</button>
     </div>
   `;
 
   if (post.platform === "shafa") syncShafaExtras();
+  if (post.platform === "tiktok") queueMicrotask(() => loadTikTokCreatorInfo(post));
 }
 
 function renderPreview() {
@@ -687,7 +972,12 @@ async function savePost(post, status, scheduledAt = null) {
   const response = await fetch(`/api/platform-posts/${post.id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ text: post.text, status, scheduledAt }),
+    body: JSON.stringify({
+      text: post.text,
+      status,
+      scheduledAt,
+      ...(post.platform === "tiktok" ? { platformSettings: getTikTokSettings(post) } : {}),
+    }),
   });
   const data = await response.json();
   if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося зберегти пост");
@@ -716,6 +1006,7 @@ async function createPreview() {
   currentProduct = data.product;
   currentImages  = data.images || [];
   platformPosts  = data.platformPosts || [];
+  tiktokCreatorState = { postId: null, info: null, videoDurationSec: null, loading: false, error: "" };
   activePlatform = platformPosts[0]?.platform || "telegram";
   renderPreview();
 
@@ -770,13 +1061,27 @@ async function regeneratePlatform(platform = activePlatform) {
 
 async function publishPost(post) {
   syncCurrentTextarea();
+  const isTikTok = post.platform === "tiktok";
+  if (isTikTok) {
+    if (post.status === "publishing") throw new Error("TikTok уже обробляє цю публікацію");
+    if (activePlatform !== "tiktok") {
+      activePlatform = "tiktok";
+      renderPreview();
+    } else {
+      syncTikTokSettingsFromForm(post);
+    }
+    await loadTikTokCreatorInfo(post);
+    validateTikTokSettingsForPublish(post);
+  }
   await savePost(post, post.status === "scheduled" ? "draft" : post.status);
 
   const platformLabel = platformNames[post.platform] || post.platform;
   const isShafa = post.platform === "shafa";
   setLoading(true, isShafa
     ? `Shafa.ua — заповнює форму (~2 хв), не закривайте вкладку...`
-    : `Публікуємо ${platformLabel}...`
+    : isTikTok
+      ? "Передаємо відео в TikTok…"
+      : `Публікуємо ${platformLabel}...`
   );
 
   // Shafa takes up to 3 min — use AbortController with 4-minute timeout
@@ -791,6 +1096,7 @@ async function publishPost(post) {
       body: JSON.stringify({
         text: post.text,
         ...(isShafa ? { extras: shafaExtras } : {}),
+        ...(isTikTok ? { platformSettings: getTikTokSettings(post) } : {}),
       }),
       signal: controller.signal,
     });
@@ -803,11 +1109,62 @@ async function publishPost(post) {
 
   Object.assign(post, data.platformPost);
   renderPreview();
+  if (isTikTok && post.status === "publishing") {
+    showMessage("TikTok прийняв відео й обробляє його. Статус оновиться автоматично.", "loading");
+    pollTikTokPostStatus(post);
+    return;
+  }
   showMessage(`${platformLabel}: опубліковано ✓`);
+}
+
+async function pollTikTokPostStatus(post) {
+  if (!post || post.platform !== "tiktok" || post.status !== "publishing") return;
+  const pollToken = Symbol("tiktok-status");
+  tiktokStatusPollers.set(post.id, pollToken);
+
+  for (let attempt = 0; attempt < 72; attempt++) {
+    if (tiktokStatusPollers.get(post.id) !== pollToken) return;
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 5000));
+    try {
+      const response = await fetch(`/api/platform-posts/${post.id}/status`, { headers: authHeaders() });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося перевірити статус TikTok");
+      Object.assign(post, data.platformPost);
+      if (currentPost()?.id === post.id) renderPreview();
+
+      if (post.status === "published") {
+        tiktokStatusPollers.delete(post.id);
+        showMessage("TikTok: опубліковано ✓");
+        return;
+      }
+      if (post.status === "failed") {
+        tiktokStatusPollers.delete(post.id);
+        showMessage(post.errorMessage || "TikTok: публікація не вдалася", "error");
+        return;
+      }
+    } catch (error) {
+      // A temporary status-check error must not trigger another publish request.
+      // The server scheduler keeps checking the same publish_id in the background.
+      if (attempt === 71) showMessage(error.message || "TikTok ще обробляє відео", "error");
+    }
+  }
+
+  tiktokStatusPollers.delete(post.id);
+  showMessage("TikTok усе ще обробляє відео. Можна закрити сторінку — Postly продовжить перевірку.", "loading");
 }
 
 async function schedulePost(post) {
   syncCurrentTextarea();
+  if (post.platform === "tiktok") {
+    if (activePlatform !== "tiktok") {
+      activePlatform = "tiktok";
+      renderPreview();
+    } else {
+      syncTikTokSettingsFromForm(post);
+    }
+    await loadTikTokCreatorInfo(post);
+    validateTikTokSettingsForPublish(post);
+  }
   const input = platformEditor.querySelector(".schedule-at");
   if (!input.value) throw new Error("Вкажи дату і час публікації");
 
@@ -889,12 +1246,17 @@ platformEditor.addEventListener("input", e => {
       ? post.text.replace(/\n/g, "<br>")
       : escapeHtml(post.text).replace(/\n/g, "<br>");
   }
+  const count = platformEditor.querySelector(".tiktok-caption-count");
+  if (count && post?.platform === "tiktok") {
+    count.textContent = `${post.text.length} / 2200 символів · текст можна відредагувати`;
+  }
 });
 
 platformEditor.addEventListener("click", async e => {
   const post = currentPost();
   if (!post) return;
   try {
+    if (e.target.closest(".refresh-tiktok-info")) await loadTikTokCreatorInfo(post, true);
     if (e.target.closest(".regenerate-platform"))  await regeneratePlatform(post.platform);
     if (e.target.closest(".publish-platform"))     await publishPost(post);
     if (e.target.closest(".schedule-platform"))    await schedulePost(post);
@@ -907,13 +1269,26 @@ platformEditor.addEventListener("click", async e => {
 
 platformEditor.addEventListener("change", async e => {
   const checkbox = e.target.closest("#useProcessedVideo");
-  if (!checkbox || !currentProduct) return;
-  currentProduct.useProcessedVideo = checkbox.checked;
-  await fetch(`/api/products/${currentProduct.id}/video-choice`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ useProcessedVideo: checkbox.checked }),
-  });
+  if (checkbox && currentProduct) {
+    currentProduct.useProcessedVideo = checkbox.checked;
+    await fetch(`/api/products/${currentProduct.id}/video-choice`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ useProcessedVideo: checkbox.checked }),
+    });
+    const post = currentPost();
+    if (post?.platform === "tiktok") {
+      tiktokCreatorState = { postId: null, info: null, videoDurationSec: null, loading: false, error: "" };
+      await loadTikTokCreatorInfo(post, true);
+    }
+    return;
+  }
+
+  const post = currentPost();
+  if (post?.platform === "tiktok" && e.target.closest(".tiktok-settings-card")) {
+    syncTikTokSettingsFromForm(post);
+    renderPlatformEditor();
+  }
 });
 
 previewBtn.addEventListener("click", async () => {
@@ -958,6 +1333,8 @@ newProductBtn.addEventListener("click", () => {
   currentProduct = null;
   currentImages  = [];
   platformPosts  = [];
+  tiktokCreatorState = { postId: null, info: null, videoDurationSec: null, loading: false, error: "" };
+  tiktokStatusPollers.clear();
   activePlatform = "telegram";
   tabs.innerHTML          = "";
   platformEditor.innerHTML = "";

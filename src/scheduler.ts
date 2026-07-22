@@ -1,7 +1,7 @@
 import { getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
 import { getUserTokens, saveUserToken } from "./user-tokens";
-import { refreshTikTokTokenRaw } from "./tiktok";
+import { getTikTokPublishStatus, refreshTikTokTokenRaw, TikTokTokens } from "./tiktok";
 import { refreshOlxToken } from "./olx";
 
 type Db = any;
@@ -73,6 +73,95 @@ async function prepareVideoForPublishing(product: ProductInput) {
     videoPath: product.videoPath,
     videoUrl: product.videoUrl,
   };
+}
+
+function parseJsonObject(value: unknown): Record<string, unknown> {
+  if (!value) return {};
+  if (typeof value === "object") return value as Record<string, unknown>;
+  if (typeof value !== "string") return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+async function getTikTokTokensForPost(db: Db, post: any): Promise<TikTokTokens> {
+  const productRow = await db.get(`SELECT userId FROM products WHERE id = ?`, [post.productId]);
+  const userId = productRow?.userId && /^\d+$/.test(String(productRow.userId))
+    ? parseInt(productRow.userId, 10)
+    : null;
+  if (!userId) throw new Error("TikTok: не вдалося визначити власника публікації");
+
+  const userTokens = await getUserTokens(db, userId);
+  let tokens = userTokens.tiktok;
+  if (!tokens) throw new Error("TikTok не підключено. Підключіть акаунт у Налаштуваннях.");
+  if (tokens.expiresAt < Date.now() + 60_000) {
+    const refreshed = await refreshTikTokTokenRaw(tokens.refreshToken);
+    await saveUserToken(db, userId, "tiktok", {
+      access_token: refreshed.accessToken,
+      refresh_token: refreshed.refreshToken,
+      open_id: refreshed.openId,
+      expires_at: refreshed.expiresAt,
+      refresh_expires_at: refreshed.refreshExpiresAt,
+    });
+    tokens = refreshed;
+  }
+  return tokens;
+}
+
+export async function syncTikTokPublishingPost(db: Db, postId: number) {
+  const post = await db.get(`SELECT * FROM platform_posts WHERE id = ?`, [postId]);
+  if (!post || post.platform !== "tiktok" || post.status !== "publishing" || !post.externalPostId) {
+    return post;
+  }
+
+  const tokens = await getTikTokTokensForPost(db, post);
+  const status = await getTikTokPublishStatus(post.externalPostId, tokens);
+  const now = new Date().toISOString();
+  const statusJson = JSON.stringify(status);
+
+  if (status.status === "PUBLISH_COMPLETE") {
+    await db.run(
+      `UPDATE platform_posts
+       SET status = 'published', publishedAt = ?, platformStatus = ?, errorMessage = NULL, updatedAt = ?
+       WHERE id = ?`,
+      [now, statusJson, now, postId]
+    );
+  } else if (status.status === "FAILED") {
+    const reason = status.failReason || "Невідома помилка TikTok";
+    await db.run(
+      `UPDATE platform_posts
+       SET status = 'failed', platformStatus = ?, errorMessage = ?, updatedAt = ?
+       WHERE id = ?`,
+      [statusJson, `TikTok: ${reason}`, now, postId]
+    );
+  } else {
+    await db.run(
+      `UPDATE platform_posts SET platformStatus = ?, updatedAt = ? WHERE id = ?`,
+      [statusJson, now, postId]
+    );
+  }
+
+  return db.get(`SELECT * FROM platform_posts WHERE id = ?`, [postId]);
+}
+
+async function syncPendingTikTokPosts(db: Db) {
+  const posts = await db.all(
+    `SELECT id FROM platform_posts
+     WHERE platform = 'tiktok' AND status = 'publishing' AND externalPostId IS NOT NULL
+     ORDER BY updatedAt ASC LIMIT 20`
+  );
+  for (const post of posts) {
+    try {
+      await syncTikTokPublishingPost(db, post.id);
+    } catch (error) {
+      // Network/API errors are transient. Keep the post in publishing state so
+      // the next scheduler tick can retry without creating a duplicate post.
+      console.error(`TikTok status sync error for post ${post.id}:`, error);
+    }
+  }
 }
 
 export async function publishPlatformPost(db: Db, postId: number, extras?: Record<string, unknown>) {
@@ -157,7 +246,10 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
 
     // Shafa uses Playwright (~2 min) — retrying creates duplicate posts, so 1 attempt only
     const isShafa = post.platform === "shafa";
-    const maxAttempts = isShafa ? 1 : 3;
+    const isTikTok = post.platform === "tiktok";
+    // Retrying TikTok's init request can create duplicate posts if the first
+    // request succeeded but its response was interrupted.
+    const maxAttempts = isShafa || isTikTok ? 1 : 3;
 
     const result = await withRetry(
       () =>
@@ -168,13 +260,37 @@ export async function publishPlatformPost(db: Db, postId: number, extras?: Recor
           imageUrls: product.imageUrls,
           videoPath: preparedVideo.videoPath,
           videoUrl: preparedVideo.videoUrl,
-          extras: { ...extras, userTokens, numericUserId },
+          extras: {
+            ...extras,
+            userTokens,
+            numericUserId,
+            ...(isTikTok ? { tiktokSettings: parseJsonObject(post.platformSettings) } : {}),
+          },
         }),
       maxAttempts,
       4000
     );
 
     const publishedAt = new Date().toISOString();
+
+    if (isTikTok) {
+      await db.run(
+        `UPDATE platform_posts
+         SET status = 'publishing',
+             externalPostId = ?,
+             platformStatus = ?,
+             errorMessage = NULL,
+             updatedAt = ?
+         WHERE id = ?`,
+        [
+          result.externalPostId || null,
+          JSON.stringify({ status: "PROCESSING_DOWNLOAD", publiclyAvailablePostIds: [] }),
+          publishedAt,
+          postId,
+        ]
+      );
+      return result;
+    }
 
     await db.run(
       `
@@ -273,6 +389,7 @@ export function startScheduler(db: Db) {
 
     try {
       await publishDuePosts(db);
+      await syncPendingTikTokPosts(db);
     } finally {
       running = false;
     }

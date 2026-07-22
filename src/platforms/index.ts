@@ -500,11 +500,17 @@ ${commonRules(product)}
 Поверни ТІЛЬКИ текст підпису, без JSON і без пояснень.
 `.trim();
   },
-  async publish({ product, text, videoUrl, extras }) {
+  async publish({ text, videoUrl, videoPath, extras }) {
     if (!videoUrl) throw new Error("TikTok: для публікації потрібне відео (фото-карусель доступна після production approval)");
     const ttCreds = (extras?.userTokens as any)?.tiktok;
-    const id = await publishTikTokVideo(videoUrl, text, ttCreds);
-    return { externalPostId: id };
+    const id = await publishTikTokVideo(
+      videoUrl,
+      text,
+      ttCreds,
+      extras?.tiktokSettings,
+      videoPath
+    );
+    return { externalPostId: id, raw: { processing: true } };
   },
 };
 
