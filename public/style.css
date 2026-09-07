@@ -364,6 +364,7 @@ textarea {
 }
 
 .thumb img,
+.thumb video,
 .image-strip img {
   width: 100%;
   height: 100%;

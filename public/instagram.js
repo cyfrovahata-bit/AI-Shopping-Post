@@ -282,16 +282,66 @@ function schedulePoll() {
 
 // ── Створення товару ─────────────────────────────────────────────────────────
 
-studioPhotos.addEventListener("change", () => {
-  const files = [...(studioPhotos.files || [])].slice(0, 10);
-  studioGallery.innerHTML = files
-    .map(file => `<img src="${URL.createObjectURL(file)}" alt="">`)
+// Файли тримаємо в масиві, а не покладаємось на сам input: інакше не прибрати
+// помилково обране фото і не видно, яке з них головне.
+const MAX_PHOTOS = 10;
+let selectedPhotos = [];
+let selectedVideo = null;
+
+function renderGallery() {
+  const photos = selectedPhotos
+    .map((file, index) => `
+      <figure class="thumb">
+        <button type="button" class="remove-media remove-photo" data-index="${index}" title="Видалити">×</button>
+        <img src="${URL.createObjectURL(file)}" alt="Фото ${index + 1}">
+        ${index === 0 ? "<figcaption>Головне</figcaption>" : ""}
+      </figure>
+    `)
     .join("");
+
+  const video = selectedVideo
+    ? `
+      <figure class="thumb">
+        <button type="button" class="remove-media remove-video" title="Видалити">×</button>
+        <video src="${URL.createObjectURL(selectedVideo)}" muted playsinline preload="metadata"></video>
+        <figcaption>Відео</figcaption>
+      </figure>
+    `
+    : "";
+
+  studioGallery.innerHTML = photos + video;
+}
+
+studioPhotos.addEventListener("change", () => {
+  const incoming = [...(studioPhotos.files || [])];
+  selectedPhotos = [...selectedPhotos, ...incoming].slice(0, MAX_PHOTOS);
+  // Скидаємо input, щоб той самий файл можна було обрати повторно.
+  studioPhotos.value = "";
+  renderGallery();
+});
+
+studioVideo.addEventListener("change", () => {
+  selectedVideo = studioVideo.files?.[0] || null;
+  studioVideo.value = "";
+  renderGallery();
+});
+
+studioGallery.addEventListener("click", event => {
+  const photoButton = event.target.closest(".remove-photo");
+  if (photoButton) {
+    selectedPhotos.splice(Number(photoButton.dataset.index), 1);
+    renderGallery();
+    return;
+  }
+  if (event.target.closest(".remove-video")) {
+    selectedVideo = null;
+    renderGallery();
+  }
 });
 
 studioForm.addEventListener("submit", async event => {
   event.preventDefault();
-  if (!studioPhotos.files?.length && !studioVideo.files?.length) {
+  if (!selectedPhotos.length && !selectedVideo) {
     toast("Завантаж хоча б одне фото або відео", "error");
     return;
   }
@@ -300,7 +350,16 @@ studioForm.addEventListener("submit", async event => {
   studioStatus.textContent = "Завантажуємо…";
 
   try {
-    const formData = new FormData(studioForm);
+    // Поля беремо з форми, а файли — зі свого масиву: саме він задає і склад,
+    // і порядок фото (перше = головне).
+    const formData = new FormData();
+    for (const [key, value] of new FormData(studioForm).entries()) {
+      if (value instanceof File) continue;
+      formData.append(key, value);
+    }
+    selectedPhotos.forEach(file => formData.append("photos", file));
+    if (selectedVideo) formData.append("video", selectedVideo);
+
     const response = await fetch("/api/instagram/studio", {
       method: "POST",
       headers: authHeaders(),
@@ -317,7 +376,9 @@ studioForm.addEventListener("submit", async event => {
     }
 
     studioForm.reset();
-    studioGallery.innerHTML = "";
+    selectedPhotos = [];
+    selectedVideo = null;
+    renderGallery();
     studioStatus.textContent = "";
     toast("Товар створено. Готуємо формати — це до двох хвилин.");
     await loadProducts();
@@ -331,7 +392,9 @@ studioForm.addEventListener("submit", async event => {
 
 document.getElementById("studioReset").addEventListener("click", () => {
   studioForm.reset();
-  studioGallery.innerHTML = "";
+  selectedPhotos = [];
+  selectedVideo = null;
+  renderGallery();
   studioStatus.textContent = "";
 });
 
