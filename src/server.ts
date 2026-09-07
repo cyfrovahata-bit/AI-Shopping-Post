@@ -1169,18 +1169,17 @@ async function startServer() {
       const text = toText(req.body.text) || post.text;
       const status = toText(req.body.status) || post.status;
 
-      // Планувати публікацію в акаунт, який не підключений (або чий токен уже
-      // помер), означає гарантований провал уночі за розкладом. Кажемо про це
-      // одразу, поки людина дивиться на екран.
+      // Готувати й планувати можна без підключеного акаунта — підключення
+      // потрібне лише в момент публікації. Тому тут попередження, а не заборона:
+      // цілком нормально розкласти тиждень наперед, а Instagram підключити
+      // згодом, аби встигнути до першого слоту.
+      let connectionWarning = "";
       if (status === "scheduled" && post.platform === "instagram") {
         const socialStatus = await getUserSocialStatus(db, currentUserId(req));
         if (!socialStatus.instagram) {
-          return res.status(400).json({
-            success: false,
-            message: socialStatus.instagramTokenExpired
-              ? "Термін дії доступу до Instagram минув. Перепідключи акаунт у Налаштуваннях, інакше пост не опублікується."
-              : "Instagram не підключено. Відкрий Налаштування → вкладка Instagram.",
-          });
+          connectionWarning = socialStatus.instagramTokenExpired
+            ? "Час збережено, але термін дії доступу до Instagram минув — перепідключи акаунт до слоту, інакше пост не вийде."
+            : "Час збережено, але Instagram ще не підключено — підключи його до слоту, інакше пост не вийде.";
         }
       }
       const scheduledAt = req.body.scheduledAt
@@ -1236,6 +1235,7 @@ async function startServer() {
       return res.json({
         success: true,
         platformPost: presentPlatformPost(updated),
+        ...(connectionWarning ? { warning: connectionWarning } : {}),
       });
     } catch (error) {
       console.error("Update platform post error:", error);
@@ -1982,15 +1982,13 @@ async function startServer() {
     try {
       const userId = currentUserId(req);
 
+      // Розкладати час можна й без підключеного акаунта — це лише дати.
       const socialStatus = await getUserSocialStatus(db, userId);
-      if (!socialStatus.instagram) {
-        return res.status(400).json({
-          success: false,
-          message: socialStatus.instagramTokenExpired
-            ? "Термін дії доступу до Instagram минув — перепідключи акаунт, інакше заплановані пости не вийдуть."
-            : "Instagram не підключено. Відкрий Налаштування → вкладка Instagram.",
-        });
-      }
+      const connectionWarning = socialStatus.instagram
+        ? ""
+        : socialStatus.instagramTokenExpired
+          ? " Увага: термін дії доступу до Instagram минув — перепідключи акаунт, інакше пости не вийдуть."
+          : " Увага: Instagram ще не підключено — підключи його до першого слоту.";
 
       const requestedIds = Array.isArray(req.body.productIds)
         ? req.body.productIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id))
@@ -2058,9 +2056,11 @@ async function startServer() {
         success: true,
         scheduled,
         skipped,
-        message: skipped
-          ? `Заплановано ${scheduled.length}, не вистачило вільних слотів на ${skipped} — постав час вручну або спробуй пізніше.`
-          : `Заплановано ${scheduled.length} постів за графіком.`,
+        warning: connectionWarning.trim() || undefined,
+        message:
+          (skipped
+            ? `Заплановано ${scheduled.length}, не вистачило вільних слотів на ${skipped} — постав час вручну або спробуй пізніше.`
+            : `Заплановано ${scheduled.length} постів за графіком.`) + connectionWarning,
       });
     } catch (error) {
       console.error("Schedule plan error:", error);

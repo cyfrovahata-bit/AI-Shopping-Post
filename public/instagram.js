@@ -418,6 +418,8 @@ async function savePost(card, status) {
   });
   const data = await response.json();
   if (!response.ok || !data.success) throw new Error(data.message || "Не вдалося зберегти");
+  // Час збережено, але акаунт не підключений — це не помилка, а попередження.
+  if (data.warning) toast(data.warning, "loading");
 }
 
 async function publishPost(card) {
