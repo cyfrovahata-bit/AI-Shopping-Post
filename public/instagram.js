@@ -171,6 +171,37 @@ function renderFormatCard(product, post) {
   `;
 }
 
+// Задум від AI показуємо продавцю: він має бачити, чому текст саме такий і
+// чому ціна є або її немає — і, якщо не згоден, перегенерувати.
+function renderPlan(product) {
+  let plan = null;
+  try {
+    plan = product.contentPlan ? JSON.parse(product.contentPlan) : null;
+  } catch (error) {
+    return "";
+  }
+  if (!plan) return "";
+
+  const price = plan.priceInCaption
+    ? (plan.priceOnMedia ? "у підписі та на кадрах" : "лише в підписі")
+    : (plan.priceOnMedia ? "лише на кадрах" : "не показуємо — ціна в дірект");
+
+  return `
+    <section class="studio-plan">
+      <strong>💡 Задум цих постів</strong>
+      <dl>
+        <dt>Кут подачі</dt><dd>${escapeHtml(plan.angle)}</dd>
+        <dt>Кому</dt><dd>${escapeHtml(plan.audience)}</dd>
+        <dt>Гачок</dt><dd>${escapeHtml(plan.hook)}</dd>
+        <dt>Знімаємо сумнів</dt><dd>${escapeHtml(plan.objection)}</dd>
+        <dt>Заклик</dt><dd>${escapeHtml(plan.cta)}</dd>
+        <dt>Ціна</dt><dd>${escapeHtml(price)}${plan.priceReason ? ` — ${escapeHtml(plan.priceReason)}` : ""}</dd>
+      </dl>
+      <small>Не згоден із задумом — «Перегенерувати все» внизу, AI придумає інакше.</small>
+    </section>
+  `;
+}
+
 function renderProduct(product) {
   const posts = studioPosts(product);
   const cover = product.images?.[0]?.imageUrl || product.imageUrl || "";
@@ -199,8 +230,8 @@ function renderProduct(product) {
           ? `<button type="button" class="btn secondary studio-rebuild">Спробувати ще раз</button>`
           : ""}
         ${preparing
-          ? `<p class="studio-missing">Це займає до двох хвилин: збираємо слайдшоу, накладаємо плашки, пишемо тексти під кожен формат.</p>`
-          : posts.map(post => renderFormatCard(product, post)).join("")}
+          ? `<p class="studio-missing">Це займає до двох хвилин: продумуємо задум, збираємо слайдшоу, накладаємо плашки, пишемо тексти під кожен формат.</p>`
+          : renderPlan(product) + posts.map(post => renderFormatCard(product, post)).join("")}
         ${!preparing && posts.length ? `<button type="button" class="btn ghost studio-rebuild">Перегенерувати все</button>` : ""}
       </div>
     </details>

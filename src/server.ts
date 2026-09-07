@@ -9,6 +9,7 @@ import path from "path";
 import {
   generatePlatformPost,
   generatePostsForPlatforms,
+  generateContentPlan,
   generateVideoTexts,
   generateWithPrompt,
   applyPriceMarkup,
@@ -16,7 +17,7 @@ import {
 } from "./ai-generator";
 import { initDb } from "./db/sqlite";
 import { editTelegramPost } from "./telegram";
-import { enabledPlatformIds, isPlatformId, instagramFormatPrompt } from "./platforms";
+import { ContentPlan, enabledPlatformIds, isPlatformId, instagramFormatPrompt } from "./platforms";
 import { generateSlots, PlanFormat, slotKindFor } from "./posting-plan";
 import { getUserNotificationChannel, listNotifications } from "./notifications";
 import { PlatformId, ProductInput } from "./platform-types";
@@ -843,28 +844,63 @@ async function prepareInstagramStudio(db: any, userId: number, productId: number
     const markup = (Number(row.priceMarkup) || 0) + (platformMarkups.instagram || 0);
     const product = applyProductMarkup(productInputFromRow(row, details.images), markup);
 
-    // Короткі написи для кадрів — один виклик на товар, далі перевикористання
-    // у слайдшоу, сторіз і на фото каруселі.
-    let videoTexts;
+    // Спершу задум: під яким кутом продаємо, який заклик і чи допомагає тут
+    // ціна. З нього ростуть і підписи, і написи на кадрах — тож вони не
+    // суперечать одне одному.
+    let plan: ContentPlan | null = null;
     try {
-      videoTexts = await generateVideoTexts(product);
+      plan = await generateContentPlan(product);
     } catch (error) {
-      console.error(`[Studio] Написи для товару ${productId} не згенерувались, беремо дефолтні:`, error);
+      console.error(`[Studio] Задум для товару ${productId} не склався, працюємо без нього:`, error);
+    }
+    await db.run(`UPDATE products SET contentPlan = ?, updatedAt = ? WHERE id = ?`, [
+      plan ? JSON.stringify(plan) : null,
+      new Date().toISOString(),
+      productId,
+    ]);
+
+    // Написи на кадрах беремо із задуму; якщо його немає — окремим викликом,
+    // як раніше.
+    let videoTexts = plan?.videoTexts?.length ? plan.videoTexts : undefined;
+    if (!videoTexts) {
+      try {
+        videoTexts = await generateVideoTexts(product);
+      } catch (error) {
+        console.error(`[Studio] Написи для товару ${productId} не згенерувались, беремо дефолтні:`, error);
+      }
     }
 
-    const priceLine = [product.title, product.price].map((part) => String(part || "").trim()).filter(Boolean).join(" · ");
+    // Рішення «не світити ціну» має бути гарантією, а не проханням до моделі:
+    // якщо задум каже ховати — вирізаємо ціну з написів у коді.
+    const hidePriceOnMedia = plan ? !plan.priceOnMedia : false;
+    const stripPrice = (text: string) => {
+      if (!hidePriceOnMedia || !product.price) return text;
+      const digits = String(product.price).match(/\d[\d\s.,]*/)?.[0]?.trim();
+      if (!digits) return text;
+      const escaped = digits.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return text.replace(new RegExp(`\\s*${escaped}\\s*(грн|uah|₴)?`, "gi"), " ").replace(/\s{2,}/g, " ").trim();
+    };
+
+    videoTexts = videoTexts?.map((item) => ({ ...item, text: stripPrice(item.text) })).filter((item) => item.text);
+
+    const fallbackLine = [product.title, hidePriceOnMedia ? "" : product.price]
+      .map((part) => String(part || "").trim())
+      .filter(Boolean)
+      .join(" · ");
+    const storyLine = stripPrice(plan?.overlay.story || fallbackLine);
+    const firstSlideLine = stripPrice(plan?.overlay.carouselFirst || fallbackLine);
+    const lastSlideLine = stripPrice(plan?.overlay.carouselLast || videoTexts?.[videoTexts.length - 1]?.text || "");
 
     if (photoPaths.length) {
-      // Перший слайд каруселі несе назву й ціну, останній — заклик.
-      const captions: Record<number, string> = { 0: priceLine };
-      const closing = videoTexts?.[videoTexts.length - 1]?.text;
-      if (photoPaths.length > 1 && closing) captions[photoPaths.length - 1] = closing;
+      const captions: Record<number, string> = {};
+      if (firstSlideLine) captions[0] = firstSlideLine;
+      if (photoPaths.length > 1 && lastSlideLine) captions[photoPaths.length - 1] = lastSlideLine;
       await prepareInstagramImages(db, productId, captions, videoStyle, true);
 
       const story = await createStoryFrame({
         inputPath: photoPaths[0],
         uploadsDir,
-        overlayText: priceLine,
+        overlayText: storyLine,
         videoStyle,
       });
       await db.run(`UPDATE products SET storyImagePath = ?, storyImageUrl = ?, updatedAt = ? WHERE id = ?`, [
@@ -900,7 +936,7 @@ async function prepareInstagramStudio(db: any, userId: number, productId: number
       const text =
         format === "story"
           ? ""
-          : await generateWithPrompt(product, instagramFormatPrompt(product, format));
+          : await generateWithPrompt(product, instagramFormatPrompt(product, format, plan || undefined));
       await upsertStudioPost(db, productId, format, text);
     }
 
@@ -2325,14 +2361,21 @@ async function startServer() {
         });
       }
 
-      const priceLine = [productForTexts.title, productForTexts.price]
+      // Якщо для товару вже є задум від AI — беремо напис звідти, щоб кадр не
+      // суперечив тому, що написано в постах.
+      const storedPlan = parseStoredObject(product.contentPlan) as Partial<ContentPlan>;
+      const planStoryLine = String(storedPlan?.overlay?.story || "").trim();
+      const priceLine = [
+        productForTexts.title,
+        storedPlan?.priceOnMedia === false ? "" : productForTexts.price,
+      ]
         .map((part) => String(part || "").trim())
         .filter(Boolean)
         .join(" - ");
       const story = await createStoryFrame({
         inputPath: photoPaths[0],
         uploadsDir,
-        overlayText: priceLine,
+        overlayText: planStoryLine || priceLine,
         videoStyle,
       });
       const storyImageUrl = filePathToPublicUrl(story.outputPath);

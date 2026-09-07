@@ -344,9 +344,20 @@ export async function createSlideshowReel(input: SlideshowReelInput) {
     lastLabel = label;
   }
 
-  const texts = normalizeVideoTexts(input.videoTexts)
-    .filter((item) => item.start < totalDuration)
-    .map((item) => ({ ...item, end: Math.min(item.end, totalDuration) }));
+  // Написи планує AI, не знаючи, скільки триватиме ролик: слайдшоу з двох фото
+  // це 4.7 с, а тайминги можуть бути розписані на 12. Раніше такі написи просто
+  // не з'являлись — зокрема заклик у кінці. Тому стискаємо тайминги під реальну
+  // тривалість, зберігаючи їх порядок і паузи.
+  const planned = normalizeVideoTexts(input.videoTexts);
+  const plannedEnd = planned.reduce((max, item) => Math.max(max, item.end), 0);
+  const scale = plannedEnd > totalDuration ? totalDuration / plannedEnd : 1;
+  const texts = planned
+    .map((item) => ({
+      ...item,
+      start: item.start * scale,
+      end: Math.min(item.end * scale, totalDuration),
+    }))
+    .filter((item) => item.end - item.start > 0.4);
   const drawFilters = texts.map((item) =>
     buildDrawTextFilter(item, REEL_WIDTH, videoStyle)
   );

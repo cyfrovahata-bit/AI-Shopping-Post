@@ -203,6 +203,16 @@ distinguished by `formatKey`. That is what lifts the old "one row per product×p
 product now carries Reels, slideshow, carousel and story as separate posts, each with its own caption and
 its own `scheduledAt`. Captions are written per format (`instagramFormatPrompt`), because a Reel is read
 from its first line while a carousel is read by someone already interested; a story gets no caption at all.
+
+Before any text is written, `generateContentPlan` (ai-generator) makes **one** call that looks at the photos
+and decides how to sell this particular item: the angle, who it is for, the hook, the objection to answer, the
+one CTA — and whether the price helps here at all. Everything downstream reads that plan, so the CTA in the
+caption and the words burned onto the frames agree instead of being invented twice. Instagram has no rule
+against prices (that is folklore, not policy), so the decision is per product: on a cheap item the price is
+itself the hook, on an expensive one it repels before value is established. When the plan says to keep the
+price off the frames, `prepareInstagramStudio` **strips it in code** rather than trusting the model to obey
+its own decision. The plan is stored on `products.contentPlan` and shown in the studio, so the seller sees why
+the copy reads the way it does and can regenerate if they disagree — they upload and review, the AI decides.
 Carousel slides are all conformed to the **same** aspect ratio (`targetRatio`), since Instagram crops every
 slide to match the first one — mixed ratios silently cut the sides off the rest.
 

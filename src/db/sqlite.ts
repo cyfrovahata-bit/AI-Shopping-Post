@@ -171,6 +171,9 @@ export async function initDb() {
   // Стан фонової підготовки медіа для Instagram-студії: preparing/ready/failed.
   await ensureColumn(db, "products", "studioStatus", "TEXT");
   await ensureColumn(db, "products", "studioError", "TEXT");
+  // Задум поста від AI (кут, гачок, заперечення, заклик, рішення щодо ціни).
+  // Зберігаємо, щоб продавець бачив, чому текст саме такий.
+  await ensureColumn(db, "products", "contentPlan", "TEXT");
   await ensureColumn(db, "user_settings", "telegram_chat_id", "TEXT");
   // Куди слати сповіщення саме цьому користувачеві: у системі їх кілька, тож
   // канал і адресат зберігаються на кожного окремо.

@@ -867,6 +867,33 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
+.studio-plan {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(29, 176, 134, 0.28);
+  border-left-width: 3px;
+  border-radius: var(--r);
+  background: var(--accent-bg);
+}
+
+.studio-plan dl {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.studio-plan dt { color: var(--text2); }
+.studio-plan dd { margin: 0; }
+.studio-plan small { color: var(--text2); font-size: 12px; }
+
+@media (max-width: 620px) {
+  .studio-plan dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .studio-plan dt { margin-top: 6px; }
+}
+
 .studio-format {
   display: grid;
   gap: 12px;

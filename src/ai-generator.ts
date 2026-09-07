@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
-import { getPlatform } from "./platforms";
+import { contentPlanPrompt, ContentPlan, getPlatform } from "./platforms";
 import { PlatformId, ProductInput } from "./platform-types";
 
 dotenv.config();
@@ -116,6 +116,66 @@ export function applyProductMarkup(product: ProductInput, pct?: number): Product
     price: applyPriceMarkup(product.price, pct),
     dropPrice: product.dropPrice ? applyPriceMarkup(product.dropPrice, pct) : product.dropPrice,
   };
+}
+
+/**
+ * Задум поста. Один виклик на товар: модель дивиться фото й дані та вирішує,
+ * як цю річ продавати — включно з тим, чи допомагає тут ціна на кадрі.
+ * Далі з цього задуму ростуть і підписи, і написи поверх фото та відео, тож
+ * заклик і рішення щодо ціни всюди однакові.
+ */
+export async function generateContentPlan(product: ProductInput): Promise<ContentPlan | null> {
+  const raw = await generateWithPrompt(product, contentPlanPrompt(product));
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Модель час від часу загортає JSON у пояснення — витягуємо перший обʼєкт.
+    const match = raw.match(/\{[\s\S]+\}/);
+    if (!match) return null;
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") return null;
+
+  const text = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
+  const overlay = parsed.overlay && typeof parsed.overlay === "object" ? parsed.overlay : {};
+
+  const plan: ContentPlan = {
+    angle: text(parsed.angle, 200),
+    audience: text(parsed.audience, 200),
+    hook: text(parsed.hook, 120),
+    benefit: text(parsed.benefit, 200),
+    objection: text(parsed.objection, 200),
+    cta: text(parsed.cta, 60),
+    // Мовчазний дефолт — показувати: саме так поводилась система досі.
+    priceInCaption: parsed.priceInCaption !== false,
+    priceOnMedia: parsed.priceOnMedia !== false,
+    priceReason: text(parsed.priceReason, 200),
+    overlay: {
+      story: text(overlay.story, 24),
+      carouselFirst: text(overlay.carouselFirst, 24),
+      carouselLast: text(overlay.carouselLast, 24),
+    },
+    videoTexts: Array.isArray(parsed.videoTexts)
+      ? parsed.videoTexts
+          .filter((item: any) => item?.text && Number(item.end) > Number(item.start))
+          .slice(0, 5)
+          .map((item: any) => ({
+            text: text(item.text, 22),
+            start: Number(item.start) || 0,
+            end: Number(item.end) || 0,
+            position: ["top", "center", "bottom"].includes(item.position) ? item.position : "center",
+          }))
+      : undefined,
+  };
+
+  return plan.hook || plan.cta ? plan : null;
 }
 
 export async function generatePostsForPlatforms(
